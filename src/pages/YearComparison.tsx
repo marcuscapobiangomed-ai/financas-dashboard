@@ -1,0 +1,109 @@
+import { useMemo, useState } from 'react'
+import { ArrowLeftRight } from 'lucide-react'
+import { useFinanceStore } from '../store/useFinanceStore'
+import { IncomeVsExpenseBar } from '../components/charts/IncomeVsExpenseBar'
+import { Card } from '../components/ui/Card'
+import { getMonthKey, getMonthLabel } from '../constants/months'
+import { computeIncome, computeTotalExpenses, computeSavingsRate } from '../utils/calculations'
+import { formatCurrency, formatPercent } from '../utils/currency'
+
+function getAvailableYears(transactions: { monthKey: string }[]): number[] {
+  const years = new Set(transactions.map((t) => parseInt(t.monthKey.split('-')[0])))
+  return Array.from(years).sort((a, b) => b - a)
+}
+
+export function YearComparison() {
+  const transactions = useFinanceStore((s) => s.transactions)
+  const years = useMemo(() => getAvailableYears(transactions), [transactions])
+  const currentYear = new Date().getFullYear()
+
+  const [year1, setYear1] = useState(currentYear)
+  const [year2, setYear2] = useState(currentYear - 1)
+
+  const stats = useMemo(() => {
+    function yearStats(year: number) {
+      const txs = transactions.filter((t) => t.monthKey.startsWith(String(year)))
+      const income = computeIncome(txs)
+      const expenses = computeTotalExpenses(txs)
+      return { income, expenses, balance: income - expenses, savingsRate: computeSavingsRate(income, expenses) }
+    }
+    return { a: yearStats(year1), b: yearStats(year2) }
+  }, [transactions, year1, year2])
+
+  const yearOptions = [...new Set([...years, year1, year2])].sort((a, b) => b - a)
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <ArrowLeftRight size={20} className="text-indigo-600" />
+          <h1 className="text-xl font-bold text-gray-900">Comparativo Anual</h1>
+        </div>
+        <div className="flex items-center gap-2 ml-auto">
+          <select
+            value={year1}
+            onChange={(e) => setYear1(Number(e.target.value))}
+            className="border border-gray-200 rounded-lg text-sm px-3 py-1.5 cursor-pointer"
+          >
+            {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+          <span className="text-gray-400 text-sm">vs</span>
+          <select
+            value={year2}
+            onChange={(e) => setYear2(Number(e.target.value))}
+            className="border border-gray-200 rounded-lg text-sm px-3 py-1.5 cursor-pointer"
+          >
+            {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Summary comparison */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { label: 'Receita', a: stats.a.income, b: stats.b.income, format: formatCurrency, higher: 'better' },
+          { label: 'Despesas', a: stats.a.expenses, b: stats.b.expenses, format: formatCurrency, higher: 'worse' },
+          { label: 'Balanço', a: stats.a.balance, b: stats.b.balance, format: formatCurrency, higher: 'better' },
+          { label: 'Taxa Poupança', a: stats.a.savingsRate, b: stats.b.savingsRate, format: formatPercent, higher: 'better' },
+        ].map(({ label, a, b, format, higher }) => {
+          const delta = a - b
+          const better = (higher === 'better' && delta > 0) || (higher === 'worse' && delta < 0)
+          return (
+            <div key={label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+              <p className="text-xs text-gray-500 mb-2">{label}</p>
+              <div className="flex flex-col gap-1">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-medium text-gray-500">{year1}</span>
+                  <span className="text-sm font-bold text-gray-900">{format(a)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-medium text-gray-400">{year2}</span>
+                  <span className="text-sm text-gray-500">{format(b)}</span>
+                </div>
+                {b !== 0 && (
+                  <div className={`text-xs font-medium mt-1 ${better ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {delta > 0 ? '▲' : '▼'} {Math.abs(((delta) / Math.abs(b)) * 100).toFixed(1)}%
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <Card title={`Receita vs Despesas — ${year1}`} noPadding>
+        <div className="p-4">
+          <IncomeVsExpenseBar fromMonthKey={getMonthKey(year1, 12)} />
+        </div>
+      </Card>
+
+      {year2 !== year1 && (
+        <Card title={`Receita vs Despesas — ${year2}`} noPadding>
+          <div className="p-4">
+            <IncomeVsExpenseBar fromMonthKey={getMonthKey(year2, 12)} />
+          </div>
+        </Card>
+      )}
+    </div>
+  )
+}

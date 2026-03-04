@@ -1,0 +1,175 @@
+import { useState } from 'react'
+import { Plus, Trash2 } from 'lucide-react'
+import { useFinanceStore } from '../../store/useFinanceStore'
+import { ExtraordinaryEntry } from '../../types/transaction'
+import { computeExtraordinaryTotals } from '../../utils/calculations'
+import { formatCurrency } from '../../utils/currency'
+import { Button } from '../ui/Button'
+import { Input } from '../ui/Input'
+import { Select } from '../ui/Select'
+
+interface Props {
+  monthKey: string
+  disabled?: boolean
+}
+
+const TYPES: { value: ExtraordinaryEntry['type']; label: string }[] = [
+  { value: 'ferias', label: 'Férias' },
+  { value: 'plr', label: 'PLR' },
+  { value: 'decimo_terceiro', label: '13° Salário' },
+  { value: 'bonus', label: 'Bônus' },
+  { value: 'outro', label: 'Outro' },
+]
+
+function AddEntryForm({ monthKey, onDone }: { monthKey: string; onDone: () => void }) {
+  const addExtraordinary = useFinanceStore((s) => s.addExtraordinary)
+  const getMonthSettings = useFinanceStore((s) => s.getMonthSettings)
+  const settings = getMonthSettings(monthKey)
+
+  const [type, setType] = useState<ExtraordinaryEntry['type']>('ferias')
+  const [gross, setGross] = useState('')
+  const [tithePercent, setTithePercent] = useState(String(settings.tithePercent))
+  const [offeringPercent, setOfferingPercent] = useState(String(settings.offeringPercent))
+  const [desc, setDesc] = useState('')
+
+  const grossNum = parseFloat(gross.replace(',', '.')) || 0
+  const tithePct = parseFloat(tithePercent) || 0
+  const offeringPct = parseFloat(offeringPercent) || 0
+  const computed = computeExtraordinaryTotals({ grossAmount: grossNum, tithePercent: tithePct, offeringPercent: offeringPct })
+
+  function save() {
+    if (grossNum <= 0) return
+    addExtraordinary({
+      type,
+      grossAmount: grossNum,
+      tithePercent: tithePct,
+      offeringPercent: offeringPct,
+      tithe: computed.tithe,
+      offering: computed.offering,
+      netAmount: computed.netAmount,
+      monthKey,
+      description: desc || undefined,
+    })
+    onDone()
+  }
+
+  return (
+    <div className="bg-indigo-50 rounded-lg p-4 flex flex-col gap-3">
+      <div className="grid grid-cols-2 gap-3">
+        <Select label="Tipo" value={type} onChange={(e) => setType(e.target.value as any)}>
+          {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+        </Select>
+        <Input
+          label="Valor Bruto"
+          prefix="R$"
+          type="number"
+          step="0.01"
+          min="0.01"
+          value={gross}
+          onChange={(e) => setGross(e.target.value)}
+          placeholder="0,00"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Input
+          label="Dízimo %"
+          type="number"
+          step="0.1"
+          min="0"
+          max="100"
+          value={tithePercent}
+          onChange={(e) => setTithePercent(e.target.value)}
+        />
+        <Input
+          label="Oferta %"
+          type="number"
+          step="0.1"
+          min="0"
+          max="100"
+          value={offeringPercent}
+          onChange={(e) => setOfferingPercent(e.target.value)}
+        />
+      </div>
+      <Input
+        label="Descrição (opcional)"
+        value={desc}
+        onChange={(e) => setDesc(e.target.value)}
+        placeholder="Férias de julho..."
+      />
+      {grossNum > 0 && (
+        <div className="grid grid-cols-3 gap-2 text-xs text-gray-600 bg-white rounded p-2">
+          <div>Dízimo: <strong className="text-gray-800">{formatCurrency(computed.tithe)}</strong></div>
+          <div>Oferta: <strong className="text-gray-800">{formatCurrency(computed.offering)}</strong></div>
+          <div>Líquido: <strong className="text-emerald-700">{formatCurrency(computed.netAmount)}</strong></div>
+        </div>
+      )}
+      <div className="flex gap-2">
+        <Button variant="secondary" size="sm" onClick={onDone}>Cancelar</Button>
+        <Button variant="primary" size="sm" onClick={save} disabled={grossNum <= 0}>Salvar</Button>
+      </div>
+    </div>
+  )
+}
+
+export function ExtraordinarySection({ monthKey, disabled }: Props) {
+  const allEntries = useFinanceStore((s) => s.extraordinaryEntries)
+  const entries = allEntries.filter((e) => e.monthKey === monthKey)
+  const deleteExtraordinary = useFinanceStore((s) => s.deleteExtraordinary)
+  const [adding, setAdding] = useState(false)
+
+  const totalNet = entries.reduce((s, e) => s + e.netAmount, 0)
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
+        <span className="text-sm font-semibold text-gray-800">Férias / PLR / 13°</span>
+        <span className="text-sm font-bold text-emerald-600">{formatCurrency(totalNet)} líquido</span>
+      </div>
+
+      <div className="divide-y divide-gray-50">
+        {entries.map((e) => {
+          const typeLabel = TYPES.find((t) => t.value === e.type)?.label ?? e.type
+          return (
+            <div key={e.id} className="px-4 py-3 flex items-center justify-between group">
+              <div>
+                <p className="text-sm font-medium text-gray-800">{typeLabel}{e.description ? ` — ${e.description}` : ''}</p>
+                <p className="text-xs text-gray-500">
+                  Bruto: {formatCurrency(e.grossAmount)} · Dízimo: {formatCurrency(e.tithe)} · Oferta: {formatCurrency(e.offering)}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-semibold text-emerald-600">{formatCurrency(e.netAmount)}</span>
+                {!disabled && (
+                  <button
+                    onClick={() => deleteExtraordinary(e.id)}
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-opacity"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {entries.length === 0 && !adding && (
+        <p className="px-4 py-3 text-sm text-gray-400 italic">Nenhuma renda extraordinária este mês.</p>
+      )}
+
+      {adding && <div className="p-4"><AddEntryForm monthKey={monthKey} onDone={() => setAdding(false)} /></div>}
+
+      {!disabled && !adding && (
+        <div className="px-4 py-2.5 border-t border-gray-50">
+          <button
+            onClick={() => setAdding(true)}
+            className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-medium cursor-pointer"
+          >
+            <Plus size={13} />
+            Adicionar renda extra
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
