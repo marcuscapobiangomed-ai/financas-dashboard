@@ -16,12 +16,17 @@ export function TransactionRow({ transaction: t, disabled }: TransactionRowProps
   const [editing, setEditing] = useState(false)
   const [desc, setDesc] = useState(t.description)
   const [amount, setAmount] = useState(String(t.amount))
+  const [hasError, setHasError] = useState(false)
 
   const meta = CATEGORY_META[t.category]
 
   function save() {
     const num = parseFloat(amount.replace(',', '.'))
-    if (!desc.trim() || isNaN(num) || num <= 0) return
+    if (!desc.trim() || isNaN(num) || num <= 0) {
+      setHasError(true)
+      return
+    }
+    setHasError(false)
     updateTransaction(t.id, { description: desc.trim(), amount: num })
     setEditing(false)
   }
@@ -33,24 +38,25 @@ export function TransactionRow({ transaction: t, disabled }: TransactionRowProps
   }
 
   if (editing) {
+    const errorClass = hasError ? 'border-red-400 focus:ring-red-100' : 'border-indigo-300 focus:ring-indigo-200'
     return (
-      <tr className="bg-indigo-50">
+      <tr className={hasError ? 'bg-red-50' : 'bg-indigo-50'}>
         <td className="px-3 py-2">
           <input
             autoFocus
-            className="w-full border border-indigo-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+            className={`w-full border rounded px-2 py-1 text-sm outline-none focus:ring-2 ${errorClass}`}
             value={desc}
-            onChange={(e) => setDesc(e.target.value)}
+            onChange={(e) => { setDesc(e.target.value); setHasError(false) }}
             onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') cancel() }}
           />
         </td>
         <td className="px-3 py-2 w-32">
           <input
-            className="w-full border border-indigo-300 rounded px-2 py-1 text-sm text-right outline-none focus:ring-2 focus:ring-indigo-200"
+            className={`w-full border rounded px-2 py-1 text-sm text-right outline-none focus:ring-2 ${errorClass}`}
             value={amount}
             type="number"
             step="0.01"
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => { setAmount(e.target.value); setHasError(false) }}
             onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') cancel() }}
           />
         </td>
@@ -100,7 +106,7 @@ export function TransactionRow({ transaction: t, disabled }: TransactionRowProps
               <Pencil size={12} />
             </button>
             <button
-              onClick={() => deleteTransaction(t.id)}
+              onClick={() => { if (window.confirm(`Excluir "${t.description}"?`)) deleteTransaction(t.id) }}
               className="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer"
             >
               <Trash2 size={12} />

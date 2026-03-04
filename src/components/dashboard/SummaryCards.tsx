@@ -46,11 +46,18 @@ function StatCard({ label, value, subtitle, icon, iconBg, deltaEl, valueColor = 
 }
 
 export function SummaryCards({ monthKey }: { monthKey: string }) {
-  const { income, totalExpenses, balance, savingsRate } = useMonthData(monthKey)
+  const { income, totalExpenses, extraordinaryIncome } = useMonthData(monthKey)
   const transactions = useFinanceStore((s) => s.transactions)
+  const extraordinaryEntries = useFinanceStore((s) => s.extraordinaryEntries)
+
+  const totalIncome = income + extraordinaryIncome
+  const balance = totalIncome - totalExpenses
+  const savingsRate = computeSavingsRate(totalIncome, totalExpenses)
+
   const prev = prevMonthKey(monthKey)
   const prevTxs = transactions.filter((t) => t.monthKey === prev)
-  const prevIncome = computeIncome(prevTxs)
+  const prevExtraordinary = extraordinaryEntries.filter((e) => e.monthKey === prev)
+  const prevIncome = computeIncome(prevTxs) + prevExtraordinary.reduce((s, e) => s + e.netAmount, 0)
   const prevExpenses = computeTotalExpenses(prevTxs)
   const prevBalance = prevIncome - prevExpenses
   const prevSavingsRate = computeSavingsRate(prevIncome, prevExpenses)
@@ -59,10 +66,10 @@ export function SummaryCards({ monthKey }: { monthKey: string }) {
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <StatCard
         label="Receita Total"
-        value={formatCurrency(income)}
+        value={formatCurrency(totalIncome)}
         icon={<Wallet size={18} className="text-emerald-600" />}
         iconBg="bg-emerald-50"
-        deltaEl={<DeltaBadge current={income} previous={prevIncome} />}
+        deltaEl={<DeltaBadge current={totalIncome} previous={prevIncome} />}
       />
       <StatCard
         label="Total de Despesas"

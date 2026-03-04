@@ -3,34 +3,34 @@ import { useFinanceStore } from '../store/useFinanceStore'
 import { Category, CATEGORY_META } from '../types/category'
 import { SpendingInsight, CategoryBreakdown, ProjectionData } from '../types/analytics'
 import { computeIncome, computeTotalExpenses, computeSavingsRate, projectEndOfMonth } from '../utils/calculations'
-import { getCurrentMonthKey, getLast12MonthKeys } from '../constants/months'
+import { getCurrentMonthKey, getLast12MonthKeys, prevMonthKey } from '../constants/months'
 import { formatCurrency } from '../utils/currency'
 import { EXPENSE_SECTIONS } from '../constants/categories'
 
 export function useAnalytics(monthKey?: string) {
   const transactions = useFinanceStore((s) => s.transactions)
+  const extraordinaryEntries = useFinanceStore((s) => s.extraordinaryEntries)
   const appSettings = useFinanceStore((s) => s.appSettings)
   const currentKey = monthKey ?? getCurrentMonthKey()
 
   return useMemo(() => {
     const monthTxs = transactions.filter((t) => t.monthKey === currentKey)
+    const monthExtraordinary = extraordinaryEntries.filter((e) => e.monthKey === currentKey)
     const expenseTxs = monthTxs.filter((t) => EXPENSE_SECTIONS.includes(t.section as any))
 
-    // Category breakdown for current month
     const totalExpenses = expenseTxs.reduce((s, t) => s + t.amount, 0)
     const categoryMap = new Map<Category, number>()
     expenseTxs.forEach((t) => {
       categoryMap.set(t.category, (categoryMap.get(t.category) ?? 0) + t.amount)
     })
 
+    // Precompute last 12 months for monthlyAvg
+    const last12Keys = getLast12MonthKeys(currentKey)
+
     const categoryBreakdowns: CategoryBreakdown[] = Array.from(categoryMap.entries())
       .map(([category, total]) => {
         const meta = CATEGORY_META[category]
-        // Trend: compare with same category last month
-        const [year, month] = currentKey.split('-').map(Number)
-        const prevKey = month === 1
-          ? `${year - 1}-12`
-          : `${year}-${String(month - 1).padStart(2, '0')}`
+        const prevKey = prevMonthKey(currentKey)
         const prevTotal = transactions
           .filter((t) => t.monthKey === prevKey && t.category === category)
           .reduce((s, t) => s + t.amount, 0)
@@ -38,26 +38,34 @@ export function useAnalytics(monthKey?: string) {
         const trendPercent = prevTotal > 0 ? (delta / prevTotal) * 100 : 0
         const trend: 'up' | 'down' | 'stable' = Math.abs(trendPercent) < 5 ? 'stable' : delta > 0 ? 'up' : 'down'
 
+        // Real 12-month average for this category
+        const last12Total = last12Keys.reduce((sum, k) => {
+          return sum + transactions
+            .filter((t) => t.monthKey === k && t.category === category)
+            .reduce((s, t) => s + t.amount, 0)
+        }, 0)
+        const monthlyAvg = last12Total / 12
+
         return {
           category,
           label: meta?.label ?? category,
           total,
           percentage: totalExpenses > 0 ? (total / totalExpenses) * 100 : 0,
-          monthlyAvg: total,
+          monthlyAvg,
           trend,
           trendPercent,
         }
       })
       .sort((a, b) => b.total - a.total)
 
+    // Income includes extraordinary entries
+    const ordinaryIncome = computeIncome(monthTxs)
+    const extraordinaryIncome = monthExtraordinary.reduce((s, e) => s + e.netAmount, 0)
+    const income = ordinaryIncome + extraordinaryIncome
+
     // Generate insights
     const insights: SpendingInsight[] = []
-    const income = computeIncome(monthTxs)
 
-    // Over-limit warning
-    // (handled by useBudgetAlerts, but we add an insight here too)
-
-    // Largest expense category
     if (categoryBreakdowns.length > 0) {
       const top = categoryBreakdowns[0]
       insights.push({
@@ -69,7 +77,6 @@ export function useAnalytics(monthKey?: string) {
       })
     }
 
-    // Savings rate
     const savingsRate = computeSavingsRate(income, totalExpenses)
     const goalRate = appSettings.defaultSavingsGoalPercent
     if (income > 0) {
@@ -90,7 +97,6 @@ export function useAnalytics(monthKey?: string) {
       }
     }
 
-    // Spending velocity for current month
     const projectedExpenses = projectEndOfMonth(totalExpenses)
     if (income > 0 && projectedExpenses > income) {
       insights.push({
@@ -101,7 +107,6 @@ export function useAnalytics(monthKey?: string) {
       })
     }
 
-    // Category trend up
     const trendingUp = categoryBreakdowns.filter((c) => c.trend === 'up' && c.trendPercent > 20)
     if (trendingUp.length > 0) {
       const c = trendingUp[0]
@@ -109,23 +114,28 @@ export function useAnalytics(monthKey?: string) {
         id: 'trend-up',
         type: 'warning',
         title: `${c.label} subiu ${c.trendPercent.toFixed(0)}%`,
-        description: `Comparado ao mês anterior, gastos com ${c.label} aumentaram ${formatCurrency(Math.abs((c.trendPercent / 100) * c.total))}.`,
+        description: `Comparado ao mês anterior, gastos com ${c.label} aumentaram ${formatCurrency(Math.abs(c.total - (c.total / (1 + c.trendPercent / 100))))}.`,
         category: c.category,
       })
     }
 
-    // Projection data
-    const last12Keys = getLast12MonthKeys(currentKey).slice(0, -1) // exclude current
-    const completedMonths = last12Keys.filter((k) => {
+    // Projection: include extraordinary in historical income averages
+    const last12Completed = getLast12MonthKeys(currentKey).slice(0, -1)
+    const completedMonths = last12Completed.filter((k) => {
       const txs = transactions.filter((t) => t.monthKey === k)
       return txs.length > 0
     })
     const n = completedMonths.length
     let projection: ProjectionData | null = null
     if (n > 0) {
-      const avgIncome = completedMonths.reduce((s, k) => s + computeIncome(transactions.filter((t) => t.monthKey === k)), 0) / n
-      const avgExpenses = completedMonths.reduce((s, k) => s + computeTotalExpenses(transactions.filter((t) => t.monthKey === k)), 0) / n
-      const [y, m] = currentKey.split('-').map(Number)
+      const avgIncome = completedMonths.reduce((s, k) => {
+        const txs = transactions.filter((t) => t.monthKey === k)
+        const extraOrdinary = extraordinaryEntries.filter((e) => e.monthKey === k)
+        return s + computeIncome(txs) + extraOrdinary.reduce((sum, e) => sum + e.netAmount, 0)
+      }, 0) / n
+      const avgExpenses = completedMonths.reduce((s, k) =>
+        s + computeTotalExpenses(transactions.filter((t) => t.monthKey === k)), 0) / n
+      const [, m] = currentKey.split('-').map(Number)
       const monthsRemaining = 12 - m
       const projectedYearIncome = avgIncome * (n + monthsRemaining)
       const projectedYearTotal = avgExpenses * (n + monthsRemaining)
@@ -142,5 +152,5 @@ export function useAnalytics(monthKey?: string) {
     }
 
     return { categoryBreakdowns, insights, projection, totalExpenses, income }
-  }, [transactions, currentKey, appSettings.defaultSavingsGoalPercent])
+  }, [transactions, extraordinaryEntries, currentKey, appSettings.defaultSavingsGoalPercent])
 }

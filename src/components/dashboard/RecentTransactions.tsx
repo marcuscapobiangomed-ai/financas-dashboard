@@ -60,7 +60,7 @@ export function RecentTransactions({ monthKey }: { monthKey: string }) {
                   <Pencil size={12} />
                 </button>
                 <button
-                  onClick={() => deleteTransaction(t.id)}
+                  onClick={() => { if (window.confirm(`Excluir "${t.description}"?`)) deleteTransaction(t.id) }}
                   className="p-1.5 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer"
                 >
                   <Trash2 size={12} />

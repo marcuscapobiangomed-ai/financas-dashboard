@@ -155,30 +155,31 @@ export const useFinanceStore = create<FinanceStore>()(
         const today = new Date()
         const dateStr = `${monthKey}-01`
 
-        recurringTemplates
+        const toAdd: Transaction[] = recurringTemplates
           .filter((tmpl) => tmpl.isActive && !existingIds.has(tmpl.id))
           .filter((tmpl) => {
             if (tmpl.endMonth && tmpl.endMonth < monthKey) return false
             if (tmpl.startMonth > monthKey) return false
             return true
           })
-          .forEach((tmpl) => {
-            const newT: Transaction = {
-              id: generateId(),
-              type: 'expense',
-              section: tmpl.section,
-              description: tmpl.description,
-              amount: tmpl.amount,
-              category: tmpl.category,
-              date: dateStr,
-              monthKey,
-              isRecurring: true,
-              recurringId: tmpl.id,
-              createdAt: now(),
-              updatedAt: now(),
-            }
-            set((s) => ({ transactions: [...s.transactions, newT] }))
-          })
+          .map((tmpl) => ({
+            id: generateId(),
+            type: 'expense' as const,
+            section: tmpl.section,
+            description: tmpl.description,
+            amount: tmpl.amount,
+            category: tmpl.category,
+            date: dateStr,
+            monthKey,
+            isRecurring: true,
+            recurringId: tmpl.id,
+            createdAt: now(),
+            updatedAt: now(),
+          }))
+
+        if (toAdd.length > 0) {
+          set((s) => ({ transactions: [...s.transactions, ...toAdd] }))
+        }
       },
 
       getMonthSettings: (monthKey) => {
@@ -202,36 +203,33 @@ export const useFinanceStore = create<FinanceStore>()(
       },
 
       duplicatePreviousMonth: (monthKey) => {
-        const { transactions, appSettings } = get()
-        // Find previous month key
+        const { transactions } = get()
         const [year, month] = monthKey.split('-').map(Number)
         const prevYear = month === 1 ? year - 1 : year
         const prevMonth = month === 1 ? 12 : month - 1
         const prevKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`
 
-        const prevTransactions = transactions.filter(
-          (t) => t.monthKey === prevKey && t.section !== 'entradas'
-        )
         const existing = new Set(
           transactions
             .filter((t) => t.monthKey === monthKey)
             .map((t) => `${t.section}:${t.description}`)
         )
 
-        prevTransactions.forEach((t) => {
-          const key = `${t.section}:${t.description}`
-          if (!existing.has(key)) {
-            const newT: Transaction = {
-              ...t,
-              id: generateId(),
-              monthKey,
-              date: `${monthKey}-01`,
-              createdAt: now(),
-              updatedAt: now(),
-            }
-            set((s) => ({ transactions: [...s.transactions, newT] }))
-          }
-        })
+        const toAdd: Transaction[] = transactions
+          .filter((t) => t.monthKey === prevKey)
+          .filter((t) => !existing.has(`${t.section}:${t.description}`))
+          .map((t) => ({
+            ...t,
+            id: generateId(),
+            monthKey,
+            date: `${monthKey}-01`,
+            createdAt: now(),
+            updatedAt: now(),
+          }))
+
+        if (toAdd.length > 0) {
+          set((s) => ({ transactions: [...s.transactions, ...toAdd] }))
+        }
       },
 
       updateAppSettings: (updates) => {

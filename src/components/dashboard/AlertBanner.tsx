@@ -5,9 +5,11 @@ import { formatCurrency } from '../../utils/currency'
 
 export function AlertBanner({ monthKey }: { monthKey: string }) {
   const { overLimit, nearLimit, hasAlerts, hasWarnings } = useBudgetAlerts(monthKey)
-  const [dismissed, setDismissed] = useState(false)
+  // Track which specific alert combination was dismissed — reappears if alerts change
+  const alertKey = overLimit.map((a) => `${a.section}:${Math.floor(a.total)}`).join(',')
+  const [dismissedKey, setDismissedKey] = useState('')
 
-  if (dismissed || (!hasAlerts && !hasWarnings)) return null
+  if (dismissedKey === alertKey || (!hasAlerts && !hasWarnings)) return null
 
   return (
     <div className={`rounded-xl p-4 flex items-start gap-3 ${hasAlerts ? 'bg-red-50 border border-red-200' : 'bg-yellow-50 border border-yellow-200'}`}>
@@ -40,7 +42,7 @@ export function AlertBanner({ monthKey }: { monthKey: string }) {
           </div>
         )}
       </div>
-      <button onClick={() => setDismissed(true)} className="p-1 rounded text-gray-400 hover:text-gray-600 cursor-pointer shrink-0">
+      <button onClick={() => setDismissedKey(alertKey)} className="p-1 rounded text-gray-400 hover:text-gray-600 cursor-pointer shrink-0">
         <X size={14} />
       </button>
     </div>
