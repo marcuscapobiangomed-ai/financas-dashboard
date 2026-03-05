@@ -28,8 +28,9 @@ export interface RecurringTemplate {
   category: Category
   section: SectionType
   isActive: boolean
-  startMonth: string  // "2025-01"
+  startMonth: string   // "2025-01"
   endMonth?: string
+  installmentTotal?: number  // if set, this is a parcelamento (e.g. 12)
 }
 
 export interface ExtraordinaryEntry {

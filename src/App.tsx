@@ -8,6 +8,7 @@ import { Analytics } from './pages/Analytics'
 import { YearComparison } from './pages/YearComparison'
 import { QuickEntry } from './pages/QuickEntry'
 import { Settings } from './pages/Settings'
+import { Recurring } from './pages/Recurring'
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
               <Route path="/quick" element={<QuickEntry />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/comparison" element={<YearComparison />} />
+              <Route path="/recurring" element={<Recurring />} />
               <Route path="/settings" element={<Settings />} />
             </Routes>
           </main>

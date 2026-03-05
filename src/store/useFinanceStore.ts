@@ -64,6 +64,12 @@ function now(): string {
   return new Date().toISOString()
 }
 
+function monthsDiff(fromMonthKey: string, toMonthKey: string): number {
+  const [fy, fm] = fromMonthKey.split('-').map(Number)
+  const [ty, tm] = toMonthKey.split('-').map(Number)
+  return (ty - fy) * 12 + (tm - fm)
+}
+
 function defaultMonthSettings(monthKey: string, appSettings: AppSettings): MonthSettings {
   return {
     monthKey,
@@ -149,11 +155,10 @@ export const useFinanceStore = create<FinanceStore>()(
       },
 
       applyRecurringToMonth: (monthKey) => {
-        const { recurringTemplates, transactions, appSettings } = get()
+        const { recurringTemplates, transactions } = get()
         const existingIds = new Set(
           transactions.filter((t) => t.monthKey === monthKey && t.recurringId).map((t) => t.recurringId)
         )
-        const today = new Date()
         const dateStr = `${monthKey}-01`
 
         const toAdd: Transaction[] = recurringTemplates
@@ -163,20 +168,27 @@ export const useFinanceStore = create<FinanceStore>()(
             if (tmpl.startMonth > monthKey) return false
             return true
           })
-          .map((tmpl) => ({
-            id: generateId(),
-            type: 'expense' as const,
-            section: tmpl.section,
-            description: tmpl.description,
-            amount: tmpl.amount,
-            category: tmpl.category,
-            date: dateStr,
-            monthKey,
-            isRecurring: true,
-            recurringId: tmpl.id,
-            createdAt: now(),
-            updatedAt: now(),
-          }))
+          .map((tmpl) => {
+            let description = tmpl.description
+            if (tmpl.installmentTotal) {
+              const current = monthsDiff(tmpl.startMonth, monthKey) + 1
+              description = `${tmpl.description} (${current}/${tmpl.installmentTotal})`
+            }
+            return {
+              id: generateId(),
+              type: 'expense' as const,
+              section: tmpl.section,
+              description,
+              amount: tmpl.amount,
+              category: tmpl.category,
+              date: dateStr,
+              monthKey,
+              isRecurring: true,
+              recurringId: tmpl.id,
+              createdAt: now(),
+              updatedAt: now(),
+            }
+          })
 
         if (toAdd.length > 0) {
           set((s) => ({ transactions: [...s.transactions, ...toAdd] }))
