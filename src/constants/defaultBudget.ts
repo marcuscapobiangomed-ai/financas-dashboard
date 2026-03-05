@@ -22,4 +22,5 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   darkMode: false,
   alertThresholdPercent: 80,
   cardSections: DEFAULT_CARD_SECTIONS,
+  initialBalance: 0,
 }

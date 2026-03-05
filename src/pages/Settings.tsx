@@ -293,6 +293,14 @@ export function Settings() {
             max="100"
             step="5"
           />
+          <Input
+            label="Saldo inicial (antes de começar a usar o app)"
+            type="number"
+            prefix="R$"
+            value={String(appSettings.initialBalance ?? 0)}
+            onChange={(e) => updateAppSettings({ initialBalance: Number(e.target.value) })}
+            step="100"
+          />
         </div>
       </div>
 

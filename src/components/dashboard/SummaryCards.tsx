@@ -1,4 +1,5 @@
-import { TrendingUp, TrendingDown, Minus, Wallet, ArrowDownCircle, Scale, PiggyBank } from 'lucide-react'
+import { useMemo } from 'react'
+import { TrendingUp, TrendingDown, Minus, Wallet, ArrowDownCircle, Scale, PiggyBank, Landmark } from 'lucide-react'
 import { formatCurrency, formatPercent } from '../../utils/currency'
 import { useMonthData } from '../../hooks/useMonthData'
 import { useFinanceStore } from '../../store/useFinanceStore'
@@ -54,6 +55,23 @@ export function SummaryCards({ monthKey }: { monthKey: string }) {
   const balance = totalIncome - totalExpenses
   const savingsRate = computeSavingsRate(totalIncome, totalExpenses)
 
+  // Accumulated balance across all months + initial balance from settings
+  const appSettings = useFinanceStore((s) => s.appSettings)
+  const allMonthKeys = useMemo(() => {
+    const keys = new Set(transactions.map((t) => t.monthKey))
+    return Array.from(keys).sort()
+  }, [transactions])
+  const accumulatedBalance = useMemo(() => {
+    const initial = appSettings.initialBalance ?? 0
+    return allMonthKeys.reduce((acc, key) => {
+      const txs = transactions.filter((t) => t.monthKey === key)
+      const extra = extraordinaryEntries.filter((e) => e.monthKey === key)
+      const inc = computeIncome(txs) + extra.reduce((s, e) => s + e.netAmount, 0)
+      const exp = computeTotalExpenses(txs)
+      return acc + inc - exp
+    }, initial)
+  }, [transactions, extraordinaryEntries, allMonthKeys, appSettings.initialBalance])
+
   const prev = prevMonthKey(monthKey)
   const prevTxs = transactions.filter((t) => t.monthKey === prev)
   const prevExtraordinary = extraordinaryEntries.filter((e) => e.monthKey === prev)
@@ -63,7 +81,8 @@ export function SummaryCards({ monthKey }: { monthKey: string }) {
   const prevSavingsRate = computeSavingsRate(prevIncome, prevExpenses)
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <StatCard
         label="Receita Total"
         value={formatCurrency(totalIncome)}
@@ -94,6 +113,15 @@ export function SummaryCards({ monthKey }: { monthKey: string }) {
         iconBg="bg-violet-50"
         deltaEl={<DeltaBadge current={savingsRate} previous={prevSavingsRate} />}
         valueColor={savingsRate >= 20 ? 'text-emerald-600' : savingsRate >= 10 ? 'text-yellow-600' : 'text-red-600'}
+      />
+      </div>
+      <StatCard
+        label="Saldo Acumulado (todas as entradas)"
+        value={formatCurrency(accumulatedBalance)}
+        subtitle={appSettings.initialBalance ? `Inclui saldo inicial de ${formatCurrency(appSettings.initialBalance)}` : undefined}
+        icon={<Landmark size={18} className={accumulatedBalance >= 0 ? 'text-emerald-600' : 'text-red-500'} />}
+        iconBg={accumulatedBalance >= 0 ? 'bg-emerald-50' : 'bg-red-50'}
+        valueColor={accumulatedBalance >= 0 ? 'text-emerald-700' : 'text-red-600'}
       />
     </div>
   )

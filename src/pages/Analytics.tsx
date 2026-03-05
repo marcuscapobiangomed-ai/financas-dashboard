@@ -5,6 +5,7 @@ import { IncomeVsExpenseBar } from '../components/charts/IncomeVsExpenseBar'
 import { SavingsRateLine } from '../components/charts/SavingsRateLine'
 import { CategoryStackedBar } from '../components/charts/CategoryStackedBar'
 import { CategoryPieChart } from '../components/charts/CategoryPieChart'
+import { CategoryTrendLine } from '../components/charts/CategoryTrendLine'
 import { InsightCard } from '../components/analytics/InsightCard'
 import { ProjectionCard } from '../components/analytics/ProjectionCard'
 import { Card } from '../components/ui/Card'
@@ -58,6 +59,13 @@ export function Analytics() {
           </div>
         </Card>
       </div>
+
+      {/* Category Trend over time */}
+      <Card title="Tendência por Categoria (12 meses)" noPadding>
+        <div className="p-4">
+          <CategoryTrendLine fromMonthKey={currentMonthKey} />
+        </div>
+      </Card>
 
       {/* Projection */}
       {projection && <ProjectionCard projection={projection} />}

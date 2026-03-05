@@ -33,4 +33,5 @@ export interface AppSettings {
   darkMode: boolean
   alertThresholdPercent: number
   cardSections: CardSection[]
+  initialBalance: number  // saldo antes de começar a usar o app
 }
