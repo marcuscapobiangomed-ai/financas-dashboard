@@ -50,6 +50,7 @@ interface FinanceStore {
   exportData: () => string
   importData: (json: string) => boolean
   clearAllData: () => void
+  migrateMonth: (fromMonthKey: string, toMonthKey: string) => number
 
   // Description autocomplete
   getDescriptionSuggestions: (query: string, limit?: number) => string[]
@@ -268,6 +269,25 @@ export const useFinanceStore = create<FinanceStore>()(
         } catch {
           return false
         }
+      },
+
+      migrateMonth: (fromMonthKey, toMonthKey) => {
+        const { transactions, extraordinaryEntries } = get()
+        const txToMigrate = transactions.filter((t) => t.monthKey === fromMonthKey)
+        const extraToMigrate = extraordinaryEntries.filter((e) => e.monthKey === fromMonthKey)
+        if (txToMigrate.length === 0 && extraToMigrate.length === 0) return 0
+
+        set((s) => ({
+          transactions: s.transactions.map((t) =>
+            t.monthKey === fromMonthKey
+              ? { ...t, monthKey: toMonthKey, date: t.date.replace(fromMonthKey, toMonthKey), updatedAt: now() }
+              : t
+          ),
+          extraordinaryEntries: s.extraordinaryEntries.map((e) =>
+            e.monthKey === fromMonthKey ? { ...e, monthKey: toMonthKey } : e
+          ),
+        }))
+        return txToMigrate.length + extraToMigrate.length
       },
 
       clearAllData: () => {

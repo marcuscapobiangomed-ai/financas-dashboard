@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Settings as SettingsIcon, Download, Upload, Trash2, Plus, CreditCard, Pencil, Check } from 'lucide-react'
+import { Settings as SettingsIcon, Download, Upload, Trash2, Plus, CreditCard, Pencil, Check, ArrowRightLeft } from 'lucide-react'
 import { useFinanceStore } from '../store/useFinanceStore'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -13,10 +13,14 @@ export function Settings() {
   const exportData = useFinanceStore((s) => s.exportData)
   const importData = useFinanceStore((s) => s.importData)
   const clearAllData = useFinanceStore((s) => s.clearAllData)
+  const migrateMonth = useFinanceStore((s) => s.migrateMonth)
   const transactions = useFinanceStore((s) => s.transactions)
 
   const [importError, setImportError] = useState('')
   const [importSuccess, setImportSuccess] = useState(false)
+  const [migrateFrom, setMigrateFrom] = useState('')
+  const [migrateTo, setMigrateTo] = useState('')
+  const [migrateMsg, setMigrateMsg] = useState('')
   const [editingCardId, setEditingCardId] = useState<string | null>(null)
   const [editingLabel, setEditingLabel] = useState('')
 
@@ -95,6 +99,14 @@ export function Settings() {
     }
     reader.readAsText(file)
     e.target.value = ''
+  }
+
+  function handleMigrate() {
+    if (!migrateFrom || !migrateTo) return
+    if (migrateFrom === migrateTo) { setMigrateMsg('Os meses são iguais.'); return }
+    const count = migrateMonth(migrateFrom, migrateTo)
+    setMigrateMsg(count > 0 ? `${count} registro(s) migrado(s) para ${migrateTo}.` : 'Nenhum dado encontrado no mês de origem.')
+    setTimeout(() => setMigrateMsg(''), 4000)
   }
 
   function handleClearData() {
@@ -252,6 +264,42 @@ export function Settings() {
             step="5"
           />
         </div>
+      </div>
+
+      {/* Migrate Month */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <ArrowRightLeft size={15} className="text-indigo-500" />
+          <h2 className="text-sm font-semibold text-gray-700">Migrar dados entre meses</h2>
+        </div>
+        <div className="flex items-end gap-3">
+          <div className="flex-1">
+            <label className="text-xs font-medium text-gray-500 block mb-1">De (AAAA-MM)</label>
+            <input
+              type="month"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100"
+              value={migrateFrom}
+              onChange={(e) => setMigrateFrom(e.target.value)}
+            />
+          </div>
+          <div className="flex-1">
+            <label className="text-xs font-medium text-gray-500 block mb-1">Para (AAAA-MM)</label>
+            <input
+              type="month"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100"
+              value={migrateTo}
+              onChange={(e) => setMigrateTo(e.target.value)}
+            />
+          </div>
+          <Button onClick={handleMigrate} disabled={!migrateFrom || !migrateTo}>
+            Migrar
+          </Button>
+        </div>
+        {migrateMsg && (
+          <p className={`text-xs mt-2 ${migrateMsg.includes('0 reg') || migrateMsg.includes('iguais') || migrateMsg.includes('Nenhum') ? 'text-amber-600' : 'text-emerald-600'}`}>
+            {migrateMsg}
+          </p>
+        )}
       </div>
 
       {/* Data Management */}
