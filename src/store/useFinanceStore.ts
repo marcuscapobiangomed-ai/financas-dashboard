@@ -2,7 +2,9 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { Transaction, RecurringTemplate, ExtraordinaryEntry } from '../types/transaction'
 import { AppSettings, MonthSettings } from '../types/budget'
-import { DEFAULT_APP_SETTINGS, DEFAULT_SECTION_LIMITS } from '../constants/defaultBudget'
+import { Investment } from '../types/investment'
+import { Category } from '../types/category'
+import { DEFAULT_APP_SETTINGS } from '../constants/defaultBudget'
 import { getCurrentMonthKey } from '../constants/months'
 
 interface FinanceStore {
@@ -10,7 +12,8 @@ interface FinanceStore {
   transactions: Transaction[]
   recurringTemplates: RecurringTemplate[]
   extraordinaryEntries: ExtraordinaryEntry[]
-  monthSettings: Record<string, MonthSettings>  // key: monthKey
+  investments: Investment[]
+  monthSettings: Record<string, MonthSettings>
   appSettings: AppSettings
 
   // UI state (not persisted)
@@ -33,6 +36,12 @@ interface FinanceStore {
   updateRecurringTemplate: (id: string, updates: Partial<RecurringTemplate>) => void
   deleteRecurringTemplate: (id: string) => void
   applyRecurringToMonth: (monthKey: string) => void
+
+  // Investment actions
+  addInvestment: (inv: Omit<Investment, 'id'>) => void
+  updateInvestment: (id: string, updates: Partial<Investment>) => void
+  deleteInvestment: (id: string) => void
+  applyInvestmentYieldsToMonth: (monthKey: string) => number
 
   // Month settings
   getMonthSettings: (monthKey: string) => MonthSettings
@@ -86,17 +95,13 @@ export const useFinanceStore = create<FinanceStore>()(
       transactions: [],
       recurringTemplates: [],
       extraordinaryEntries: [],
+      investments: [],
       monthSettings: {},
       appSettings: DEFAULT_APP_SETTINGS,
       currentMonthKey: getCurrentMonthKey(),
 
       addTransaction: (t) => {
-        const newT: Transaction = {
-          ...t,
-          id: generateId(),
-          createdAt: now(),
-          updatedAt: now(),
-        }
+        const newT: Transaction = { ...t, id: generateId(), createdAt: now(), updatedAt: now() }
         set((s) => ({ transactions: [...s.transactions, newT] }))
       },
 
@@ -195,6 +200,60 @@ export const useFinanceStore = create<FinanceStore>()(
         }
       },
 
+      // ── Investment actions ──────────────────────────────────────────────────
+
+      addInvestment: (inv) => {
+        set((s) => ({ investments: [...s.investments, { ...inv, id: generateId() }] }))
+      },
+
+      updateInvestment: (id, updates) => {
+        set((s) => ({
+          investments: s.investments.map((inv) => inv.id === id ? { ...inv, ...updates } : inv),
+        }))
+      },
+
+      deleteInvestment: (id) => {
+        set((s) => ({ investments: s.investments.filter((inv) => inv.id !== id) }))
+      },
+
+      applyInvestmentYieldsToMonth: (monthKey) => {
+        const { investments, transactions } = get()
+        const dateStr = `${monthKey}-01`
+        // tag: investmentId stored in recurringId field for dedup
+        const existingInvIds = new Set(
+          transactions
+            .filter((t) => t.monthKey === monthKey && t.tags?.includes('investment-yield'))
+            .map((t) => t.recurringId)
+        )
+
+        const toAdd: Transaction[] = investments
+          .filter((inv) => inv.isActive && inv.startMonth <= monthKey && !existingInvIds.has(inv.id))
+          .map((inv) => {
+            const yield_ = Math.round(inv.principal * inv.monthlyYieldPercent / 100 * 100) / 100
+            return {
+              id: generateId(),
+              type: 'income' as const,
+              section: 'entradas',
+              description: `Rendimento — ${inv.name}`,
+              amount: yield_,
+              category: Category.RENDIMENTOS,
+              date: dateStr,
+              monthKey,
+              recurringId: inv.id,
+              tags: ['investment-yield'],
+              createdAt: now(),
+              updatedAt: now(),
+            }
+          })
+
+        if (toAdd.length > 0) {
+          set((s) => ({ transactions: [...s.transactions, ...toAdd] }))
+        }
+        return toAdd.length
+      },
+
+      // ── Month settings ──────────────────────────────────────────────────────
+
       getMonthSettings: (monthKey) => {
         const { monthSettings, appSettings } = get()
         return monthSettings[monthKey] ?? defaultMonthSettings(monthKey, appSettings)
@@ -203,10 +262,7 @@ export const useFinanceStore = create<FinanceStore>()(
       updateMonthSettings: (monthKey, updates) => {
         const existing = get().getMonthSettings(monthKey)
         set((s) => ({
-          monthSettings: {
-            ...s.monthSettings,
-            [monthKey]: { ...existing, ...updates },
-          },
+          monthSettings: { ...s.monthSettings, [monthKey]: { ...existing, ...updates } },
         }))
       },
 
@@ -223,9 +279,7 @@ export const useFinanceStore = create<FinanceStore>()(
         const prevKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`
 
         const existing = new Set(
-          transactions
-            .filter((t) => t.monthKey === monthKey)
-            .map((t) => `${t.section}:${t.description}`)
+          transactions.filter((t) => t.monthKey === monthKey).map((t) => `${t.section}:${t.description}`)
         )
 
         const toAdd: Transaction[] = transactions
@@ -249,18 +303,25 @@ export const useFinanceStore = create<FinanceStore>()(
         set((s) => ({ appSettings: { ...s.appSettings, ...updates } }))
       },
 
+      // Auto-apply recurring + investment yields when navigating to a new month
       setCurrentMonthKey: (key) => {
         set({ currentMonthKey: key })
+        // Apply after state settles (microtask)
+        Promise.resolve().then(() => {
+          get().applyRecurringToMonth(key)
+          get().applyInvestmentYieldsToMonth(key)
+        })
       },
 
       exportData: () => {
-        const { transactions, recurringTemplates, extraordinaryEntries, monthSettings, appSettings } = get()
+        const { transactions, recurringTemplates, extraordinaryEntries, investments, monthSettings, appSettings } = get()
         return JSON.stringify({
-          version: 1,
+          version: 2,
           exportedAt: now(),
           transactions,
           recurringTemplates,
           extraordinaryEntries,
+          investments,
           monthSettings,
           appSettings,
         }, null, 2)
@@ -274,6 +335,7 @@ export const useFinanceStore = create<FinanceStore>()(
             transactions: data.transactions,
             recurringTemplates: data.recurringTemplates ?? [],
             extraordinaryEntries: data.extraordinaryEntries ?? [],
+            investments: data.investments ?? [],
             monthSettings: data.monthSettings ?? {},
             appSettings: data.appSettings ?? DEFAULT_APP_SETTINGS,
           })
@@ -307,6 +369,7 @@ export const useFinanceStore = create<FinanceStore>()(
           transactions: [],
           recurringTemplates: [],
           extraordinaryEntries: [],
+          investments: [],
           monthSettings: {},
           appSettings: DEFAULT_APP_SETTINGS,
           currentMonthKey: getCurrentMonthKey(),
@@ -334,6 +397,7 @@ export const useFinanceStore = create<FinanceStore>()(
         transactions: state.transactions,
         recurringTemplates: state.recurringTemplates,
         extraordinaryEntries: state.extraordinaryEntries,
+        investments: state.investments,
         monthSettings: state.monthSettings,
         appSettings: state.appSettings,
         currentMonthKey: state.currentMonthKey,

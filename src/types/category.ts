@@ -19,6 +19,7 @@ export enum Category {
   PETS = 'PETS',
   POUPANCA = 'POUPANCA',
   INVESTIMENTOS = 'INVESTIMENTOS',
+  RENDIMENTOS = 'RENDIMENTOS',
   BENS_ADQUIRIDOS = 'BENS_ADQUIRIDOS',
   OUTROS = 'OUTROS',
 }
@@ -52,6 +53,7 @@ export const CATEGORY_META: Record<Category, CategoryMeta> = {
   [Category.PETS]: { label: 'Pets', color: '#92400e', bgColor: '#fef3c7', icon: 'PawPrint', isIncome: false },
   [Category.POUPANCA]: { label: 'Poupança', color: '#22c55e', bgColor: '#dcfce7', icon: 'PiggyBank', isIncome: false },
   [Category.INVESTIMENTOS]: { label: 'Investimentos', color: '#0ea5e9', bgColor: '#e0f2fe', icon: 'BarChart2', isIncome: false },
+  [Category.RENDIMENTOS]: { label: 'Rendimentos', color: '#059669', bgColor: '#d1fae5', icon: 'TrendingUp', isIncome: true },
   [Category.BENS_ADQUIRIDOS]: { label: 'Bens Adquiridos', color: '#84cc16', bgColor: '#f7fee7', icon: 'Package', isIncome: false },
   [Category.OUTROS]: { label: 'Outros', color: '#6b7280', bgColor: '#f3f4f6', icon: 'MoreHorizontal', isIncome: false },
 }

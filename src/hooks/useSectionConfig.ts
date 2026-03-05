@@ -42,7 +42,7 @@ export function useSectionConfig() {
     const expenseSections = ['despesas_fixas', 'gastos_diarios', ...cardIds]
 
     const sectionCategories: Record<string, Category[]> = {
-      entradas: [Category.ENTRADAS],
+      entradas: [Category.ENTRADAS, Category.RENDIMENTOS],
       despesas_fixas: [
         Category.DIZIMOS,
         Category.OFERTAS,
