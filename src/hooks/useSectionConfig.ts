@@ -4,13 +4,21 @@ import { Category } from '../types/category'
 import { DEFAULT_CARD_SECTIONS } from '../constants/defaultBudget'
 
 const CARD_CATEGORIES: Category[] = [
+  Category.SUPERMERCADO,
+  Category.RESTAURANTE,
   Category.ALIMENTACAO,
   Category.TRANSPORTE,
+  Category.COMBUSTIVEL,
   Category.VESTUARIO,
   Category.CUIDADOS_PESSOAIS,
-  Category.EDUCACAO,
+  Category.FARMACIA,
   Category.SAUDE,
+  Category.EDUCACAO,
   Category.LAZER,
+  Category.ASSINATURAS,
+  Category.SERVICOS,
+  Category.PETS,
+  Category.BENS_ADQUIRIDOS,
   Category.OUTROS,
 ]
 
@@ -39,8 +47,14 @@ export function useSectionConfig() {
         Category.DIZIMOS,
         Category.OFERTAS,
         Category.MORADIA,
+        Category.ASSINATURAS,
+        Category.COMBUSTIVEL,
         Category.ALIMENTACAO,
+        Category.SUPERMERCADO,
+        Category.SAUDE,
+        Category.EDUCACAO,
         Category.LAZER,
+        Category.OUTROS,
       ],
       gastos_diarios: CARD_CATEGORIES,
       extraordinario: [Category.ENTRADAS],
