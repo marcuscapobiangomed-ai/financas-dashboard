@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Calendar, BarChart2, ArrowLeftRight,
-  Zap, Settings, PiggyBank, AlertTriangle, Repeat, TrendingUp,
+  Settings, PiggyBank, AlertTriangle, Repeat, TrendingUp,
 } from 'lucide-react'
 import { useBudgetAlerts } from '../../hooks/useBudgetAlerts'
 import { useFinanceStore } from '../../store/useFinanceStore'
@@ -10,7 +10,6 @@ import { MonthSelector } from './MonthSelector'
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', exact: true },
   { to: '/month', icon: Calendar, label: 'Lançamentos' },
-  { to: '/quick', icon: Zap, label: 'Lançamento Rápido' },
   { to: '/recurring', icon: Repeat, label: 'Recorrentes' },
   { to: '/investments', icon: TrendingUp, label: 'Investimentos' },
   { to: '/analytics', icon: BarChart2, label: 'Analytics' },

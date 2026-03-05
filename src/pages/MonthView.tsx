@@ -1,8 +1,10 @@
-import { Lock, Unlock, Copy } from 'lucide-react'
+import { useState } from 'react'
+import { Lock, Unlock, Copy, Tags } from 'lucide-react'
 import { useFinanceStore } from '../store/useFinanceStore'
 import { useMonthData } from '../hooks/useMonthData'
 import { SectionTable } from '../components/month/SectionTable'
 import { ExtraordinarySection } from '../components/month/ExtraordinarySection'
+import { BulkEditModal } from '../components/month/BulkEditModal'
 import { Button } from '../components/ui/Button'
 import { formatCurrency } from '../utils/currency'
 import { getMonthLabel } from '../constants/months'
@@ -10,7 +12,8 @@ export function MonthView() {
   const currentMonthKey = useFinanceStore((s) => s.currentMonthKey)
   const toggleMonthClosed = useFinanceStore((s) => s.toggleMonthClosed)
   const duplicatePreviousMonth = useFinanceStore((s) => s.duplicatePreviousMonth)
-  const { sections, income, totalExpenses, balance, isClosed, extraordinaryIncome } = useMonthData(currentMonthKey)
+  const { sections, income, totalExpenses, isClosed, extraordinaryIncome } = useMonthData(currentMonthKey)
+  const [bulkOpen, setBulkOpen] = useState(false)
 
   return (
     <div className="flex flex-col gap-4">
@@ -41,8 +44,18 @@ export function MonthView() {
           >
             {isClosed ? 'Reabrir' : 'Fechar mês'}
           </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Tags size={13} />}
+            onClick={() => setBulkOpen(true)}
+          >
+            Editar categorias
+          </Button>
         </div>
       </div>
+
+      <BulkEditModal open={bulkOpen} onClose={() => setBulkOpen(false)} monthKey={currentMonthKey} />
 
       {/* Section tables */}
       <div className="flex flex-col gap-3">
