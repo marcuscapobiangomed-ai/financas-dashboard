@@ -2,13 +2,7 @@ import { Category } from './category'
 
 export type TransactionType = 'income' | 'expense'
 
-export type SectionType =
-  | 'entradas'
-  | 'despesas_fixas'
-  | 'gastos_diarios'
-  | 'cartao_x'
-  | 'cartao_y'
-  | 'extraordinario'
+export type SectionType = string
 
 export interface Transaction {
   id: string

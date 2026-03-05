@@ -20,6 +20,11 @@ export interface MonthSettings {
   savingsGoal?: number
 }
 
+export interface CardSection {
+  id: string
+  label: string
+}
+
 export interface AppSettings {
   defaultSectionLimits: Record<string, number>
   defaultTithePercent: number
@@ -27,4 +32,5 @@ export interface AppSettings {
   defaultSavingsGoalPercent: number
   darkMode: boolean
   alertThresholdPercent: number
+  cardSections: CardSection[]
 }

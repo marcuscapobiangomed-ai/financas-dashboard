@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { Settings as SettingsIcon, Download, Upload, Trash2, RotateCcw } from 'lucide-react'
+import { Settings as SettingsIcon, Download, Upload, Trash2, Plus, CreditCard, Pencil, Check } from 'lucide-react'
 import { useFinanceStore } from '../store/useFinanceStore'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
-import { SECTION_LABELS, EXPENSE_SECTIONS } from '../constants/categories'
-import { SectionType } from '../types/transaction'
 import { downloadJSON, downloadCSV, transactionsToCSV } from '../utils/exportData'
+import { DEFAULT_CARD_SECTIONS } from '../constants/defaultBudget'
+import { CardSection } from '../types/budget'
 
 export function Settings() {
   const appSettings = useFinanceStore((s) => s.appSettings)
@@ -17,8 +17,51 @@ export function Settings() {
 
   const [importError, setImportError] = useState('')
   const [importSuccess, setImportSuccess] = useState(false)
+  const [editingCardId, setEditingCardId] = useState<string | null>(null)
+  const [editingLabel, setEditingLabel] = useState('')
 
-  function handleLimitChange(section: SectionType, value: string) {
+  const cardSections: CardSection[] = appSettings.cardSections ?? DEFAULT_CARD_SECTIONS
+
+  // ── Card management ──────────────────────────────────────────────
+  function startEditCard(card: CardSection) {
+    setEditingCardId(card.id)
+    setEditingLabel(card.label)
+  }
+
+  function saveCardLabel(id: string) {
+    const trimmed = editingLabel.trim()
+    if (!trimmed) return
+    const updated = cardSections.map((c) => c.id === id ? { ...c, label: trimmed } : c)
+    updateAppSettings({ cardSections: updated })
+    setEditingCardId(null)
+  }
+
+  function handleAddCard() {
+    const id = `cartao_${Date.now()}`
+    const newCard: CardSection = { id, label: `Cartão ${cardSections.length + 1}` }
+    updateAppSettings({
+      cardSections: [...cardSections, newCard],
+      defaultSectionLimits: { ...appSettings.defaultSectionLimits, [id]: 500 },
+    })
+    setEditingCardId(id)
+    setEditingLabel(newCard.label)
+  }
+
+  function handleRemoveCard(id: string) {
+    if (cardSections.length <= 1) return
+    if (!window.confirm('Remover este cartão? As transações registradas não serão excluídas.')) return
+    const updated = cardSections.filter((c) => c.id !== id)
+    updateAppSettings({ cardSections: updated })
+  }
+
+  function handleCardLimitChange(id: string, value: string) {
+    const num = parseFloat(value) || 0
+    updateAppSettings({
+      defaultSectionLimits: { ...appSettings.defaultSectionLimits, [id]: num },
+    })
+  }
+
+  function handleLimitChange(section: string, value: string) {
     const num = parseFloat(value) || 0
     updateAppSettings({
       defaultSectionLimits: { ...appSettings.defaultSectionLimits, [section]: num },
@@ -69,18 +112,98 @@ export function Settings() {
         <h1 className="text-xl font-bold text-gray-900">Configurações</h1>
       </div>
 
-      {/* Section Limits */}
+      {/* Card Management */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">Limites de Orçamento por Seção</h2>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <CreditCard size={15} className="text-indigo-500" />
+            <h2 className="text-sm font-semibold text-gray-700">Cartões de Crédito</h2>
+          </div>
+          <button
+            onClick={handleAddCard}
+            className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-medium cursor-pointer"
+          >
+            <Plus size={13} />
+            Adicionar cartão
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          {cardSections.map((card) => (
+            <div key={card.id} className="flex items-end gap-3 p-3 bg-gray-50 rounded-lg">
+              <div className="flex-1">
+                <label className="text-xs font-medium text-gray-500 block mb-1">Nome</label>
+                {editingCardId === card.id ? (
+                  <div className="flex gap-1.5">
+                    <input
+                      autoFocus
+                      className="flex-1 border border-indigo-300 rounded-lg px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-100"
+                      value={editingLabel}
+                      onChange={(e) => setEditingLabel(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') saveCardLabel(card.id)
+                        if (e.key === 'Escape') setEditingCardId(null)
+                      }}
+                    />
+                    <button
+                      onClick={() => saveCardLabel(card.id)}
+                      className="p-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 cursor-pointer"
+                    >
+                      <Check size={13} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-medium text-gray-800">{card.label}</span>
+                    <button
+                      onClick={() => startEditCard(card)}
+                      className="p-1 rounded text-gray-400 hover:text-indigo-600 cursor-pointer"
+                    >
+                      <Pencil size={11} />
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="w-36">
+                <Input
+                  label="Limite"
+                  type="number"
+                  prefix="R$"
+                  step="50"
+                  min="0"
+                  value={String(appSettings.defaultSectionLimits[card.id] ?? 500)}
+                  onChange={(e) => handleCardLimitChange(card.id, e.target.value)}
+                />
+              </div>
+              {cardSections.length > 1 && (
+                <button
+                  onClick={() => handleRemoveCard(card.id)}
+                  className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer mb-0.5"
+                  title="Remover cartão"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Other Section Limits */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h2 className="text-sm font-semibold text-gray-700 mb-4">Limites de Orçamento</h2>
         <div className="flex flex-col gap-4">
-          {EXPENSE_SECTIONS.map((section) => (
+          {([
+            { id: 'despesas_fixas', label: 'Despesas Fixas' },
+            { id: 'gastos_diarios', label: 'Gastos do Dia a Dia' },
+          ] as const).map(({ id, label }) => (
             <Input
-              key={section}
-              label={SECTION_LABELS[section]}
+              key={id}
+              label={label}
               type="number"
               prefix="R$"
-              value={String(appSettings.defaultSectionLimits[section] ?? 0)}
-              onChange={(e) => handleLimitChange(section, e.target.value)}
+              value={String(appSettings.defaultSectionLimits[id] ?? 0)}
+              onChange={(e) => handleLimitChange(id, e.target.value)}
               step="50"
               min="0"
             />
@@ -150,7 +273,6 @@ export function Settings() {
             {importError && <p className="text-xs text-red-600 mt-1">{importError}</p>}
             {importSuccess && <p className="text-xs text-emerald-600 mt-1">Dados importados com sucesso!</p>}
           </div>
-
           <div className="border-t border-gray-100 pt-3 mt-1">
             <Button variant="danger" icon={<Trash2 size={14} />} onClick={handleClearData} className="justify-start">
               Apagar todos os dados

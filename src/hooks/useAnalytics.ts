@@ -5,18 +5,19 @@ import { SpendingInsight, CategoryBreakdown, ProjectionData } from '../types/ana
 import { computeIncome, computeTotalExpenses, computeSavingsRate, projectEndOfMonth } from '../utils/calculations'
 import { getCurrentMonthKey, getLast12MonthKeys, prevMonthKey } from '../constants/months'
 import { formatCurrency } from '../utils/currency'
-import { EXPENSE_SECTIONS } from '../constants/categories'
+import { useSectionConfig } from './useSectionConfig'
 
 export function useAnalytics(monthKey?: string) {
   const transactions = useFinanceStore((s) => s.transactions)
   const extraordinaryEntries = useFinanceStore((s) => s.extraordinaryEntries)
   const appSettings = useFinanceStore((s) => s.appSettings)
+  const { expenseSections } = useSectionConfig()
   const currentKey = monthKey ?? getCurrentMonthKey()
 
   return useMemo(() => {
     const monthTxs = transactions.filter((t) => t.monthKey === currentKey)
     const monthExtraordinary = extraordinaryEntries.filter((e) => e.monthKey === currentKey)
-    const expenseTxs = monthTxs.filter((t) => EXPENSE_SECTIONS.includes(t.section as any))
+    const expenseTxs = monthTxs.filter((t) => expenseSections.includes(t.section))
 
     const totalExpenses = expenseTxs.reduce((s, t) => s + t.amount, 0)
     const categoryMap = new Map<Category, number>()
@@ -152,5 +153,5 @@ export function useAnalytics(monthKey?: string) {
     }
 
     return { categoryBreakdowns, insights, projection, totalExpenses, income }
-  }, [transactions, extraordinaryEntries, currentKey, appSettings.defaultSavingsGoalPercent])
+  }, [transactions, extraordinaryEntries, currentKey, appSettings.defaultSavingsGoalPercent, expenseSections])
 }

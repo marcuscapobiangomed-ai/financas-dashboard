@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useFinanceStore } from '../store/useFinanceStore'
+import { useSectionConfig } from './useSectionConfig'
 import type { SectionSummary } from '../types/budget'
-import { SECTION_LABELS, SECTION_ORDER } from '../constants/categories'
 import {
   computeSectionSummary,
   computeIncome,
@@ -31,21 +31,20 @@ export function useMonthData(monthKey: string): MonthData {
   const extraordinaryEntries = useFinanceStore((s) => s.extraordinaryEntries)
   const monthSettings = useFinanceStore((s) => s.monthSettings)
   const appSettings = useFinanceStore((s) => s.appSettings)
+  const { sectionOrder, sectionLabels } = useSectionConfig()
 
   return useMemo(() => {
     const monthTransactions = transactions.filter((t) => t.monthKey === monthKey)
     const monthExtraordinary = extraordinaryEntries.filter((e) => e.monthKey === monthKey)
 
-    // Read settings directly (no function reference in deps)
     const saved = monthSettings[monthKey]
     const limits = saved?.sectionLimits ?? appSettings.defaultSectionLimits
     const isClosed = saved?.isClosed ?? false
 
-    // Exclude extraordinario — it has its own dedicated component
-    const sections = SECTION_ORDER.filter((s) => s !== 'extraordinario').map((section) =>
+    const sections = sectionOrder.filter((s) => s !== 'extraordinario').map((section) =>
       computeSectionSummary(
         section,
-        SECTION_LABELS[section],
+        sectionLabels[section] ?? section,
         monthTransactions,
         limits[section] ?? 0
       )
@@ -73,5 +72,5 @@ export function useMonthData(monthKey: string): MonthData {
       extraordinaryIncome,
       totalIncomePlusExtraordinary: income + extraordinaryIncome,
     }
-  }, [transactions, extraordinaryEntries, monthKey, monthSettings, appSettings])
+  }, [transactions, extraordinaryEntries, monthKey, monthSettings, appSettings, sectionOrder, sectionLabels])
 }

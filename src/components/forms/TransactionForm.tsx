@@ -5,8 +5,8 @@ import { Category, CATEGORY_META } from '../../types/category'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
-import { SECTION_LABELS, EXPENSE_SECTIONS, SECTION_CATEGORIES } from '../../constants/categories'
 import { getCurrentMonthKey } from '../../constants/months'
+import { useSectionConfig } from '../../hooks/useSectionConfig'
 
 interface TransactionFormProps {
   initial?: Partial<Transaction>
@@ -31,9 +31,9 @@ export function TransactionForm({
   const updateTransaction = useFinanceStore((s) => s.updateTransaction)
   const getDescriptionSuggestions = useFinanceStore((s) => s.getDescriptionSuggestions)
   const currentMonthKey = useFinanceStore((s) => s.currentMonthKey)
+  const { sectionLabels, sectionOrder, sectionCategories } = useSectionConfig()
 
   const monthKey = defaultMonthKey ?? currentMonthKey
-  const today = new Date().toISOString().split('T')[0]
 
   const [description, setDescription] = useState(initial?.description ?? '')
   const [amount, setAmount] = useState(initial?.amount ? String(initial.amount) : '')
@@ -58,7 +58,7 @@ export function TransactionForm({
     }
   }, [description, getDescriptionSuggestions])
 
-  const availableCategories = SECTION_CATEGORIES[section] ?? Object.values(Category)
+  const availableCategories = sectionCategories[section] ?? Object.values(Category)
 
   function validate(): boolean {
     const e: Record<string, string> = {}
@@ -119,7 +119,7 @@ export function TransactionForm({
       <div>
         <label className="text-sm font-medium text-gray-700 block mb-2">Seção</label>
         <div className="flex flex-wrap gap-1.5">
-          {(Object.keys(SECTION_LABELS) as SectionType[]).map((s) => (
+          {sectionOrder.filter((s) => s !== 'extraordinario').map((s) => (
             <button
               key={s}
               type="button"
@@ -130,7 +130,7 @@ export function TransactionForm({
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              {SECTION_LABELS[s]}
+              {sectionLabels[s]}
             </button>
           ))}
         </div>

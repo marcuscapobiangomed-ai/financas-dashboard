@@ -3,12 +3,13 @@ import { useMemo } from 'react'
 import { useFinanceStore } from '../../store/useFinanceStore'
 import { Category, CATEGORY_META } from '../../types/category'
 import { getLast12MonthKeys, getMonthShort } from '../../constants/months'
-import { EXPENSE_SECTIONS } from '../../constants/categories'
+import { useSectionConfig } from '../../hooks/useSectionConfig'
 import { formatCurrency } from '../../utils/currency'
 import { EmptyState } from '../ui/EmptyState'
 
 export function CategoryStackedBar({ fromMonthKey }: { fromMonthKey?: string }) {
   const transactions = useFinanceStore((s) => s.transactions)
+  const { expenseSections } = useSectionConfig()
 
   const { data, categories } = useMemo(() => {
     const keys = getLast12MonthKeys(fromMonthKey)
@@ -16,7 +17,7 @@ export function CategoryStackedBar({ fromMonthKey }: { fromMonthKey?: string }) 
 
     const data = keys.map((key) => {
       const monthTxs = transactions.filter(
-        (t) => t.monthKey === key && EXPENSE_SECTIONS.includes(t.section as any)
+        (t) => t.monthKey === key && expenseSections.includes(t.section)
       )
       const row: Record<string, string | number> = { label: getMonthShort(key) }
       monthTxs.forEach((t) => {
@@ -27,7 +28,7 @@ export function CategoryStackedBar({ fromMonthKey }: { fromMonthKey?: string }) 
     })
 
     return { data, categories: Array.from(usedCategories) }
-  }, [transactions, fromMonthKey])
+  }, [transactions, fromMonthKey, expenseSections])
 
   const hasData = data.some((d) => Object.keys(d).length > 1)
   if (!hasData) {
