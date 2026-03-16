@@ -31,7 +31,7 @@ export function useMonthData(monthKey: string): MonthData {
   const extraordinaryEntries = useFinanceStore((s) => s.extraordinaryEntries)
   const monthSettings = useFinanceStore((s) => s.monthSettings)
   const appSettings = useFinanceStore((s) => s.appSettings)
-  const { sectionOrder, sectionLabels } = useSectionConfig()
+  const { sectionOrder, sectionLabels, expenseSections } = useSectionConfig()
 
   return useMemo(() => {
     const monthTransactions = transactions.filter((t) => t.monthKey === monthKey)
@@ -51,7 +51,7 @@ export function useMonthData(monthKey: string): MonthData {
     )
 
     const income = computeIncome(monthTransactions)
-    const totalExpenses = computeTotalExpenses(monthTransactions)
+    const totalExpenses = computeTotalExpenses(monthTransactions, expenseSections)
     const balance = computeBalance(income, totalExpenses)
     const savingsRate = computeSavingsRate(income, totalExpenses)
     const extraordinaryIncome = monthExtraordinary.reduce((s, e) => s + e.netAmount, 0)
@@ -72,5 +72,5 @@ export function useMonthData(monthKey: string): MonthData {
       extraordinaryIncome,
       totalIncomePlusExtraordinary: income + extraordinaryIncome,
     }
-  }, [transactions, extraordinaryEntries, monthKey, monthSettings, appSettings, sectionOrder, sectionLabels])
+  }, [transactions, extraordinaryEntries, monthKey, monthSettings, appSettings, sectionOrder, sectionLabels, expenseSections])
 }

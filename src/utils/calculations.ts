@@ -1,6 +1,5 @@
-import { Transaction, SectionType, ExtraordinaryEntry } from '../types/transaction'
+import { Transaction, ExtraordinaryEntry, SectionType } from '../types/transaction'
 import { SectionSummary } from '../types/budget'
-import { EXPENSE_SECTIONS } from '../constants/categories'
 
 export function computeSectionSummary(
   section: SectionType,
@@ -28,9 +27,9 @@ export function computeIncome(transactions: Transaction[]): number {
     .reduce((sum, t) => sum + t.amount, 0)
 }
 
-export function computeTotalExpenses(transactions: Transaction[]): number {
+export function computeTotalExpenses(transactions: Transaction[], expenseSections: string[]): number {
   return transactions
-    .filter((t) => EXPENSE_SECTIONS.includes(t.section as SectionType))
+    .filter((t) => expenseSections.includes(t.section))
     .reduce((sum, t) => sum + t.amount, 0)
 }
 

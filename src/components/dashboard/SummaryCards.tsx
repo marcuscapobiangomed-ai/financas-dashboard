@@ -3,6 +3,7 @@ import { TrendingUp, TrendingDown, Minus, Wallet, ArrowDownCircle, Scale, PiggyB
 import { formatCurrency, formatPercent } from '../../utils/currency'
 import { useMonthData } from '../../hooks/useMonthData'
 import { useFinanceStore } from '../../store/useFinanceStore'
+import { useSectionConfig } from '../../hooks/useSectionConfig'
 import { prevMonthKey } from '../../constants/months'
 import { computeIncome, computeTotalExpenses, computeSavingsRate } from '../../utils/calculations'
 
@@ -50,6 +51,7 @@ export function SummaryCards({ monthKey }: { monthKey: string }) {
   const { income, totalExpenses, extraordinaryIncome } = useMonthData(monthKey)
   const transactions = useFinanceStore((s) => s.transactions)
   const extraordinaryEntries = useFinanceStore((s) => s.extraordinaryEntries)
+  const { expenseSections } = useSectionConfig()
 
   const totalIncome = income + extraordinaryIncome
   const balance = totalIncome - totalExpenses
@@ -67,16 +69,16 @@ export function SummaryCards({ monthKey }: { monthKey: string }) {
       const txs = transactions.filter((t) => t.monthKey === key)
       const extra = extraordinaryEntries.filter((e) => e.monthKey === key)
       const inc = computeIncome(txs) + extra.reduce((s, e) => s + e.netAmount, 0)
-      const exp = computeTotalExpenses(txs)
+      const exp = computeTotalExpenses(txs, expenseSections)
       return acc + inc - exp
     }, initial)
-  }, [transactions, extraordinaryEntries, allMonthKeys, appSettings.initialBalance])
+  }, [transactions, extraordinaryEntries, allMonthKeys, appSettings.initialBalance, expenseSections])
 
   const prev = prevMonthKey(monthKey)
   const prevTxs = transactions.filter((t) => t.monthKey === prev)
   const prevExtraordinary = extraordinaryEntries.filter((e) => e.monthKey === prev)
   const prevIncome = computeIncome(prevTxs) + prevExtraordinary.reduce((s, e) => s + e.netAmount, 0)
-  const prevExpenses = computeTotalExpenses(prevTxs)
+  const prevExpenses = computeTotalExpenses(prevTxs, expenseSections)
   const prevBalance = prevIncome - prevExpenses
   const prevSavingsRate = computeSavingsRate(prevIncome, prevExpenses)
 

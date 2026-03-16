@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Calendar, BarChart2, ArrowLeftRight,
-  Settings, PiggyBank, AlertTriangle, Repeat, TrendingUp,
+  Settings, PiggyBank, AlertTriangle, Repeat, TrendingUp, LogOut,
 } from 'lucide-react'
 import { useBudgetAlerts } from '../../hooks/useBudgetAlerts'
 import { useFinanceStore } from '../../store/useFinanceStore'
+import { useAuthStore } from '../../store/useAuthStore'
 import { MonthSelector } from './MonthSelector'
 
 const navItems = [
@@ -20,6 +21,8 @@ const navItems = [
 export function Sidebar() {
   const currentMonthKey = useFinanceStore((s) => s.currentMonthKey)
   const { hasAlerts } = useBudgetAlerts(currentMonthKey)
+  const user = useAuthStore((s) => s.user)
+  const signOut = useAuthStore((s) => s.signOut)
 
   return (
     <aside className="hidden md:flex flex-col w-60 min-h-screen bg-white border-r border-gray-100 px-3 py-4">
@@ -59,6 +62,19 @@ export function Sidebar() {
         <div className="mx-3 mt-2 p-3 bg-red-50 rounded-lg flex items-start gap-2">
           <AlertTriangle size={14} className="text-red-500 mt-0.5 shrink-0" />
           <p className="text-xs text-red-700 leading-snug">Limite ultrapassado em alguma seção</p>
+        </div>
+      )}
+
+      {user && (
+        <div className="mt-4 mx-3 pt-3 border-t border-gray-100">
+          <p className="text-xs text-gray-500 truncate mb-2">{user.email}</p>
+          <button
+            onClick={signOut}
+            className="flex items-center gap-2 text-sm text-gray-500 hover:text-red-600 transition-colors w-full px-1 py-1.5 rounded-lg hover:bg-red-50 cursor-pointer"
+          >
+            <LogOut size={14} />
+            Sair
+          </button>
         </div>
       )}
     </aside>

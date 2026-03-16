@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { useMonthData } from '../../hooks/useMonthData'
 import { CATEGORY_META } from '../../types/category'
-import { SECTION_LABELS } from '../../constants/categories'
+import { useSectionConfig } from '../../hooks/useSectionConfig'
 import { formatCurrency } from '../../utils/currency'
 import { useFinanceStore } from '../../store/useFinanceStore'
 import { Modal } from '../ui/Modal'
@@ -14,6 +14,7 @@ import { EmptyState } from '../ui/EmptyState'
 export function RecentTransactions({ monthKey }: { monthKey: string }) {
   const { transactions } = useMonthData(monthKey)
   const deleteTransaction = useFinanceStore((s) => s.deleteTransaction)
+  const { sectionLabels } = useSectionConfig()
   const [editing, setEditing] = useState<Transaction | null>(null)
 
   const sorted = [...transactions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10)
@@ -46,7 +47,7 @@ export function RecentTransactions({ monthKey }: { monthKey: string }) {
                   <Badge variant="default" style={{ backgroundColor: meta?.bgColor, color: meta?.color }}>
                     {meta?.label ?? t.category}
                   </Badge>
-                  <span className="text-xs text-gray-400">{SECTION_LABELS[t.section]}</span>
+                  <span className="text-xs text-gray-400">{sectionLabels[t.section] ?? t.section}</span>
                 </div>
               </div>
               <span className={`text-sm font-semibold shrink-0 ${t.type === 'income' ? 'text-emerald-600' : 'text-gray-800'}`}>

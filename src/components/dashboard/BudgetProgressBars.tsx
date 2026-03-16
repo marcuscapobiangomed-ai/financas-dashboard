@@ -2,13 +2,14 @@ import { useMonthData } from '../../hooks/useMonthData'
 import { ProgressBar } from '../ui/ProgressBar'
 import { formatCurrency } from '../../utils/currency'
 import { useFinanceStore } from '../../store/useFinanceStore'
-import { EXPENSE_SECTIONS } from '../../constants/categories'
+import { useSectionConfig } from '../../hooks/useSectionConfig'
 
 export function BudgetProgressBars({ monthKey }: { monthKey: string }) {
   const { sections } = useMonthData(monthKey)
   const appSettings = useFinanceStore((s) => s.appSettings)
+  const { expenseSections: expenseSectionIds } = useSectionConfig()
 
-  const expenseSections = sections.filter((s) => EXPENSE_SECTIONS.includes(s.section as any) && s.limit > 0)
+  const expenseSections = sections.filter((s) => expenseSectionIds.includes(s.section) && s.limit > 0)
 
   if (expenseSections.length === 0) return null
 

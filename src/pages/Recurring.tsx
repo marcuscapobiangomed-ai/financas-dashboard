@@ -174,14 +174,11 @@ export function Recurring() {
   }
 
   function handleApply() {
-    applyRecurringToMonth(currentMonthKey)
-    const count = recurringTemplates.filter((t) => {
-      if (!t.isActive) return false
-      if (t.endMonth && t.endMonth < currentMonthKey) return false
-      if (t.startMonth > currentMonthKey) return false
-      return true
-    }).length
-    setApplyMsg(`${count} lançamento(s) aplicados em ${formatMonthKey(currentMonthKey)}.`)
+    const count = applyRecurringToMonth(currentMonthKey)
+    setApplyMsg(count > 0
+      ? `${count} lançamento(s) aplicados em ${formatMonthKey(currentMonthKey)}.`
+      : `Nenhum lançamento novo para aplicar em ${formatMonthKey(currentMonthKey)}.`
+    )
     setTimeout(() => setApplyMsg(''), 4000)
   }
 

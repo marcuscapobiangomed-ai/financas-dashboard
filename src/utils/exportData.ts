@@ -1,6 +1,5 @@
 import { Transaction } from '../types/transaction'
 import { formatCurrency } from './currency'
-import { SECTION_LABELS } from '../constants/categories'
 import { CATEGORY_META } from '../types/category'
 
 export function downloadJSON(content: string, filename: string) {
@@ -23,12 +22,12 @@ export function downloadCSV(content: string, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-export function transactionsToCSV(transactions: Transaction[]): string {
+export function transactionsToCSV(transactions: Transaction[], sectionLabels: Record<string, string>): string {
   const header = ['Data', 'Mês', 'Seção', 'Categoria', 'Descrição', 'Valor', 'Tipo', 'Nota']
   const rows = transactions.map((t) => [
     t.date,
     t.monthKey,
-    SECTION_LABELS[t.section] ?? t.section,
+    sectionLabels[t.section] ?? t.section,
     CATEGORY_META[t.category]?.label ?? t.category,
     t.description,
     formatCurrency(t.amount),

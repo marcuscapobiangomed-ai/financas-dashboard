@@ -135,7 +135,7 @@ export function useAnalytics(monthKey?: string) {
         return s + computeIncome(txs) + extraOrdinary.reduce((sum, e) => sum + e.netAmount, 0)
       }, 0) / n
       const avgExpenses = completedMonths.reduce((s, k) =>
-        s + computeTotalExpenses(transactions.filter((t) => t.monthKey === k)), 0) / n
+        s + computeTotalExpenses(transactions.filter((t) => t.monthKey === k), expenseSections), 0) / n
       const [, m] = currentKey.split('-').map(Number)
       const monthsRemaining = 12 - m
       const projectedYearIncome = avgIncome * (n + monthsRemaining)

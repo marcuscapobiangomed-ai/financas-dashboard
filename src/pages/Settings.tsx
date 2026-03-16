@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Settings as SettingsIcon, Download, Upload, Trash2, Plus, CreditCard, Pencil, Check, ArrowRightLeft } from 'lucide-react'
 import { useFinanceStore } from '../store/useFinanceStore'
+import { useSectionConfig } from '../hooks/useSectionConfig'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { downloadJSON, downloadCSV, transactionsToCSV } from '../utils/exportData'
@@ -15,6 +16,7 @@ export function Settings() {
   const clearAllData = useFinanceStore((s) => s.clearAllData)
   const migrateMonth = useFinanceStore((s) => s.migrateMonth)
   const transactions = useFinanceStore((s) => s.transactions)
+  const { sectionLabels } = useSectionConfig()
 
   const [tab, setTab] = useState<'budget' | 'cards' | 'data'>('budget')
   const [importError, setImportError] = useState('')
@@ -79,7 +81,7 @@ export function Settings() {
   }
 
   function handleExportCSV() {
-    const csv = transactionsToCSV(transactions)
+    const csv = transactionsToCSV(transactions, sectionLabels)
     downloadCSV(csv, `financas-transacoes-${new Date().toISOString().split('T')[0]}.csv`)
   }
 
@@ -301,6 +303,27 @@ export function Settings() {
             onChange={(e) => updateAppSettings({ initialBalance: Number(e.target.value) })}
             step="100"
           />
+        </div>
+      </div>
+
+      {/* Appearance */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h2 className="text-sm font-semibold text-gray-700 mb-4">Aparência</h2>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-700">Modo Escuro</p>
+            <p className="text-xs text-gray-500">Alterar aparência do app</p>
+          </div>
+          <button
+            onClick={() => updateAppSettings({ darkMode: !appSettings.darkMode })}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
+              appSettings.darkMode ? 'bg-indigo-600' : 'bg-gray-200'
+            }`}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              appSettings.darkMode ? 'translate-x-6' : 'translate-x-1'
+            }`} />
+          </button>
         </div>
       </div>
 

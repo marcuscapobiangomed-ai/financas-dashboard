@@ -1,7 +1,8 @@
 import { NavLink } from 'react-router-dom'
-import { PiggyBank, LayoutDashboard, Calendar, BarChart2, Settings, Repeat, TrendingUp } from 'lucide-react'
+import { PiggyBank, LayoutDashboard, Calendar, BarChart2, Settings, Repeat, TrendingUp, LogOut } from 'lucide-react'
 import { useBudgetAlerts } from '../../hooks/useBudgetAlerts'
 import { useFinanceStore } from '../../store/useFinanceStore'
+import { useAuthStore } from '../../store/useAuthStore'
 import { MonthSelector } from './MonthSelector'
 
 const bottomNavItems = [
@@ -16,6 +17,7 @@ const bottomNavItems = [
 export function TopBar() {
   const currentMonthKey = useFinanceStore((s) => s.currentMonthKey)
   const { hasAlerts } = useBudgetAlerts(currentMonthKey)
+  const signOut = useAuthStore((s) => s.signOut)
 
   return (
     <>
@@ -25,7 +27,16 @@ export function TopBar() {
           <PiggyBank size={20} className="text-indigo-600" />
           <span className="font-bold text-gray-900 text-sm">Finanças</span>
         </div>
-        <MonthSelector />
+        <div className="flex items-center gap-2">
+          <MonthSelector />
+          <button
+            onClick={signOut}
+            className="p-2 text-gray-400 hover:text-red-600 transition-colors cursor-pointer"
+            title="Sair"
+          >
+            <LogOut size={18} />
+          </button>
+        </div>
       </header>
 
       {/* Mobile bottom navigation */}

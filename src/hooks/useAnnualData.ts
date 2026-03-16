@@ -1,19 +1,24 @@
 import { useMemo } from 'react'
 import { useFinanceStore } from '../store/useFinanceStore'
+import { useSectionConfig } from './useSectionConfig'
 import type { MonthTrend } from '../types/analytics'
 import { computeIncome, computeTotalExpenses, computeBalance, computeSavingsRate } from '../utils/calculations'
 import { getLast12MonthKeys, getMonthShort } from '../constants/months'
 
 export function useAnnualData(fromMonthKey?: string) {
   const transactions = useFinanceStore((s) => s.transactions)
+  const extraordinaryEntries = useFinanceStore((s) => s.extraordinaryEntries)
+  const { expenseSections } = useSectionConfig()
 
   return useMemo(() => {
     const monthKeys = getLast12MonthKeys(fromMonthKey)
 
     const trends: MonthTrend[] = monthKeys.map((key) => {
       const monthTxs = transactions.filter((t) => t.monthKey === key)
-      const income = computeIncome(monthTxs)
-      const expenses = computeTotalExpenses(monthTxs)
+      const monthExtra = extraordinaryEntries.filter((e) => e.monthKey === key)
+      const extraordinaryIncome = monthExtra.reduce((s, e) => s + e.netAmount, 0)
+      const income = computeIncome(monthTxs) + extraordinaryIncome
+      const expenses = computeTotalExpenses(monthTxs, expenseSections)
       const fixedExpenses = monthTxs
         .filter((t) => t.section === 'despesas_fixas')
         .reduce((s, t) => s + t.amount, 0)
@@ -46,5 +51,5 @@ export function useAnnualData(fromMonthKey?: string) {
       : emptyMonth
 
     return { trends, totalIncome, totalExpenses, avgSavingsRate, bestMonth, worstMonth }
-  }, [transactions, fromMonthKey])
+  }, [transactions, extraordinaryEntries, expenseSections, fromMonthKey])
 }

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Lock, Unlock, Copy, Tags } from 'lucide-react'
+import { useState, useCallback } from 'react'
+import { Lock, Unlock, Copy, Tags, StickyNote, Target } from 'lucide-react'
 import { useFinanceStore } from '../store/useFinanceStore'
 import { useMonthData } from '../hooks/useMonthData'
 import { SectionTable } from '../components/month/SectionTable'
@@ -12,8 +12,23 @@ export function MonthView() {
   const currentMonthKey = useFinanceStore((s) => s.currentMonthKey)
   const toggleMonthClosed = useFinanceStore((s) => s.toggleMonthClosed)
   const duplicatePreviousMonth = useFinanceStore((s) => s.duplicatePreviousMonth)
+  const updateMonthSettings = useFinanceStore((s) => s.updateMonthSettings)
+  const monthSettings = useFinanceStore((s) => s.monthSettings)
   const { sections, income, totalExpenses, isClosed, extraordinaryIncome } = useMonthData(currentMonthKey)
   const [bulkOpen, setBulkOpen] = useState(false)
+  const [notesOpen, setNotesOpen] = useState(false)
+
+  const currentNotes = monthSettings[currentMonthKey]?.notes ?? ''
+  const currentSavingsGoal = monthSettings[currentMonthKey]?.savingsGoal
+
+  const handleNotesChange = useCallback((value: string) => {
+    updateMonthSettings(currentMonthKey, { notes: value })
+  }, [currentMonthKey, updateMonthSettings])
+
+  const handleSavingsGoalChange = useCallback((value: string) => {
+    const num = parseFloat(value)
+    updateMonthSettings(currentMonthKey, { savingsGoal: isNaN(num) ? undefined : num })
+  }, [currentMonthKey, updateMonthSettings])
 
   return (
     <div className="flex flex-col gap-4">
@@ -47,6 +62,14 @@ export function MonthView() {
           <Button
             variant="secondary"
             size="sm"
+            icon={<StickyNote size={13} />}
+            onClick={() => setNotesOpen(!notesOpen)}
+          >
+            Notas
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
             icon={<Tags size={13} />}
             onClick={() => setBulkOpen(true)}
           >
@@ -54,6 +77,39 @@ export function MonthView() {
           </Button>
         </div>
       </div>
+
+      {/* Month notes & savings goal */}
+      {notesOpen && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col gap-3">
+          <div>
+            <label className="flex items-center gap-1.5 text-xs font-medium text-gray-500 mb-1">
+              <StickyNote size={12} /> Notas do mês
+            </label>
+            <textarea
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100 resize-none"
+              rows={3}
+              placeholder="Observações sobre este mês..."
+              value={currentNotes}
+              onChange={(e) => handleNotesChange(e.target.value)}
+            />
+          </div>
+          <div className="max-w-xs">
+            <label className="flex items-center gap-1.5 text-xs font-medium text-gray-500 mb-1">
+              <Target size={12} /> Meta de poupança deste mês (%)
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="1"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100"
+              placeholder="Usar padrão do app"
+              value={currentSavingsGoal ?? ''}
+              onChange={(e) => handleSavingsGoalChange(e.target.value)}
+            />
+          </div>
+        </div>
+      )}
 
       <BulkEditModal open={bulkOpen} onClose={() => setBulkOpen(false)} monthKey={currentMonthKey} />
 

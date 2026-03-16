@@ -9,6 +9,7 @@ import { CategoryTrendLine } from '../components/charts/CategoryTrendLine'
 import { InsightCard } from '../components/analytics/InsightCard'
 import { ProjectionCard } from '../components/analytics/ProjectionCard'
 import { Card } from '../components/ui/Card'
+import { formatCurrency } from '../utils/currency'
 
 export function Analytics() {
   const currentMonthKey = useFinanceStore((s) => s.currentMonthKey)
@@ -80,6 +81,7 @@ export function Analytics() {
                 <th className="text-left px-5 py-2 text-xs font-medium text-gray-400">Categoria</th>
                 <th className="text-right px-5 py-2 text-xs font-medium text-gray-400">Total</th>
                 <th className="text-right px-5 py-2 text-xs font-medium text-gray-400">%</th>
+                <th className="text-right px-5 py-2 text-xs font-medium text-gray-400">Média 12m</th>
                 <th className="text-right px-5 py-2 text-xs font-medium text-gray-400">Tendência</th>
               </tr>
             </thead>
@@ -91,6 +93,7 @@ export function Analytics() {
                     R$ {c.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </td>
                   <td className="px-5 py-3 text-sm text-gray-500 text-right">{c.percentage.toFixed(1)}%</td>
+                  <td className="px-5 py-3 text-sm text-gray-500 text-right">{formatCurrency(c.monthlyAvg)}</td>
                   <td className="px-5 py-3 text-right">
                     <span className={`text-xs font-medium ${c.trend === 'up' ? 'text-red-600' : c.trend === 'down' ? 'text-emerald-600' : 'text-gray-400'}`}>
                       {c.trend === 'up' ? `▲ ${c.trendPercent.toFixed(0)}%` : c.trend === 'down' ? `▼ ${Math.abs(c.trendPercent).toFixed(0)}%` : '—'}
