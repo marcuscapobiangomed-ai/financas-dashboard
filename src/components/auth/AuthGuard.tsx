@@ -1,9 +1,15 @@
 import { Navigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/useAuthStore'
+import { isSupabaseConfigured } from '../../lib/supabase'
 import { Loader2 } from 'lucide-react'
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuthStore()
+
+  // Skip auth when Supabase is not configured (local/offline mode)
+  if (!isSupabaseConfigured) {
+    return <>{children}</>
+  }
 
   if (loading) {
     return (

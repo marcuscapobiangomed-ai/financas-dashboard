@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { supabase } from '../lib/supabase'
+import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { fetchAllUserData } from '../lib/supabaseData'
 import { useFinanceStore } from './useFinanceStore'
 import type { User, Session } from '@supabase/supabase-js'
@@ -23,6 +23,10 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
   error: null,
 
   initialize: async () => {
+    if (!isSupabaseConfigured) {
+      set({ loading: false })
+      return
+    }
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user) {
