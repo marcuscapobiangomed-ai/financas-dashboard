@@ -17,6 +17,9 @@ export interface Transaction {
   recurringId?: string
   note?: string
   tags?: string[]
+  installmentGroupId?: string
+  installmentCurrent?: number
+  installmentTotal?: number
   createdAt: string
   updatedAt: string
 }

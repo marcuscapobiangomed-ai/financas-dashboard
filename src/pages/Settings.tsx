@@ -239,7 +239,7 @@ export function Settings() {
         <div className="flex flex-col gap-4">
           {([
             { id: 'despesas_fixas', label: 'Despesas Fixas' },
-            { id: 'gastos_diarios', label: 'Gastos do Dia a Dia' },
+            { id: 'gastos_diarios', label: 'Gastos com Dinheiro Físico' },
           ] as const).map(({ id, label }) => (
             <Input
               key={id}

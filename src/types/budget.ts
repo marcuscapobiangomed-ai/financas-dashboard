@@ -34,4 +34,6 @@ export interface AppSettings {
   alertThresholdPercent: number
   cardSections: CardSection[]
   initialBalance: number  // saldo antes de começar a usar o app
+  cdiRateAnnual: number   // taxa CDI anual, ex: 14.15
+  ipcaRateAnnual: number  // taxa IPCA anual, ex: 5.0
 }

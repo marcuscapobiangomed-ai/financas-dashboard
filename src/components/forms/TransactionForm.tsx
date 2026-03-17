@@ -28,10 +28,12 @@ export function TransactionForm({
   showSaveAndNew,
 }: TransactionFormProps) {
   const addTransaction = useFinanceStore((s) => s.addTransaction)
+  const addInstallmentTransactions = useFinanceStore((s) => s.addInstallmentTransactions)
   const updateTransaction = useFinanceStore((s) => s.updateTransaction)
   const getDescriptionSuggestions = useFinanceStore((s) => s.getDescriptionSuggestions)
   const currentMonthKey = useFinanceStore((s) => s.currentMonthKey)
-  const { sectionLabels, sectionOrder, sectionCategories } = useSectionConfig()
+  const { sectionLabels, sectionOrder, sectionCategories, cardSections } = useSectionConfig()
+  const cardSectionIds = cardSections.map((c) => c.id)
 
   const monthKey = defaultMonthKey ?? currentMonthKey
 
@@ -44,11 +46,18 @@ export function TransactionForm({
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [isInstallment, setIsInstallment] = useState(false)
+  const [installmentCount, setInstallmentCount] = useState('2')
+  const isCardSection = cardSectionIds.includes(section)
   const amountRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     amountRef.current?.focus()
   }, [])
+
+  useEffect(() => {
+    if (!isCardSection) setIsInstallment(false)
+  }, [isCardSection])
 
   useEffect(() => {
     if (description.length >= 2) {
@@ -76,6 +85,14 @@ export function TransactionForm({
     const isIncome = section === 'entradas'
     const derivedMonthKey = date.length >= 7 ? date.substring(0, 7) : monthKey
 
+    if (isInstallment && isCardSection) {
+      const count = parseInt(installmentCount)
+      if (isNaN(count) || count < 2) {
+        setErrors((e) => ({ ...e, installmentCount: 'Mínimo 2 parcelas' }))
+        return
+      }
+    }
+
     if (initial?.id) {
       updateTransaction(initial.id, {
         description: description.trim(),
@@ -87,6 +104,19 @@ export function TransactionForm({
         type: isIncome ? 'income' : 'expense',
         note: note.trim() || undefined,
       })
+    } else if (isInstallment && isCardSection) {
+      addInstallmentTransactions(
+        {
+          description: description.trim(),
+          amount: num,
+          section,
+          category,
+          date,
+          type: 'expense',
+          note: note.trim() || undefined,
+        },
+        parseInt(installmentCount)
+      )
     } else {
       addTransaction({
         description: description.trim(),
@@ -104,6 +134,8 @@ export function TransactionForm({
       setDescription('')
       setAmount('')
       setNote('')
+      setIsInstallment(false)
+      setInstallmentCount('2')
       amountRef.current?.focus()
     } else {
       onSave?.()
@@ -197,6 +229,41 @@ export function TransactionForm({
         onChange={(e) => setDate(e.target.value)}
         error={errors.date}
       />
+
+      {/* Installment toggle — only for card sections, new transactions */}
+      {isCardSection && !initial?.id && (
+        <div className="flex flex-col gap-2">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isInstallment}
+              onChange={(e) => setIsInstallment(e.target.checked)}
+              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span className="text-sm text-gray-700">Parcelado</span>
+          </label>
+          {isInstallment && (
+            <div className="flex items-center gap-3">
+              <Input
+                label="Parcelas"
+                type="number"
+                min="2"
+                max="360"
+                value={installmentCount}
+                onChange={(e) => setInstallmentCount(e.target.value)}
+                error={errors.installmentCount}
+              />
+              {installmentCount && parseFloat(amount.replace(',', '.')) > 0 && (
+                <p className="text-xs text-indigo-600 bg-indigo-50 px-3 py-2 rounded-lg mt-5 whitespace-nowrap">
+                  {parseInt(installmentCount)}x de R$ {(parseFloat(amount.replace(',', '.')) || 0).toFixed(2)}
+                  {' = Total R$ '}
+                  {((parseFloat(amount.replace(',', '.')) || 0) * parseInt(installmentCount || '0')).toFixed(2)}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Note */}
       <Input

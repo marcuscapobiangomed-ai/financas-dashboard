@@ -4,6 +4,7 @@ import { AppSettings, MonthSettings } from '../types/budget'
 import { Investment } from '../types/investment'
 import { Category } from '../types/category'
 import { DEFAULT_APP_SETTINGS } from '../constants/defaultBudget'
+import { resolveMonthlyYieldPercent } from '../utils/investmentCalc'
 import { getCurrentMonthKey } from '../constants/months'
 import {
   upsertTransaction,
@@ -44,6 +45,10 @@ interface FinanceStore {
 
   // Transaction actions
   addTransaction: (t: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => void
+  addInstallmentTransactions: (
+    base: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'installmentGroupId' | 'installmentCurrent' | 'monthKey'>,
+    installmentTotal: number
+  ) => void
   updateTransaction: (id: string, updates: Partial<Transaction>) => void
   deleteTransaction: (id: string) => void
   getTransactionsForMonth: (monthKey: string) => Transaction[]
@@ -157,6 +162,34 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
     set((s) => ({ transactions: [...s.transactions, newT] }))
     const uid = getUserId()
     if (uid) upsertTransaction(uid, newT)
+  },
+
+  addInstallmentTransactions: (base, installmentTotal) => {
+    const groupId = generateId()
+    const [startYear, startMonth] = base.date.substring(0, 7).split('-').map(Number)
+    const baseDescription = base.description
+
+    const transactions: Transaction[] = []
+    for (let i = 0; i < installmentTotal; i++) {
+      const d = new Date(startYear, startMonth - 1 + i, 1)
+      const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      transactions.push({
+        ...base,
+        id: generateId(),
+        description: `${baseDescription} (${i + 1}/${installmentTotal})`,
+        monthKey: mk,
+        date: `${mk}-01`,
+        installmentGroupId: groupId,
+        installmentCurrent: i + 1,
+        installmentTotal,
+        createdAt: now(),
+        updatedAt: now(),
+      })
+    }
+
+    set((s) => ({ transactions: [...s.transactions, ...transactions] }))
+    const uid = getUserId()
+    if (uid) bulkUpsertTransactions(uid, transactions)
   },
 
   updateTransaction: (id, updates) => {
@@ -286,15 +319,33 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
   // ── Investment actions ──────────────────────────────────────────────────
 
   addInvestment: (inv) => {
-    const newInv: Investment = { ...inv, id: generateId() }
+
+    const { appSettings } = get()
+    const resolved = resolveMonthlyYieldPercent(
+      inv.investmentType, inv.cdiPercent, inv.ipcaPercent,
+      appSettings.cdiRateAnnual, appSettings.ipcaRateAnnual,
+      inv.monthlyYieldPercent
+    )
+    const newInv: Investment = { ...inv, id: generateId(), monthlyYieldPercent: resolved }
     set((s) => ({ investments: [...s.investments, newInv] }))
     const uid = getUserId()
     if (uid) upsertInvestment(uid, newInv)
   },
 
   updateInvestment: (id, updates) => {
+
+    const { appSettings } = get()
     set((s) => ({
-      investments: s.investments.map((inv) => inv.id === id ? { ...inv, ...updates } : inv),
+      investments: s.investments.map((inv) => {
+        if (inv.id !== id) return inv
+        const merged = { ...inv, ...updates }
+        const resolved = resolveMonthlyYieldPercent(
+          merged.investmentType, merged.cdiPercent, merged.ipcaPercent,
+          appSettings.cdiRateAnnual, appSettings.ipcaRateAnnual,
+          merged.monthlyYieldPercent
+        )
+        return { ...merged, monthlyYieldPercent: resolved }
+      }),
     }))
     const uid = getUserId()
     if (uid) {
@@ -402,6 +453,28 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
     set({ appSettings: newSettings })
     const uid = getUserId()
     if (uid) upsertUserSettings(uid, newSettings)
+
+    // Recalculate CDI-based investments when rates change
+    if (updates.cdiRateAnnual !== undefined || updates.ipcaRateAnnual !== undefined) {
+  
+      const { investments } = get()
+      const recalculated = investments.map((inv) => {
+        const type = inv.investmentType ?? 'manual'
+        if (type === 'manual') return inv
+        const newYield = resolveMonthlyYieldPercent(
+          inv.investmentType, inv.cdiPercent, inv.ipcaPercent,
+          newSettings.cdiRateAnnual, newSettings.ipcaRateAnnual,
+          inv.monthlyYieldPercent
+        )
+        return { ...inv, monthlyYieldPercent: newYield }
+      })
+      set({ investments: recalculated })
+      if (uid) {
+        recalculated
+          .filter((inv) => (inv.investmentType ?? 'manual') !== 'manual')
+          .forEach((inv) => upsertInvestment(uid, inv))
+      }
+    }
   },
 
   // Auto-apply recurring + investment yields when navigating to a new month

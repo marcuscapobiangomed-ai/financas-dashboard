@@ -89,6 +89,11 @@ export function TransactionRow({ transaction: t, disabled }: TransactionRowProps
           {t.isRecurring && (
             <span className="text-xs bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded">recorrente</span>
           )}
+          {t.installmentTotal && (
+            <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+              {t.installmentCurrent}/{t.installmentTotal}
+            </span>
+          )}
         </div>
       </td>
       <td className="px-3 py-2.5 text-right">

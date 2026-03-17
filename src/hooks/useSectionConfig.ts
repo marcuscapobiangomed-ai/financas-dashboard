@@ -32,7 +32,7 @@ export function useSectionConfig() {
     const sectionLabels: Record<string, string> = {
       entradas: 'Entradas',
       despesas_fixas: 'Despesas Fixas',
-      gastos_diarios: 'Gastos do Dia a Dia',
+      gastos_diarios: 'Gastos com Dinheiro Físico',
       extraordinario: 'Férias / PLR / 13°',
     }
     cards.forEach((c) => { sectionLabels[c.id] = c.label })

@@ -173,6 +173,8 @@ export async function fetchUserSettings(userId: string): Promise<AppSettings> {
     alertThresholdPercent: Number(data.alert_threshold_percent),
     cardSections: data.card_sections ?? DEFAULT_APP_SETTINGS.cardSections,
     initialBalance: Number(data.initial_balance),
+    cdiRateAnnual: Number(data.cdi_rate_annual ?? 14.15),
+    ipcaRateAnnual: Number(data.ipca_rate_annual ?? 5.0),
   }
 }
 
@@ -187,6 +189,8 @@ export async function upsertUserSettings(userId: string, settings: AppSettings):
     alert_threshold_percent: settings.alertThresholdPercent,
     card_sections: settings.cardSections,
     initial_balance: settings.initialBalance,
+    cdi_rate_annual: settings.cdiRateAnnual,
+    ipca_rate_annual: settings.ipcaRateAnnual,
   }
   const { error } = await supabase.from('user_settings').upsert(row, { onConflict: 'user_id' })
   if (error) console.error('upsertUserSettings error:', error)

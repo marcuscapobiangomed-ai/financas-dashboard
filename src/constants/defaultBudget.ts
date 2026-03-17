@@ -23,4 +23,6 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   alertThresholdPercent: 80,
   cardSections: DEFAULT_CARD_SECTIONS,
   initialBalance: 0,
+  cdiRateAnnual: 14.15,
+  ipcaRateAnnual: 5.0,
 }

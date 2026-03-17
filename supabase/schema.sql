@@ -18,11 +18,16 @@ CREATE TABLE transactions (
   recurring_id uuid,
   note text,
   tags text[],
+  installment_group_id uuid,
+  installment_current integer,
+  installment_total integer,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE INDEX idx_transactions_user_month ON transactions(user_id, month_key);
+CREATE INDEX idx_transactions_installment_group ON transactions(installment_group_id)
+  WHERE installment_group_id IS NOT NULL;
 
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 
