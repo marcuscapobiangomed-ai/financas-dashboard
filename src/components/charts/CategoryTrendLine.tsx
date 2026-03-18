@@ -49,7 +49,7 @@ export function CategoryTrendLine({ fromMonthKey }: { fromMonthKey?: string }) {
     const avgs: Record<string, number> = {}
     topCategories.forEach((cat) => {
       const total = (data as Record<string, number>[]).reduce((s, row) => s + (row[cat] ?? 0), 0)
-      avgs[cat] = total / data.length
+      avgs[cat] = data.length > 0 ? total / data.length : 0
     })
     return avgs
   }, [data, topCategories])

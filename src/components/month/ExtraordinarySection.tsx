@@ -54,7 +54,7 @@ function AddEntryForm({ monthKey, onDone }: { monthKey: string; onDone: () => vo
   }
 
   return (
-    <div className="bg-indigo-50 rounded-lg p-4 flex flex-col gap-3">
+    <div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-lg p-4 flex flex-col gap-3">
       <div className="grid grid-cols-2 gap-3">
         <Select label="Tipo" value={type} onChange={(e) => setType(e.target.value as any)}>
           {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -97,9 +97,9 @@ function AddEntryForm({ monthKey, onDone }: { monthKey: string; onDone: () => vo
         placeholder="Férias de julho..."
       />
       {grossNum > 0 && (
-        <div className="grid grid-cols-3 gap-2 text-xs text-gray-600 bg-white rounded p-2">
-          <div>Dízimo: <strong className="text-gray-800">{formatCurrency(computed.tithe)}</strong></div>
-          <div>Oferta: <strong className="text-gray-800">{formatCurrency(computed.offering)}</strong></div>
+        <div className="grid grid-cols-3 gap-2 text-xs text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 rounded p-2">
+          <div>Dízimo: <strong className="text-gray-800 dark:text-gray-200">{formatCurrency(computed.tithe)}</strong></div>
+          <div>Oferta: <strong className="text-gray-800 dark:text-gray-200">{formatCurrency(computed.offering)}</strong></div>
           <div>Líquido: <strong className="text-emerald-700">{formatCurrency(computed.netAmount)}</strong></div>
         </div>
       )}
@@ -120,20 +120,20 @@ export function ExtraordinarySection({ monthKey, disabled }: Props) {
   const totalNet = entries.reduce((s, e) => s + e.netAmount, 0)
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
-        <span className="text-sm font-semibold text-gray-800">Férias / PLR / 13°</span>
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50 dark:border-gray-700">
+        <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">Férias / PLR / 13°</span>
         <span className="text-sm font-bold text-emerald-600">{formatCurrency(totalNet)} líquido</span>
       </div>
 
-      <div className="divide-y divide-gray-50">
+      <div className="divide-y divide-gray-50 dark:divide-gray-700">
         {entries.map((e) => {
           const typeLabel = TYPES.find((t) => t.value === e.type)?.label ?? e.type
           return (
             <div key={e.id} className="px-4 py-3 flex items-center justify-between group">
               <div>
-                <p className="text-sm font-medium text-gray-800">{typeLabel}{e.description ? ` — ${e.description}` : ''}</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{typeLabel}{e.description ? ` — ${e.description}` : ''}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   Bruto: {formatCurrency(e.grossAmount)} · Dízimo: {formatCurrency(e.tithe)} · Oferta: {formatCurrency(e.offering)}
                 </p>
               </div>
@@ -154,13 +154,13 @@ export function ExtraordinarySection({ monthKey, disabled }: Props) {
       </div>
 
       {entries.length === 0 && !adding && (
-        <p className="px-4 py-3 text-sm text-gray-400 italic">Nenhuma renda extraordinária este mês.</p>
+        <p className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500 italic">Nenhuma renda extraordinária este mês.</p>
       )}
 
       {adding && <div className="p-4"><AddEntryForm monthKey={monthKey} onDone={() => setAdding(false)} /></div>}
 
       {!disabled && !adding && (
-        <div className="px-4 py-2.5 border-t border-gray-50">
+        <div className="px-4 py-2.5 border-t border-gray-50 dark:border-gray-700">
           <button
             onClick={() => setAdding(true)}
             className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-medium cursor-pointer"

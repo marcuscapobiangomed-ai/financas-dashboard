@@ -10,10 +10,10 @@ export function QuickEntry() {
     <div className="max-w-lg mx-auto flex flex-col gap-6">
       <div className="flex items-center gap-2">
         <Zap size={20} className="text-indigo-600" />
-        <h1 className="text-xl font-bold text-gray-900">Lançamento Rápido</h1>
+        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Lançamento Rápido</h1>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
         <TransactionForm showSaveAndNew />
       </div>
 

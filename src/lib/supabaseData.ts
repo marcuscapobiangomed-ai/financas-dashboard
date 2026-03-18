@@ -40,19 +40,19 @@ export async function fetchTransactions(userId: string): Promise<Transaction[]> 
 export async function upsertTransaction(userId: string, t: Transaction): Promise<void> {
   const row = { ...toSnake(t as unknown as Record<string, unknown>), user_id: userId }
   const { error } = await supabase.from('transactions').upsert(row, { onConflict: 'id' })
-  if (error) console.error('upsertTransaction error:', error)
+  if (error) { console.error('upsertTransaction error:', error); throw error }
 }
 
 export async function bulkUpsertTransactions(userId: string, txs: Transaction[]): Promise<void> {
   if (txs.length === 0) return
   const rows = txs.map((t) => ({ ...toSnake(t as unknown as Record<string, unknown>), user_id: userId }))
   const { error } = await supabase.from('transactions').upsert(rows, { onConflict: 'id' })
-  if (error) console.error('bulkUpsertTransactions error:', error)
+  if (error) { console.error('bulkUpsertTransactions error:', error); throw error }
 }
 
 export async function deleteTransactionRemote(id: string): Promise<void> {
   const { error } = await supabase.from('transactions').delete().eq('id', id)
-  if (error) console.error('deleteTransaction error:', error)
+  if (error) { console.error('deleteTransaction error:', error); throw error }
 }
 
 // ── Recurring Templates ────────────────────────────────────────────────────
@@ -69,12 +69,12 @@ export async function fetchRecurringTemplates(userId: string): Promise<Recurring
 export async function upsertRecurringTemplate(userId: string, t: RecurringTemplate): Promise<void> {
   const row = { ...toSnake(t as unknown as Record<string, unknown>), user_id: userId }
   const { error } = await supabase.from('recurring_templates').upsert(row, { onConflict: 'id' })
-  if (error) console.error('upsertRecurringTemplate error:', error)
+  if (error) { console.error('upsertRecurringTemplate error:', error); throw error }
 }
 
 export async function deleteRecurringTemplateRemote(id: string): Promise<void> {
   const { error } = await supabase.from('recurring_templates').delete().eq('id', id)
-  if (error) console.error('deleteRecurringTemplate error:', error)
+  if (error) { console.error('deleteRecurringTemplate error:', error); throw error }
 }
 
 // ── Extraordinary Entries ──────────────────────────────────────────────────
@@ -91,12 +91,12 @@ export async function fetchExtraordinaryEntries(userId: string): Promise<Extraor
 export async function upsertExtraordinaryEntry(userId: string, e: ExtraordinaryEntry): Promise<void> {
   const row = { ...toSnake(e as unknown as Record<string, unknown>), user_id: userId }
   const { error } = await supabase.from('extraordinary_entries').upsert(row, { onConflict: 'id' })
-  if (error) console.error('upsertExtraordinaryEntry error:', error)
+  if (error) { console.error('upsertExtraordinaryEntry error:', error); throw error }
 }
 
 export async function deleteExtraordinaryEntryRemote(id: string): Promise<void> {
   const { error } = await supabase.from('extraordinary_entries').delete().eq('id', id)
-  if (error) console.error('deleteExtraordinaryEntry error:', error)
+  if (error) { console.error('deleteExtraordinaryEntry error:', error); throw error }
 }
 
 // ── Investments ────────────────────────────────────────────────────────────
@@ -113,12 +113,12 @@ export async function fetchInvestments(userId: string): Promise<Investment[]> {
 export async function upsertInvestment(userId: string, inv: Investment): Promise<void> {
   const row = { ...toSnake(inv as unknown as Record<string, unknown>), user_id: userId }
   const { error } = await supabase.from('investments').upsert(row, { onConflict: 'id' })
-  if (error) console.error('upsertInvestment error:', error)
+  if (error) { console.error('upsertInvestment error:', error); throw error }
 }
 
 export async function deleteInvestmentRemote(id: string): Promise<void> {
   const { error } = await supabase.from('investments').delete().eq('id', id)
-  if (error) console.error('deleteInvestment error:', error)
+  if (error) { console.error('deleteInvestment error:', error); throw error }
 }
 
 // ── Month Settings ─────────────────────────────────────────────────────────
@@ -151,7 +151,7 @@ export async function upsertMonthSettings(userId: string, monthKey: string, sett
     savings_goal: settings.savingsGoal ?? null,
   }
   const { error } = await supabase.from('month_settings').upsert(row, { onConflict: 'user_id,month_key' })
-  if (error) console.error('upsertMonthSettings error:', error)
+  if (error) { console.error('upsertMonthSettings error:', error); throw error }
 }
 
 // ── User Settings (AppSettings) ────────────────────────────────────────────
@@ -175,6 +175,7 @@ export async function fetchUserSettings(userId: string): Promise<AppSettings> {
     initialBalance: Number(data.initial_balance),
     cdiRateAnnual: Number(data.cdi_rate_annual ?? 14.15),
     ipcaRateAnnual: Number(data.ipca_rate_annual ?? 5.0),
+    notificationsEnabled: data.notifications_enabled ?? false,
   }
 }
 
@@ -191,9 +192,10 @@ export async function upsertUserSettings(userId: string, settings: AppSettings):
     initial_balance: settings.initialBalance,
     cdi_rate_annual: settings.cdiRateAnnual,
     ipca_rate_annual: settings.ipcaRateAnnual,
+    notifications_enabled: settings.notificationsEnabled ?? false,
   }
   const { error } = await supabase.from('user_settings').upsert(row, { onConflict: 'user_id' })
-  if (error) console.error('upsertUserSettings error:', error)
+  if (error) { console.error('upsertUserSettings error:', error); throw error }
 }
 
 // ── Bulk operations ────────────────────────────────────────────────────────
@@ -237,12 +239,12 @@ export async function bulkUpdateTransactions(userId: string, txs: Transaction[])
   if (txs.length === 0) return
   const rows = txs.map((t) => ({ ...toSnake(t as unknown as Record<string, unknown>), user_id: userId }))
   const { error } = await supabase.from('transactions').upsert(rows, { onConflict: 'id' })
-  if (error) console.error('bulkUpdateTransactions error:', error)
+  if (error) { console.error('bulkUpdateTransactions error:', error); throw error }
 }
 
 export async function bulkUpdateExtraordinaryEntries(userId: string, entries: ExtraordinaryEntry[]): Promise<void> {
   if (entries.length === 0) return
   const rows = entries.map((e) => ({ ...toSnake(e as unknown as Record<string, unknown>), user_id: userId }))
   const { error } = await supabase.from('extraordinary_entries').upsert(rows, { onConflict: 'id' })
-  if (error) console.error('bulkUpdateExtraordinaryEntries error:', error)
+  if (error) { console.error('bulkUpdateExtraordinaryEntries error:', error); throw error }
 }

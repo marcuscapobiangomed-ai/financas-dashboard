@@ -115,7 +115,7 @@ export function useAnalytics(monthKey?: string) {
         id: 'trend-up',
         type: 'warning',
         title: `${c.label} subiu ${c.trendPercent.toFixed(0)}%`,
-        description: `Comparado ao mês anterior, gastos com ${c.label} aumentaram ${formatCurrency(Math.abs(c.total - (c.total / (1 + c.trendPercent / 100))))}.`,
+        description: `Comparado ao mês anterior, gastos com ${c.label} aumentaram ${formatCurrency(c.trendPercent !== -100 ? c.total * c.trendPercent / (100 + c.trendPercent) : c.total)}.`,
         category: c.category,
       })
     }

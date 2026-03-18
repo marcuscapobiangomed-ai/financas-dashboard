@@ -3,28 +3,28 @@ import { SpendingInsight } from '../../types/analytics'
 
 const configs = {
   warning: {
-    bg: 'bg-red-50 border-red-200',
+    bg: 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800',
     icon: <AlertTriangle size={15} className="text-red-500 shrink-0" />,
-    titleColor: 'text-red-800',
-    textColor: 'text-red-700',
+    titleColor: 'text-red-800 dark:text-red-300',
+    textColor: 'text-red-700 dark:text-red-400',
   },
   success: {
-    bg: 'bg-emerald-50 border-emerald-200',
+    bg: 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800',
     icon: <CheckCircle2 size={15} className="text-emerald-500 shrink-0" />,
-    titleColor: 'text-emerald-800',
-    textColor: 'text-emerald-700',
+    titleColor: 'text-emerald-800 dark:text-emerald-300',
+    textColor: 'text-emerald-700 dark:text-emerald-400',
   },
   info: {
-    bg: 'bg-blue-50 border-blue-200',
+    bg: 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800',
     icon: <Info size={15} className="text-blue-500 shrink-0" />,
-    titleColor: 'text-blue-800',
-    textColor: 'text-blue-700',
+    titleColor: 'text-blue-800 dark:text-blue-300',
+    textColor: 'text-blue-700 dark:text-blue-400',
   },
   tip: {
-    bg: 'bg-violet-50 border-violet-200',
+    bg: 'bg-violet-50 dark:bg-violet-900/30 border-violet-200 dark:border-violet-800',
     icon: <Lightbulb size={15} className="text-violet-500 shrink-0" />,
-    titleColor: 'text-violet-800',
-    textColor: 'text-violet-700',
+    titleColor: 'text-violet-800 dark:text-violet-300',
+    textColor: 'text-violet-700 dark:text-violet-400',
   },
 }
 

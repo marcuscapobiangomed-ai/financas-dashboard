@@ -142,6 +142,7 @@ export function Recurring() {
       endMonth = addMonths(form.startMonth, total - 1)
     } else {
       endMonth = form.endMonth || undefined
+      if (endMonth && endMonth < form.startMonth) return
     }
 
     const payload = {
@@ -192,7 +193,7 @@ export function Recurring() {
     )
 
     return (
-      <div className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${t.isActive ? 'bg-white border-gray-100' : 'bg-gray-50 border-gray-100 opacity-60'}`}>
+      <div className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${t.isActive ? 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700' : 'bg-gray-50 dark:bg-gray-700 border-gray-100 dark:border-gray-700 opacity-60'}`}>
         {/* category dot */}
         <span
           className="w-2 h-2 rounded-full shrink-0"
@@ -202,60 +203,60 @@ export function Recurring() {
         {/* info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium text-gray-800 truncate">{t.description}</span>
+            <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{t.description}</span>
             {prog.done && (
-              <span className="inline-flex items-center gap-1 text-xs text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-1 text-xs text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded-full">
                 <CheckCircle2 size={10} /> Concluída
               </span>
             )}
             {alreadyApplied && (
-              <span className="text-xs text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded-full">
+              <span className="text-xs text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded-full">
                 Aplicado {formatMonthKey(currentMonthKey)}
               </span>
             )}
           </div>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            <span className="text-xs text-gray-500">{sectionLabels[t.section] ?? t.section}</span>
-            <span className="text-xs text-gray-300">·</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">{sectionLabels[t.section] ?? t.section}</span>
+            <span className="text-xs text-gray-300 dark:text-gray-600">·</span>
             <span className="text-xs" style={{ color: meta.color }}>{meta.label}</span>
             {t.installmentTotal && (
               <>
-                <span className="text-xs text-gray-300">·</span>
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-gray-300 dark:text-gray-600">·</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
                   {prog.current}/{t.installmentTotal} parcelas
                 </span>
               </>
             )}
             {!t.installmentTotal && t.endMonth && (
               <>
-                <span className="text-xs text-gray-300">·</span>
-                <span className="text-xs text-gray-500">até {formatMonthKey(t.endMonth)}</span>
+                <span className="text-xs text-gray-300 dark:text-gray-600">·</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">até {formatMonthKey(t.endMonth)}</span>
               </>
             )}
           </div>
         </div>
 
         {/* amount */}
-        <span className="text-sm font-semibold text-gray-800 shrink-0">{fmt(t.amount)}</span>
+        <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 shrink-0">{fmt(t.amount)}</span>
 
         {/* actions */}
         <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => handleToggle(t)}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 cursor-pointer transition-colors"
+            className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 cursor-pointer transition-colors"
             title={t.isActive ? 'Pausar' : 'Ativar'}
           >
             {t.isActive ? <Pause size={13} /> : <Play size={13} />}
           </button>
           <button
             onClick={() => openEdit(t)}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 cursor-pointer transition-colors"
+            className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 cursor-pointer transition-colors"
           >
             <Pencil size={13} />
           </button>
           <button
             onClick={() => handleDelete(t.id, t.description)}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
+            className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 cursor-pointer transition-colors"
           >
             <Trash2 size={13} />
           </button>
@@ -272,7 +273,7 @@ export function Recurring() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Repeat size={20} className="text-indigo-600" />
-          <h1 className="text-xl font-bold text-gray-900">Recorrentes</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Recorrentes</h1>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="secondary" onClick={handleApply}>
@@ -285,24 +286,24 @@ export function Recurring() {
       </div>
 
       {applyMsg && (
-        <p className="text-sm text-emerald-700 bg-emerald-50 rounded-lg px-4 py-2">{applyMsg}</p>
+        <p className="text-sm text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg px-4 py-2">{applyMsg}</p>
       )}
 
       {recurringTemplates.length === 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center">
-          <Repeat size={32} className="text-gray-300 mx-auto mb-3" />
-          <p className="text-sm text-gray-500">Nenhum lançamento recorrente cadastrado.</p>
-          <p className="text-xs text-gray-400 mt-1">Adicione gastos fixos mensais ou parcelas para aplicá-los automaticamente.</p>
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-10 text-center">
+          <Repeat size={32} className="text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">Nenhum lançamento recorrente cadastrado.</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Adicione gastos fixos mensais ou parcelas para aplicá-los automaticamente.</p>
         </div>
       )}
 
       {/* Fixos */}
       {fixos.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
           <div className="flex items-center gap-2 mb-3">
             <Repeat size={14} className="text-indigo-500" />
-            <h2 className="text-sm font-semibold text-gray-700">Gastos Fixos</h2>
-            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{fixos.length}</span>
+            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Gastos Fixos</h2>
+            <span className="text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">{fixos.length}</span>
           </div>
           <div className="flex flex-col gap-2">
             {fixos.map((t) => <TemplateRow key={t.id} t={t} />)}
@@ -312,11 +313,11 @@ export function Recurring() {
 
       {/* Parcelas */}
       {parcelas.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
           <div className="flex items-center gap-2 mb-3">
             <CreditCard size={14} className="text-indigo-500" />
-            <h2 className="text-sm font-semibold text-gray-700">Parcelas</h2>
-            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{parcelas.length}</span>
+            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Parcelas</h2>
+            <span className="text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">{parcelas.length}</span>
           </div>
           <div className="flex flex-col gap-2">
             {parcelas.map((t) => <TemplateRow key={t.id} t={t} />)}
@@ -333,7 +334,7 @@ export function Recurring() {
         <div className="flex flex-col gap-4">
           {/* tipo */}
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-2">Tipo</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Tipo</label>
             <div className="flex gap-2">
               {(['fixo', 'parcela'] as FormMode[]).map((m) => (
                 <button
@@ -342,14 +343,14 @@ export function Recurring() {
                   className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${
                     form.mode === m
                       ? 'bg-indigo-600 text-white border-indigo-600'
-                      : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
+                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-indigo-300'
                   }`}
                 >
                   {m === 'fixo' ? 'Gasto Fixo' : 'Parcelado'}
                 </button>
               ))}
             </div>
-            <p className="text-xs text-gray-400 mt-1.5">
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
               {form.mode === 'fixo'
                 ? 'Repete todo mês indefinidamente (ex: aluguel, plano de saúde, academia).'
                 : 'Repete um número fixo de vezes com contador automático (ex: TV 12x, curso 6x).'}
@@ -394,10 +395,10 @@ export function Recurring() {
           </Select>
 
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">Mês de início</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Mês de início</label>
             <input
               type="month"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100"
+              className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 dark:bg-gray-800 dark:text-gray-100"
               value={form.startMonth}
               onChange={(e) => setForm((f) => ({ ...f, startMonth: e.target.value }))}
             />
@@ -417,10 +418,10 @@ export function Recurring() {
 
           {form.mode === 'fixo' && (
             <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">Mês de encerramento (opcional)</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Mês de encerramento (opcional)</label>
               <input
                 type="month"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100"
+                className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 dark:bg-gray-800 dark:text-gray-100"
                 value={form.endMonth}
                 onChange={(e) => setForm((f) => ({ ...f, endMonth: e.target.value }))}
               />
@@ -428,7 +429,7 @@ export function Recurring() {
           )}
 
           {form.mode === 'parcela' && form.startMonth && form.installmentTotal && (
-            <p className="text-xs text-indigo-600 bg-indigo-50 px-3 py-2 rounded-lg">
+            <p className="text-xs text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-2 rounded-lg">
               De {formatMonthKey(form.startMonth)} até {formatMonthKey(addMonths(form.startMonth, parseInt(form.installmentTotal || '0') - 1))}
               {' '}· Total: {fmt((parseFloat(form.amount) || 0) * parseInt(form.installmentTotal || '0'))}
             </p>

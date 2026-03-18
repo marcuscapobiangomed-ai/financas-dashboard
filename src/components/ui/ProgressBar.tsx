@@ -17,7 +17,7 @@ export function ProgressBar({ value, showLabel, height = 'sm', alertThreshold = 
     ? 'bg-yellow-400'
     : 'bg-emerald-500'
 
-  const trackColor = isOver ? 'bg-red-100' : 'bg-gray-100'
+  const trackColor = isOver ? 'bg-red-100 dark:bg-red-900/30' : 'bg-gray-100 dark:bg-gray-700'
 
   return (
     <div className="flex items-center gap-2">
@@ -28,7 +28,7 @@ export function ProgressBar({ value, showLabel, height = 'sm', alertThreshold = 
         />
       </div>
       {showLabel && (
-        <span className={`text-xs font-medium min-w-[36px] text-right ${isOver ? 'text-red-600' : isWarning ? 'text-yellow-600' : 'text-gray-500'}`}>
+        <span className={`text-xs font-medium min-w-[36px] text-right ${isOver ? 'text-red-600' : isWarning ? 'text-yellow-600' : 'text-gray-500 dark:text-gray-400'}`}>
           {value.toFixed(0)}%
         </span>
       )}

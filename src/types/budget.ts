@@ -36,4 +36,6 @@ export interface AppSettings {
   initialBalance: number  // saldo antes de começar a usar o app
   cdiRateAnnual: number   // taxa CDI anual, ex: 14.15
   ipcaRateAnnual: number  // taxa IPCA anual, ex: 5.0
+  ratesLastUpdated?: string  // ISO date of last BCB rate fetch
+  notificationsEnabled?: boolean  // budget alert notifications
 }

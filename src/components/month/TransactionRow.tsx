@@ -40,11 +40,11 @@ export function TransactionRow({ transaction: t, disabled }: TransactionRowProps
   if (editing) {
     const errorClass = hasError ? 'border-red-400 focus:ring-red-100' : 'border-indigo-300 focus:ring-indigo-200'
     return (
-      <tr className={hasError ? 'bg-red-50' : 'bg-indigo-50'}>
+      <tr className={hasError ? 'bg-red-50 dark:bg-red-900/30' : 'bg-indigo-50 dark:bg-indigo-900/30'}>
         <td className="px-3 py-2">
           <input
             autoFocus
-            className={`w-full border rounded px-2 py-1 text-sm outline-none focus:ring-2 ${errorClass}`}
+            className={`w-full border rounded px-2 py-1 text-sm outline-none focus:ring-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${errorClass}`}
             value={desc}
             onChange={(e) => { setDesc(e.target.value); setHasError(false) }}
             onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') cancel() }}
@@ -52,7 +52,7 @@ export function TransactionRow({ transaction: t, disabled }: TransactionRowProps
         </td>
         <td className="px-3 py-2 w-32">
           <input
-            className={`w-full border rounded px-2 py-1 text-sm text-right outline-none focus:ring-2 ${errorClass}`}
+            className={`w-full border rounded px-2 py-1 text-sm text-right outline-none focus:ring-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${errorClass}`}
             value={amount}
             type="number"
             step="0.01"
@@ -65,7 +65,7 @@ export function TransactionRow({ transaction: t, disabled }: TransactionRowProps
             <button onClick={save} className="p-1 rounded text-emerald-600 hover:bg-emerald-100 cursor-pointer">
               <Check size={14} />
             </button>
-            <button onClick={cancel} className="p-1 rounded text-gray-400 hover:bg-gray-100 cursor-pointer">
+            <button onClick={cancel} className="p-1 rounded text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
               <X size={14} />
             </button>
           </div>
@@ -75,29 +75,29 @@ export function TransactionRow({ transaction: t, disabled }: TransactionRowProps
   }
 
   return (
-    <tr className="hover:bg-gray-50 group">
+    <tr className="hover:bg-gray-50 dark:hover:bg-gray-700 group">
       <td className="px-3 py-2.5">
         <div className="flex items-center gap-2">
           <span
             className="w-2 h-2 rounded-full shrink-0"
             style={{ backgroundColor: meta?.color ?? '#6b7280' }}
           />
-          <span className="text-sm text-gray-800">{t.description}</span>
+          <span className="text-sm text-gray-800 dark:text-gray-200">{t.description}</span>
           {t.note && (
-            <span className="text-xs text-gray-400 truncate max-w-[120px]">{t.note}</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500 truncate max-w-[120px]">{t.note}</span>
           )}
           {t.isRecurring && (
-            <span className="text-xs bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded">recorrente</span>
+            <span className="text-xs bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 px-1.5 py-0.5 rounded">recorrente</span>
           )}
           {t.installmentTotal && (
-            <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+            <span className="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded">
               {t.installmentCurrent}/{t.installmentTotal}
             </span>
           )}
         </div>
       </td>
       <td className="px-3 py-2.5 text-right">
-        <span className={`text-sm font-semibold ${t.type === 'income' ? 'text-emerald-600' : 'text-gray-800'}`}>
+        <span className={`text-sm font-semibold ${t.type === 'income' ? 'text-emerald-600' : 'text-gray-800 dark:text-gray-200'}`}>
           {t.type === 'income' ? '+' : ''}{formatCurrency(t.amount)}
         </span>
       </td>
@@ -106,13 +106,13 @@ export function TransactionRow({ transaction: t, disabled }: TransactionRowProps
           <div className="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               onClick={() => setEditing(true)}
-              className="p-1 rounded text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 cursor-pointer"
+              className="p-1 rounded text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 cursor-pointer"
             >
               <Pencil size={12} />
             </button>
             <button
               onClick={() => { if (window.confirm(`Excluir "${t.description}"?`)) deleteTransaction(t.id) }}
-              className="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer"
+              className="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 cursor-pointer"
             >
               <Trash2 size={12} />
             </button>

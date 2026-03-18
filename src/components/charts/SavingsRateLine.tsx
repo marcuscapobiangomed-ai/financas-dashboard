@@ -32,7 +32,10 @@ export function SavingsRateLine({ fromMonthKey }: { fromMonthKey?: string }) {
           axisLine={false}
           tickLine={false}
           width={40}
-          domain={[0, 100]}
+          domain={[
+            (dataMin: number) => Math.min(0, Math.floor(dataMin / 10) * 10),
+            (dataMax: number) => Math.max(100, Math.ceil(dataMax / 10) * 10),
+          ]}
         />
         <Tooltip
           formatter={(v) => [`${Number(v).toFixed(1)}%`, 'Taxa de Poupança']}

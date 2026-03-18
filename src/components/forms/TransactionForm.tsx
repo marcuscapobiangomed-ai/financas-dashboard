@@ -29,6 +29,7 @@ export function TransactionForm({
 }: TransactionFormProps) {
   const addTransaction = useFinanceStore((s) => s.addTransaction)
   const addInstallmentTransactions = useFinanceStore((s) => s.addInstallmentTransactions)
+  const addRecurringTemplate = useFinanceStore((s) => s.addRecurringTemplate)
   const updateTransaction = useFinanceStore((s) => s.updateTransaction)
   const getDescriptionSuggestions = useFinanceStore((s) => s.getDescriptionSuggestions)
   const currentMonthKey = useFinanceStore((s) => s.currentMonthKey)
@@ -48,7 +49,10 @@ export function TransactionForm({
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [isInstallment, setIsInstallment] = useState(false)
   const [installmentCount, setInstallmentCount] = useState('2')
+  const [isRecurring, setIsRecurring] = useState(false)
+  const [recurringEndMonth, setRecurringEndMonth] = useState('')
   const isCardSection = cardSectionIds.includes(section)
+  const isExpenseSection = section !== 'entradas' && section !== 'extraordinario'
   const amountRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -57,7 +61,13 @@ export function TransactionForm({
 
   useEffect(() => {
     if (!isCardSection) setIsInstallment(false)
-  }, [isCardSection])
+    if (!isExpenseSection) setIsRecurring(false)
+    // Reset category if current one is not available in the new section
+    const available = sectionCategories[section] ?? Object.values(Category)
+    if (!available.includes(category)) {
+      setCategory(available[0])
+    }
+  }, [section, isCardSection, isExpenseSection, sectionCategories, category])
 
   useEffect(() => {
     if (description.length >= 2) {
@@ -117,6 +127,28 @@ export function TransactionForm({
         },
         parseInt(installmentCount)
       )
+    } else if (isRecurring && isExpenseSection && !initial?.id) {
+      const templateId = addRecurringTemplate({
+        description: description.trim(),
+        amount: num,
+        category,
+        section,
+        isActive: true,
+        startMonth: derivedMonthKey,
+        endMonth: recurringEndMonth || undefined,
+      })
+      addTransaction({
+        description: description.trim(),
+        amount: num,
+        section,
+        category,
+        date,
+        type: 'expense',
+        monthKey: derivedMonthKey,
+        isRecurring: true,
+        recurringId: templateId,
+        note: note.trim() || undefined,
+      })
     } else {
       addTransaction({
         description: description.trim(),
@@ -136,6 +168,8 @@ export function TransactionForm({
       setNote('')
       setIsInstallment(false)
       setInstallmentCount('2')
+      setIsRecurring(false)
+      setRecurringEndMonth('')
       amountRef.current?.focus()
     } else {
       onSave?.()
@@ -149,7 +183,7 @@ export function TransactionForm({
     >
       {/* Section Buttons */}
       <div>
-        <label className="text-sm font-medium text-gray-700 block mb-2">Seção</label>
+        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Seção</label>
         <div className="flex flex-wrap gap-1.5">
           {sectionOrder.filter((s) => s !== 'extraordinario').map((s) => (
             <button
@@ -159,7 +193,7 @@ export function TransactionForm({
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                 section === s
                   ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
               {sectionLabels[s]}
@@ -195,12 +229,12 @@ export function TransactionForm({
           autoComplete="off"
         />
         {showSuggestions && suggestions.length > 0 && (
-          <div className="absolute top-full left-0 right-0 z-20 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 overflow-hidden">
+          <div className="absolute top-full left-0 right-0 z-20 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg mt-1 overflow-hidden">
             {suggestions.map((s) => (
               <button
                 key={s}
                 type="button"
-                className="w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                className="w-full text-left px-3 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-700 dark:hover:text-indigo-400 transition-colors"
                 onMouseDown={() => setDescription(s)}
               >
                 {s}
@@ -240,7 +274,7 @@ export function TransactionForm({
               onChange={(e) => setIsInstallment(e.target.checked)}
               className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
             />
-            <span className="text-sm text-gray-700">Parcelado</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300">Parcelado</span>
           </label>
           {isInstallment && (
             <div className="flex items-center gap-3">
@@ -260,6 +294,37 @@ export function TransactionForm({
                   {((parseFloat(amount.replace(',', '.')) || 0) * parseInt(installmentCount || '0')).toFixed(2)}
                 </p>
               )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Recurring toggle — expense sections, not installment, new transactions */}
+      {isExpenseSection && !isInstallment && !initial?.id && (
+        <div className="flex flex-col gap-2">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isRecurring}
+              onChange={(e) => setIsRecurring(e.target.checked)}
+              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-300">Recorrente</span>
+          </label>
+          {isRecurring && (
+            <div>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Até quando? (opcional)</label>
+              <input
+                type="month"
+                className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900"
+                value={recurringEndMonth}
+                onChange={(e) => setRecurringEndMonth(e.target.value)}
+              />
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                {recurringEndMonth
+                  ? `Repete todo mês até ${recurringEndMonth}`
+                  : 'Repete todo mês indefinidamente'}
+              </p>
             </div>
           )}
         </div>

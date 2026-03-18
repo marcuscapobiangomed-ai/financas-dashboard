@@ -25,14 +25,14 @@ export function SectionTable({ summary, monthKey, disabled, defaultOpen = true }
   const limitColor = isOverLimit ? 'text-red-600' : percentUsed >= appSettings.alertThresholdPercent ? 'text-yellow-600' : 'text-gray-500'
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
       {/* Header */}
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer"
+        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
       >
         {open ? <ChevronDown size={15} className="text-gray-400 shrink-0" /> : <ChevronRight size={15} className="text-gray-400 shrink-0" />}
-        <span className="text-sm font-semibold text-gray-800 flex-1 text-left">{label}</span>
+        <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex-1 text-left">{label}</span>
 
         <div className="flex items-center gap-3">
           {limit > 0 && (
@@ -40,7 +40,7 @@ export function SectionTable({ summary, monthKey, disabled, defaultOpen = true }
               <ProgressBar value={percentUsed} alertThreshold={appSettings.alertThresholdPercent} />
             </div>
           )}
-          <span className={`text-sm font-bold ${isOverLimit ? 'text-red-600' : 'text-gray-800'}`}>
+          <span className={`text-sm font-bold ${isOverLimit ? 'text-red-600' : 'text-gray-800 dark:text-gray-200'}`}>
             {formatCurrency(total)}
           </span>
           {limit > 0 && (
@@ -56,20 +56,20 @@ export function SectionTable({ summary, monthKey, disabled, defaultOpen = true }
         <>
           {transactions.length > 0 ? (
             <table className="w-full">
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
                 {transactions.map((t) => (
                   <TransactionRow key={t.id} transaction={t} disabled={disabled} />
                 ))}
               </tbody>
             </table>
           ) : (
-            <div className="px-4 py-3 text-sm text-gray-400 italic">
+            <div className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500 italic">
               Nenhum lançamento nesta seção.
             </div>
           )}
 
           {!disabled && (
-            <div className="px-4 py-2.5 border-t border-gray-50">
+            <div className="px-4 py-2.5 border-t border-gray-50 dark:border-gray-700">
               <button
                 onClick={() => setAddOpen(true)}
                 className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-medium cursor-pointer"

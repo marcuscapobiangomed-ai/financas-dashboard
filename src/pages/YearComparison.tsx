@@ -71,21 +71,21 @@ export function YearComparison() {
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <ArrowLeftRight size={20} className="text-indigo-600" />
-          <h1 className="text-xl font-bold text-gray-900">Comparativo Anual</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Comparativo Anual</h1>
         </div>
         <div className="flex items-center gap-2 ml-auto">
           <select
             value={year1}
             onChange={(e) => setYear1(Number(e.target.value))}
-            className="border border-gray-200 rounded-lg text-sm px-3 py-1.5 cursor-pointer"
+            className="border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm px-3 py-1.5 cursor-pointer"
           >
             {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
-          <span className="text-gray-400 text-sm">vs</span>
+          <span className="text-gray-400 dark:text-gray-500 text-sm">vs</span>
           <select
             value={year2}
             onChange={(e) => setYear2(Number(e.target.value))}
-            className="border border-gray-200 rounded-lg text-sm px-3 py-1.5 cursor-pointer"
+            className="border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg text-sm px-3 py-1.5 cursor-pointer"
           >
             {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
@@ -103,16 +103,16 @@ export function YearComparison() {
           const delta = a - b
           const better = (higher === 'better' && delta > 0) || (higher === 'worse' && delta < 0)
           return (
-            <div key={label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-              <p className="text-xs text-gray-500 mb-2">{label}</p>
+            <div key={label} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-4">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{label}</p>
               <div className="flex flex-col gap-1">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-medium text-gray-500">{year1}</span>
-                  <span className="text-sm font-bold text-gray-900">{format(a)}</span>
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{year1}</span>
+                  <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{format(a)}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-medium text-gray-400">{year2}</span>
-                  <span className="text-sm text-gray-500">{format(b)}</span>
+                  <span className="text-xs font-medium text-gray-400 dark:text-gray-500">{year2}</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{format(b)}</span>
                 </div>
                 {b !== 0 && (
                   <div className={`text-xs font-medium mt-1 ${better ? 'text-emerald-600' : 'text-red-600'}`}>
@@ -141,27 +141,27 @@ export function YearComparison() {
 
       {/* Per-category comparison table */}
       {categoryComparison.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <h3 className="text-sm font-semibold text-gray-700 px-5 pt-4 pb-2">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 px-5 pt-4 pb-2">
             Comparativo por Categoria
           </h3>
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-50">
+              <tr className="border-b border-gray-50 dark:border-gray-700">
                 <th className="text-left px-5 py-2 text-xs font-medium text-gray-400">Categoria</th>
                 <th className="text-right px-5 py-2 text-xs font-medium text-gray-400">{year1}</th>
                 <th className="text-right px-5 py-2 text-xs font-medium text-gray-400">{year2}</th>
                 <th className="text-right px-5 py-2 text-xs font-medium text-gray-400">Δ %</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
               {categoryComparison.map((c) => (
-                <tr key={c.category} className="hover:bg-gray-50">
-                  <td className="px-5 py-3 text-sm text-gray-800">{c.label}</td>
-                  <td className="px-5 py-3 text-sm font-semibold text-gray-900 text-right">
+                <tr key={c.category} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <td className="px-5 py-3 text-sm text-gray-800 dark:text-gray-200">{c.label}</td>
+                  <td className="px-5 py-3 text-sm font-semibold text-gray-900 dark:text-gray-100 text-right">
                     {formatCurrency(c.year1Total)}
                   </td>
-                  <td className="px-5 py-3 text-sm text-gray-500 text-right">
+                  <td className="px-5 py-3 text-sm text-gray-500 dark:text-gray-400 text-right">
                     {formatCurrency(c.year2Total)}
                   </td>
                   <td className="px-5 py-3 text-right">

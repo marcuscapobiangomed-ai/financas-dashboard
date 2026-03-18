@@ -19,7 +19,7 @@ export function Analytics() {
     <div className="flex flex-col gap-5">
       <div className="flex items-center gap-2">
         <BarChart2 size={20} className="text-indigo-600" />
-        <h1 className="text-xl font-bold text-gray-900">Analytics</h1>
+        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Analytics</h1>
       </div>
 
       {/* Insights */}
@@ -73,11 +73,11 @@ export function Analytics() {
 
       {/* Top categories table */}
       {categoryBreakdowns.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <h3 className="text-sm font-semibold text-gray-700 px-5 pt-4 pb-2">Ranking de Categorias (mês atual)</h3>
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 px-5 pt-4 pb-2">Ranking de Categorias (mês atual)</h3>
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-50">
+              <tr className="border-b border-gray-50 dark:border-gray-700">
                 <th className="text-left px-5 py-2 text-xs font-medium text-gray-400">Categoria</th>
                 <th className="text-right px-5 py-2 text-xs font-medium text-gray-400">Total</th>
                 <th className="text-right px-5 py-2 text-xs font-medium text-gray-400">%</th>
@@ -85,15 +85,15 @@ export function Analytics() {
                 <th className="text-right px-5 py-2 text-xs font-medium text-gray-400">Tendência</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
               {categoryBreakdowns.map((c) => (
-                <tr key={c.category} className="hover:bg-gray-50">
-                  <td className="px-5 py-3 text-sm text-gray-800">{c.label}</td>
-                  <td className="px-5 py-3 text-sm font-semibold text-gray-900 text-right">
+                <tr key={c.category} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <td className="px-5 py-3 text-sm text-gray-800 dark:text-gray-200">{c.label}</td>
+                  <td className="px-5 py-3 text-sm font-semibold text-gray-900 dark:text-gray-100 text-right">
                     R$ {c.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="px-5 py-3 text-sm text-gray-500 text-right">{c.percentage.toFixed(1)}%</td>
-                  <td className="px-5 py-3 text-sm text-gray-500 text-right">{formatCurrency(c.monthlyAvg)}</td>
+                  <td className="px-5 py-3 text-sm text-gray-500 dark:text-gray-400 text-right">{c.percentage.toFixed(1)}%</td>
+                  <td className="px-5 py-3 text-sm text-gray-500 dark:text-gray-400 text-right">{formatCurrency(c.monthlyAvg)}</td>
                   <td className="px-5 py-3 text-right">
                     <span className={`text-xs font-medium ${c.trend === 'up' ? 'text-red-600' : c.trend === 'down' ? 'text-emerald-600' : 'text-gray-400'}`}>
                       {c.trend === 'up' ? `▲ ${c.trendPercent.toFixed(0)}%` : c.trend === 'down' ? `▼ ${Math.abs(c.trendPercent).toFixed(0)}%` : '—'}

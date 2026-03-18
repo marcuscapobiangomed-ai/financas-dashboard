@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { TrendingUp, Plus, Pencil, Trash2, Play, Pause, Wallet, ShieldCheck, Settings2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { TrendingUp, Plus, Pencil, Trash2, Play, Pause, Wallet, ShieldCheck, Settings2, RefreshCw } from 'lucide-react'
 import { useFinanceStore } from '../store/useFinanceStore'
 import { Investment, InvestmentType } from '../types/investment'
 import { Button } from '../components/ui/Button'
@@ -73,12 +73,38 @@ export function Investments() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(blankForm())
   const [applyMsg, setApplyMsg] = useState('')
+  const fetchLatestRates = useFinanceStore((s) => s.fetchLatestRates)
+  const ratesFetching = useFinanceStore((s) => s.ratesFetching)
   const [editingRates, setEditingRates] = useState(false)
   const [tempCdi, setTempCdi] = useState('')
   const [tempIpca, setTempIpca] = useState('')
+  const [selicDisplay, setSelicDisplay] = useState<number | null>(null)
+  const [rateMsg, setRateMsg] = useState('')
 
   const cdiRate = appSettings.cdiRateAnnual ?? 14.15
   const ipcaRate = appSettings.ipcaRateAnnual ?? 5.0
+
+  // Auto-fetch rates if stale (>24h)
+  useEffect(() => {
+    const last = appSettings.ratesLastUpdated
+    if (!last || Date.now() - new Date(last).getTime() > 24 * 60 * 60 * 1000) {
+      fetchLatestRates().then((r) => {
+        if (r?.selic) setSelicDisplay(r.selic)
+      })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleRefreshRates() {
+    const r = await fetchLatestRates()
+    if (r) {
+      setRateMsg('Taxas atualizadas via Banco Central!')
+      if (r.selic) setSelicDisplay(r.selic)
+      setTimeout(() => setRateMsg(''), 3000)
+    } else {
+      setRateMsg('Erro ao buscar taxas do BCB.')
+      setTimeout(() => setRateMsg(''), 3000)
+    }
+  }
 
   // ── portfolio summary ───────────────────────────────────────────────────────
 
@@ -258,7 +284,7 @@ export function Investments() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <TrendingUp size={20} className="text-emerald-600" />
-          <h1 className="text-xl font-bold text-gray-900">Investimentos</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Investimentos</h1>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="secondary" onClick={handleApply}>
@@ -271,57 +297,75 @@ export function Investments() {
       </div>
 
       {applyMsg && (
-        <p className="text-sm bg-emerald-50 text-emerald-700 rounded-lg px-4 py-2">{applyMsg}</p>
+        <p className="text-sm bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-lg px-4 py-2">{applyMsg}</p>
       )}
 
       {/* CDI/IPCA rate banner */}
-      <div className="flex items-center gap-3 bg-indigo-50 rounded-xl border border-indigo-100 px-4 py-2.5">
-        <Settings2 size={14} className="text-indigo-500 shrink-0" />
+      <div className="flex items-center gap-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl border border-indigo-100 dark:border-indigo-800 px-4 py-2.5">
+        <Settings2 size={14} className="text-indigo-500 dark:text-indigo-400 shrink-0" />
         {editingRates ? (
           <div className="flex items-center gap-2 flex-1 flex-wrap">
-            <label className="text-xs text-indigo-700">CDI:</label>
+            <label className="text-xs text-indigo-700 dark:text-indigo-300">CDI:</label>
             <input
               type="number"
               step="0.01"
-              className="w-20 border border-indigo-200 rounded px-2 py-0.5 text-xs"
+              className="w-20 border border-indigo-200 dark:border-indigo-700 rounded px-2 py-0.5 text-xs dark:bg-gray-800 dark:text-gray-100"
               value={tempCdi}
               onChange={(e) => setTempCdi(e.target.value)}
             />
-            <span className="text-xs text-indigo-500">% a.a.</span>
-            <span className="text-indigo-300 mx-1">|</span>
-            <label className="text-xs text-indigo-700">IPCA:</label>
+            <span className="text-xs text-indigo-500 dark:text-indigo-400">% a.a.</span>
+            <span className="text-indigo-300 dark:text-indigo-600 mx-1">|</span>
+            <label className="text-xs text-indigo-700 dark:text-indigo-300">IPCA:</label>
             <input
               type="number"
               step="0.01"
-              className="w-20 border border-indigo-200 rounded px-2 py-0.5 text-xs"
+              className="w-20 border border-indigo-200 dark:border-indigo-700 rounded px-2 py-0.5 text-xs dark:bg-gray-800 dark:text-gray-100"
               value={tempIpca}
               onChange={(e) => setTempIpca(e.target.value)}
             />
-            <span className="text-xs text-indigo-500">% a.a.</span>
-            <button onClick={saveRates} className="text-xs text-indigo-600 font-semibold hover:underline ml-2 cursor-pointer">Salvar</button>
-            <button onClick={() => setEditingRates(false)} className="text-xs text-gray-400 hover:underline cursor-pointer">Cancelar</button>
+            <span className="text-xs text-indigo-500 dark:text-indigo-400">% a.a.</span>
+            <button onClick={saveRates} className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:underline ml-2 cursor-pointer">Salvar</button>
+            <button onClick={() => setEditingRates(false)} className="text-xs text-gray-400 dark:text-gray-500 hover:underline cursor-pointer">Cancelar</button>
           </div>
         ) : (
-          <div className="flex items-center gap-1 flex-1">
-            <span className="text-xs text-indigo-700 font-medium">CDI: {cdiRate.toFixed(2)}% a.a.</span>
-            <span className="text-indigo-300 mx-1">|</span>
-            <span className="text-xs text-indigo-700 font-medium">IPCA: {ipcaRate.toFixed(2)}% a.a.</span>
-            <button onClick={openEditRates} className="text-xs text-indigo-500 hover:text-indigo-700 ml-2 cursor-pointer">Editar</button>
+          <div className="flex items-center gap-1 flex-1 flex-wrap">
+            <span className="text-xs text-indigo-700 dark:text-indigo-300 font-medium">CDI: {cdiRate.toFixed(2)}%</span>
+            <span className="text-indigo-300 dark:text-indigo-600 mx-1">|</span>
+            <span className="text-xs text-indigo-700 dark:text-indigo-300 font-medium">IPCA: {ipcaRate.toFixed(2)}%</span>
+            {selicDisplay && (
+              <>
+                <span className="text-indigo-300 dark:text-indigo-600 mx-1">|</span>
+                <span className="text-xs text-indigo-700 dark:text-indigo-300 font-medium">Selic: {selicDisplay.toFixed(2)}%</span>
+              </>
+            )}
+            <button onClick={openEditRates} className="text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 ml-2 cursor-pointer">Editar</button>
+            <button
+              onClick={handleRefreshRates}
+              disabled={ratesFetching}
+              className="text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 ml-1 cursor-pointer disabled:opacity-50"
+              title="Atualizar taxas via Banco Central"
+            >
+              <RefreshCw size={12} className={ratesFetching ? 'animate-spin' : ''} />
+            </button>
           </div>
         )}
       </div>
+
+      {rateMsg && (
+        <p className={`text-xs px-4 py-2 rounded-lg ${rateMsg.includes('Erro') ? 'bg-red-50 dark:bg-red-900/30 text-red-600' : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600'}`}>{rateMsg}</p>
+      )}
 
       {/* portfolio summary */}
       {activeInvestments.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Total investido', value: fmt(totalPrincipal), color: 'text-gray-800' },
+            { label: 'Total investido', value: fmt(totalPrincipal), color: 'text-gray-800 dark:text-gray-200' },
             { label: 'Rend. mensal bruto', value: fmt(totalMonthlyYieldGross), color: 'text-emerald-600' },
             { label: 'Rend. mensal líquido', value: fmt(totalMonthlyNet), color: 'text-emerald-700' },
             { label: 'IR estimado/mês', value: fmt(totalMonthlyTax), color: 'text-red-500' },
           ].map(({ label, value, color }) => (
-            <div key={label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-              <p className="text-xs text-gray-500 mb-1">{label}</p>
+            <div key={label} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-4">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{label}</p>
               <p className={`text-base font-bold ${color}`}>{value}</p>
             </div>
           ))}
@@ -330,21 +374,21 @@ export function Investments() {
 
       {/* applied this month */}
       {appliedThisMonth.length > 0 && (
-        <div className="bg-emerald-50 rounded-xl border border-emerald-100 p-4">
+        <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-xl border border-emerald-100 dark:border-emerald-800 p-4">
           <div className="flex items-center gap-2 mb-2">
             <Wallet size={14} className="text-emerald-600" />
-            <span className="text-sm font-semibold text-emerald-700">Rendimentos de {formatMonthKey(currentMonthKey)}</span>
+            <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Rendimentos de {formatMonthKey(currentMonthKey)}</span>
           </div>
           <div className="flex flex-col gap-1">
             {appliedThisMonth.map((t) => (
               <div key={t.id} className="flex justify-between text-sm">
-                <span className="text-emerald-800">{t.description}</span>
-                <span className="font-semibold text-emerald-700">{fmt(t.amount)}</span>
+                <span className="text-emerald-800 dark:text-emerald-200">{t.description}</span>
+                <span className="font-semibold text-emerald-700 dark:text-emerald-300">{fmt(t.amount)}</span>
               </div>
             ))}
-            <div className="flex justify-between text-sm font-bold pt-1 mt-1 border-t border-emerald-200">
-              <span className="text-emerald-800">Total</span>
-              <span className="text-emerald-700">{fmt(appliedThisMonth.reduce((s, t) => s + t.amount, 0))}</span>
+            <div className="flex justify-between text-sm font-bold pt-1 mt-1 border-t border-emerald-200 dark:border-emerald-700">
+              <span className="text-emerald-800 dark:text-emerald-200">Total</span>
+              <span className="text-emerald-700 dark:text-emerald-300">{fmt(appliedThisMonth.reduce((s, t) => s + t.amount, 0))}</span>
             </div>
           </div>
         </div>
@@ -352,17 +396,17 @@ export function Investments() {
 
       {/* empty state */}
       {investments.length === 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center">
-          <TrendingUp size={32} className="text-gray-300 mx-auto mb-3" />
-          <p className="text-sm text-gray-500">Nenhum investimento cadastrado.</p>
-          <p className="text-xs text-gray-400 mt-1">Adicione suas aplicações para calcular os rendimentos automaticamente.</p>
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-10 text-center">
+          <TrendingUp size={32} className="text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">Nenhum investimento cadastrado.</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Adicione suas aplicações para calcular os rendimentos automaticamente.</p>
         </div>
       )}
 
       {/* investment list */}
       {investments.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">Carteira</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Carteira</h2>
           <div className="flex flex-col gap-3">
             {investments.map((inv) => {
               const proj = getInvProjection(inv)
@@ -372,46 +416,46 @@ export function Investments() {
               return (
                 <div
                   key={inv.id}
-                  className={`p-3 rounded-lg border transition-colors ${inv.isActive ? 'bg-white border-gray-100' : 'bg-gray-50 border-gray-100 opacity-60'}`}
+                  className={`p-3 rounded-lg border transition-colors ${inv.isActive ? 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700' : 'bg-gray-50 dark:bg-gray-700 border-gray-100 dark:border-gray-700 opacity-60'}`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0 mt-0.5">
                       <TrendingUp size={14} className="text-emerald-600" />
                     </div>
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <p className="text-sm font-medium text-gray-800">{inv.name}</p>
-                        <span className="text-[10px] font-semibold bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded">
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{inv.name}</p>
+                        <span className="text-[10px] font-semibold bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded">
                           {meta.label}
                         </span>
                         {tax.isTaxExempt && (
-                          <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-600 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                          <span className="text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 px-1.5 py-0.5 rounded flex items-center gap-0.5">
                             <ShieldCheck size={9} /> Isento IR
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
                         {getInvRateLabel(inv)} · {proj.annualRate.toFixed(2)}% a.a. · desde {formatMonthKey(inv.startMonth)}
                       </p>
-                      {inv.notes && <p className="text-xs text-gray-400 mt-0.5">{inv.notes}</p>}
+                      {inv.notes && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{inv.notes}</p>}
                     </div>
 
                     <div className="text-right shrink-0">
-                      <p className="text-sm font-semibold text-gray-800">{fmt(inv.principal)}</p>
+                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{fmt(inv.principal)}</p>
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         onClick={() => updateInvestment(inv.id, { isActive: !inv.isActive })}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 cursor-pointer transition-colors"
+                        className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 cursor-pointer transition-colors"
                         title={inv.isActive ? 'Pausar' : 'Ativar'}
                       >
                         {inv.isActive ? <Pause size={13} /> : <Play size={13} />}
                       </button>
                       <button
                         onClick={() => openEdit(inv)}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 cursor-pointer transition-colors"
+                        className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 cursor-pointer transition-colors"
                       >
                         <Pencil size={13} />
                       </button>
@@ -419,7 +463,7 @@ export function Investments() {
                         onClick={() => {
                           if (window.confirm(`Excluir "${inv.name}"?`)) deleteInvestment(inv.id)
                         }}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
+                        className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 cursor-pointer transition-colors"
                       >
                         <Trash2 size={13} />
                       </button>
@@ -427,13 +471,13 @@ export function Investments() {
                   </div>
 
                   {/* projections row */}
-                  <div className="mt-2 pt-2 border-t border-gray-50 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                  <div className="mt-2 pt-2 border-t border-gray-50 dark:border-gray-700 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                     <span className="text-emerald-600">+{fmt(proj.dailyAmount)}/dia</span>
                     <span className="text-emerald-600 font-semibold">+{fmt(proj.monthlyAmount)}/mês</span>
                     <span className="text-emerald-600">+{fmt(proj.annualAmount)}/ano</span>
                     {!tax.isTaxExempt && (
                       <>
-                        <span className="text-gray-300">|</span>
+                        <span className="text-gray-300 dark:text-gray-600">|</span>
                         <span className="text-red-400">IR: {getIRBracketLabel(tax.days)}</span>
                         <span className="text-emerald-700 font-semibold">Líq: {fmt(tax.netYield)}/mês</span>
                       </>
@@ -455,9 +499,9 @@ export function Investments() {
         <div className="flex flex-col gap-4">
           {/* Investment type selector */}
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">Tipo de investimento</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Tipo de investimento</label>
             <select
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100 bg-white"
+              className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 bg-white dark:bg-gray-800 dark:text-gray-100"
               value={form.investmentType}
               onChange={(e) => handleTypeChange(e.target.value as InvestmentType)}
             >
@@ -502,7 +546,7 @@ export function Investments() {
                 placeholder="Ex: 116"
               />
               {form.cdiPercent && (
-                <p className="text-xs text-indigo-500 mt-1">
+                <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-1">
                   {form.cdiPercent}% x CDI ({cdiRate.toFixed(2)}%) = {effectiveAnnualRate(parseFloat(form.cdiPercent) || 0, cdiRate).toFixed(2)}% a.a.
                   {' · '}{annualToMonthly(effectiveAnnualRate(parseFloat(form.cdiPercent) || 0, cdiRate)).toFixed(4)}% a.m.
                 </p>
@@ -511,11 +555,11 @@ export function Investments() {
           )}
 
           {form.investmentType === 'poupanca' && (
-            <div className="bg-gray-50 rounded-lg px-3 py-2">
-              <p className="text-xs text-gray-600">
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg px-3 py-2">
+              <p className="text-xs text-gray-600 dark:text-gray-400">
                 Rendimento calculado automaticamente: 70% da Selic
               </p>
-              <p className="text-xs text-indigo-500 mt-0.5">
+              <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-0.5">
                 = {poupancaAnnualRate(cdiRate).toFixed(2)}% a.a. · {annualToMonthly(poupancaAnnualRate(cdiRate)).toFixed(4)}% a.m.
               </p>
             </div>
@@ -533,7 +577,7 @@ export function Investments() {
                 placeholder="Ex: 6.5"
               />
               {form.ipcaPercent && (
-                <p className="text-xs text-indigo-500 mt-1">
+                <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-1">
                   IPCA ({ipcaRate.toFixed(2)}%) + {form.ipcaPercent}% = {effectiveAnnualRateIPCA(parseFloat(form.ipcaPercent) || 0, ipcaRate).toFixed(2)}% a.a.
                 </p>
               )}
@@ -562,8 +606,8 @@ export function Investments() {
 
           {/* Live preview */}
           {preview && (
-            <div className="bg-emerald-50 rounded-lg px-3 py-2.5 border border-emerald-100">
-              <p className="text-xs font-semibold text-emerald-700 mb-1">Projeção de rendimento bruto</p>
+            <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-lg px-3 py-2.5 border border-emerald-100 dark:border-emerald-800">
+              <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-1">Projeção de rendimento bruto</p>
               <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-emerald-600">
                 <span>Diário: <strong>{fmt(preview.dailyAmount)}</strong></span>
                 <span>Mensal: <strong>{fmt(preview.monthlyAmount)}</strong></span>
@@ -581,10 +625,10 @@ export function Investments() {
           )}
 
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">Início do rastreamento</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Início do rastreamento</label>
             <input
               type="month"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100"
+              className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 dark:bg-gray-800 dark:text-gray-100"
               value={form.startMonth}
               onChange={(e) => setForm((f) => ({ ...f, startMonth: e.target.value }))}
             />

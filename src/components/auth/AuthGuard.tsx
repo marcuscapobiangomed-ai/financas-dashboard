@@ -13,10 +13,10 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 size={32} className="text-indigo-600 animate-spin" />
-          <p className="text-sm text-gray-500">Carregando...</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Carregando...</p>
         </div>
       </div>
     )

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" fill="none">
+  <rect width="192" height="192" rx="40" fill="#4f46e5"/>
+  <g transform="translate(36,36) scale(5)">
+    <path d="M19 5c-1.867 0-3.627.785-4.873 2.17-.188-.047-.384-.078-.577-.106A5.002 5.002 0 0 0 9.5 4H9a7 7 0 0 0-7 7v.023a5.5 5.5 0 0 0 .387 2.003A2.5 2.5 0 0 0 4 17.5h.172a3 3 0 0 0 5.656 0h4.344a3 3 0 0 0 5.656 0H20a2.5 2.5 0 0 0 2.434-3.058A5.49 5.49 0 0 0 23 12v-2a5 5 0 0 0-4-4.9V5z" fill="white" opacity="0.9"/>
+  </g>
+  <text x="96" y="130" text-anchor="middle" font-family="system-ui" font-size="48" font-weight="bold" fill="white">$</text>
+</svg>

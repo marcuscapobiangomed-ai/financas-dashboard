@@ -39,10 +39,11 @@ export function effectiveAnnualRateIPCA(ipcaSpread: number, ipcaRateAnnual: numb
   return ((1 + ipcaRateAnnual / 100) * (1 + ipcaSpread / 100) - 1) * 100
 }
 
-/** Poupança: 70% da Selic quando Selic > 8.5% */
+/** Poupança: 70% da Selic quando Selic > 8.5%, senão 70% da Selic (teto menor) */
 export function poupancaAnnualRate(selicAnnual: number): number {
   if (selicAnnual > 8.5) return 0.70 * selicAnnual
-  return 6.17 + selicAnnual  // 0.5%/mês + TR (simplificado)
+  // Quando Selic ≤ 8.5%, rendimento = 70% da Selic (mesma regra na prática)
+  return 0.70 * selicAnnual
 }
 
 // ── Projections ────────────────────────────────────────────────────
@@ -89,7 +90,7 @@ export function daysSinceStartMonth(startMonth: string): number {
   const [y, m] = startMonth.split('-').map(Number)
   const start = new Date(y, m - 1, 1)
   const now = new Date()
-  return Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+  return Math.max(0, Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)))
 }
 
 export function netYieldAfterIR(

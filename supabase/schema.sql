@@ -94,6 +94,9 @@ CREATE TABLE investments (
   start_month text NOT NULL,
   is_active boolean DEFAULT true,
   notes text,
+  investment_type text DEFAULT 'manual',
+  cdi_percent numeric(8,4),
+  ipca_percent numeric(8,4),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -137,7 +140,9 @@ CREATE TABLE user_settings (
   dark_mode boolean NOT NULL DEFAULT false,
   alert_threshold_percent numeric(5,2) NOT NULL DEFAULT 80,
   card_sections jsonb NOT NULL DEFAULT '[{"id":"cartao_x","label":"Cartao X"},{"id":"cartao_y","label":"Cartao Y"}]',
-  initial_balance numeric(12,2) NOT NULL DEFAULT 0
+  initial_balance numeric(12,2) NOT NULL DEFAULT 0,
+  cdi_rate_annual numeric(8,4) NOT NULL DEFAULT 14.15,
+  ipca_rate_annual numeric(8,4) NOT NULL DEFAULT 5.0
 );
 
 ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;

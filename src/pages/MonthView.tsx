@@ -34,7 +34,7 @@ export function MonthView() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">{getMonthLabel(currentMonthKey)}</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{getMonthLabel(currentMonthKey)}</h1>
           {isClosed && <span className="text-xs text-red-600 font-medium">Mês fechado</span>}
         </div>
         <div className="flex gap-2">
@@ -80,13 +80,13 @@ export function MonthView() {
 
       {/* Month notes & savings goal */}
       {notesOpen && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col gap-3">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 flex flex-col gap-3">
           <div>
-            <label className="flex items-center gap-1.5 text-xs font-medium text-gray-500 mb-1">
+            <label className="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
               <StickyNote size={12} /> Notas do mês
             </label>
             <textarea
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100 resize-none"
+              className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 resize-none"
               rows={3}
               placeholder="Observações sobre este mês..."
               value={currentNotes}
@@ -94,7 +94,7 @@ export function MonthView() {
             />
           </div>
           <div className="max-w-xs">
-            <label className="flex items-center gap-1.5 text-xs font-medium text-gray-500 mb-1">
+            <label className="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
               <Target size={12} /> Meta de poupança deste mês (%)
             </label>
             <input
@@ -102,7 +102,7 @@ export function MonthView() {
               min="0"
               max="100"
               step="1"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100"
+              className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900"
               placeholder="Usar padrão do app"
               value={currentSavingsGoal ?? ''}
               onChange={(e) => handleSavingsGoalChange(e.target.value)}
@@ -128,21 +128,21 @@ export function MonthView() {
       </div>
 
       {/* Summary footer */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 sticky bottom-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 sticky bottom-4">
         <div className="flex flex-wrap gap-4 justify-between items-center">
           <div className="flex gap-6">
             <div>
-              <p className="text-xs text-gray-500">Receita</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Receita</p>
               <p className="text-base font-bold text-emerald-600">{formatCurrency(income + extraordinaryIncome)}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Despesas</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Despesas</p>
               <p className="text-base font-bold text-red-600">{formatCurrency(totalExpenses)}</p>
             </div>
           </div>
           <div className="text-right">
-            <p className="text-xs text-gray-500">Balanço do Mês</p>
-            <p className={`text-2xl font-bold ${(income + extraordinaryIncome - totalExpenses) >= 0 ? 'text-indigo-700' : 'text-red-600'}`}>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Balanço do Mês</p>
+            <p className={`text-2xl font-bold ${(income + extraordinaryIncome - totalExpenses) >= 0 ? 'text-indigo-700 dark:text-indigo-400' : 'text-red-600'}`}>
               {formatCurrency(income + extraordinaryIncome - totalExpenses)}
             </p>
           </div>

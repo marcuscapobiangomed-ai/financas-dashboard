@@ -11,3 +11,30 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(1rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.2s ease-out;
+}
+
+@keyframes slide-in {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.2s ease-out;
+}
+
+/* Print styles for PDF export */
+@media print {
+  body { background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  aside, nav, header, .print\\:hidden, [class*="QuickAddFAB"], [class*="SyncToast"] { display: none !important; }
+  main { padding: 0 !important; max-width: 100% !important; margin: 0 !important; }
+  .dark * { color: #1f2937 !important; background: white !important; border-color: #e5e7eb !important; }
+  @page { margin: 1.5cm; size: A4; }
+}

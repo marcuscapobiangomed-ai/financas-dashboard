@@ -104,9 +104,9 @@ export function BulkEditModal({ open, onClose, monthKey }: Props) {
         </div>
 
         {/* transaction list */}
-        <div className="border border-gray-100 rounded-lg overflow-hidden max-h-72 overflow-y-auto">
+        <div className="border border-gray-100 dark:border-gray-700 rounded-lg overflow-hidden max-h-72 overflow-y-auto">
           {displayed.length === 0 && (
-            <p className="text-sm text-gray-400 p-4 text-center">Nenhuma transação encontrada.</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500 p-4 text-center">Nenhuma transação encontrada.</p>
           )}
           {displayed.map((t) => {
             const meta = CATEGORY_META[t.category]
@@ -115,21 +115,21 @@ export function BulkEditModal({ open, onClose, monthKey }: Props) {
               <button
                 key={t.id}
                 onClick={() => toggleOne(t.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors border-b border-gray-50 last:border-0 ${isChecked ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors border-b border-gray-50 dark:border-gray-700 last:border-0 ${isChecked ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
               >
                 {isChecked ? (
                   <CheckSquare size={15} className="text-indigo-600 shrink-0" />
                 ) : (
-                  <Square size={15} className="text-gray-300 shrink-0" />
+                  <Square size={15} className="text-gray-300 dark:text-gray-600 shrink-0" />
                 )}
-                <span className="flex-1 text-sm text-gray-800 truncate">{t.description}</span>
+                <span className="flex-1 text-sm text-gray-800 dark:text-gray-200 truncate">{t.description}</span>
                 <span
                   className="text-xs px-2 py-0.5 rounded-full shrink-0"
                   style={{ color: meta?.color, backgroundColor: meta?.bgColor }}
                 >
                   {meta?.label ?? t.category}
                 </span>
-                <span className="text-sm font-medium text-gray-700 shrink-0 w-20 text-right">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 shrink-0 w-20 text-right">
                   {formatCurrency(t.amount)}
                 </span>
               </button>
@@ -138,7 +138,7 @@ export function BulkEditModal({ open, onClose, monthKey }: Props) {
         </div>
 
         {/* apply */}
-        <div className="flex items-end gap-3 pt-1 border-t border-gray-100">
+        <div className="flex items-end gap-3 pt-1 border-t border-gray-100 dark:border-gray-700">
           <Select
             label={`Nova categoria para ${selected.size} item(s) selecionado(s)`}
             value={newCategory}

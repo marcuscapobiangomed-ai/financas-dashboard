@@ -31,9 +31,9 @@ interface StatCardProps {
   valueColor?: string
 }
 
-function StatCard({ label, value, subtitle, icon, iconBg, deltaEl, valueColor = 'text-gray-900' }: StatCardProps) {
+function StatCard({ label, value, subtitle, icon, iconBg, deltaEl, valueColor = 'text-gray-900 dark:text-gray-100' }: StatCardProps) {
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
       <div className="flex items-start justify-between mb-3">
         <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${iconBg}`}>
           {icon}
@@ -41,8 +41,8 @@ function StatCard({ label, value, subtitle, icon, iconBg, deltaEl, valueColor = 
         {deltaEl}
       </div>
       <p className={`text-2xl font-bold ${valueColor} leading-none mb-1`}>{value}</p>
-      <p className="text-xs text-gray-500">{label}</p>
-      {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
+      <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+      {subtitle && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{subtitle}</p>}
     </div>
   )
 }
@@ -89,14 +89,14 @@ export function SummaryCards({ monthKey }: { monthKey: string }) {
         label="Receita Total"
         value={formatCurrency(totalIncome)}
         icon={<Wallet size={18} className="text-emerald-600" />}
-        iconBg="bg-emerald-50"
+        iconBg="bg-emerald-50 dark:bg-emerald-900/30"
         deltaEl={<DeltaBadge current={totalIncome} previous={prevIncome} />}
       />
       <StatCard
         label="Total de Despesas"
         value={formatCurrency(totalExpenses)}
         icon={<ArrowDownCircle size={18} className="text-red-500" />}
-        iconBg="bg-red-50"
+        iconBg="bg-red-50 dark:bg-red-900/30"
         deltaEl={<DeltaBadge current={totalExpenses} previous={prevExpenses} />}
         valueColor="text-red-600"
       />
@@ -104,15 +104,15 @@ export function SummaryCards({ monthKey }: { monthKey: string }) {
         label="Balanço do Mês"
         value={formatCurrency(balance)}
         icon={<Scale size={18} className={balance >= 0 ? 'text-indigo-600' : 'text-orange-500'} />}
-        iconBg={balance >= 0 ? 'bg-indigo-50' : 'bg-orange-50'}
+        iconBg={balance >= 0 ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'bg-orange-50 dark:bg-orange-900/30'}
         deltaEl={<DeltaBadge current={balance} previous={prevBalance} />}
-        valueColor={balance >= 0 ? 'text-indigo-700' : 'text-orange-600'}
+        valueColor={balance >= 0 ? 'text-indigo-700 dark:text-indigo-400' : 'text-orange-600'}
       />
       <StatCard
         label="Taxa de Poupança"
         value={formatPercent(savingsRate)}
         icon={<PiggyBank size={18} className="text-violet-600" />}
-        iconBg="bg-violet-50"
+        iconBg="bg-violet-50 dark:bg-violet-900/30"
         deltaEl={<DeltaBadge current={savingsRate} previous={prevSavingsRate} />}
         valueColor={savingsRate >= 20 ? 'text-emerald-600' : savingsRate >= 10 ? 'text-yellow-600' : 'text-red-600'}
       />
@@ -122,7 +122,7 @@ export function SummaryCards({ monthKey }: { monthKey: string }) {
         value={formatCurrency(accumulatedBalance)}
         subtitle={appSettings.initialBalance ? `Inclui saldo inicial de ${formatCurrency(appSettings.initialBalance)}` : undefined}
         icon={<Landmark size={18} className={accumulatedBalance >= 0 ? 'text-emerald-600' : 'text-red-500'} />}
-        iconBg={accumulatedBalance >= 0 ? 'bg-emerald-50' : 'bg-red-50'}
+        iconBg={accumulatedBalance >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/30' : 'bg-red-50 dark:bg-red-900/30'}
         valueColor={accumulatedBalance >= 0 ? 'text-emerald-700' : 'text-red-600'}
       />
     </div>

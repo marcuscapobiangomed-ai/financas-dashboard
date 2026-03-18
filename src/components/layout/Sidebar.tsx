@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Calendar, BarChart2, ArrowLeftRight,
-  Settings, PiggyBank, AlertTriangle, Repeat, TrendingUp, LogOut,
+  Settings, PiggyBank, AlertTriangle, TrendingUp, LogOut, FileText,
 } from 'lucide-react'
 import { useBudgetAlerts } from '../../hooks/useBudgetAlerts'
 import { useFinanceStore } from '../../store/useFinanceStore'
@@ -11,10 +11,10 @@ import { MonthSelector } from './MonthSelector'
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', exact: true },
   { to: '/month', icon: Calendar, label: 'Lançamentos' },
-  { to: '/recurring', icon: Repeat, label: 'Recorrentes' },
   { to: '/investments', icon: TrendingUp, label: 'Investimentos' },
   { to: '/analytics', icon: BarChart2, label: 'Analytics' },
   { to: '/comparison', icon: ArrowLeftRight, label: 'Comparativo' },
+  { to: '/ir-report', icon: FileText, label: 'Relatório IRPF' },
   { to: '/settings', icon: Settings, label: 'Configurações' },
 ]
 
@@ -25,10 +25,10 @@ export function Sidebar() {
   const signOut = useAuthStore((s) => s.signOut)
 
   return (
-    <aside className="hidden md:flex flex-col w-60 min-h-screen bg-white border-r border-gray-100 px-3 py-4">
+    <aside className="hidden md:flex flex-col w-60 min-h-screen bg-white dark:bg-gray-800 border-r border-gray-100 dark:border-gray-700 px-3 py-4">
       <div className="flex items-center gap-2 px-3 mb-6">
         <PiggyBank size={24} className="text-indigo-600" />
-        <span className="font-bold text-gray-900 text-base">Finanças</span>
+        <span className="font-bold text-gray-900 dark:text-gray-100 text-base">Finanças</span>
       </div>
 
       <div className="px-3 mb-4">
@@ -44,8 +44,8 @@ export function Sidebar() {
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 isActive
-                  ? 'bg-indigo-50 text-indigo-700'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-200'
               }`
             }
           >
@@ -59,18 +59,18 @@ export function Sidebar() {
       </nav>
 
       {hasAlerts && (
-        <div className="mx-3 mt-2 p-3 bg-red-50 rounded-lg flex items-start gap-2">
+        <div className="mx-3 mt-2 p-3 bg-red-50 dark:bg-red-900/30 rounded-lg flex items-start gap-2">
           <AlertTriangle size={14} className="text-red-500 mt-0.5 shrink-0" />
-          <p className="text-xs text-red-700 leading-snug">Limite ultrapassado em alguma seção</p>
+          <p className="text-xs text-red-700 dark:text-red-400 leading-snug">Limite ultrapassado em alguma seção</p>
         </div>
       )}
 
       {user && (
-        <div className="mt-4 mx-3 pt-3 border-t border-gray-100">
-          <p className="text-xs text-gray-500 truncate mb-2">{user.email}</p>
+        <div className="mt-4 mx-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+          <p className="text-xs text-gray-500 dark:text-gray-400 truncate mb-2">{user.email}</p>
           <button
             onClick={signOut}
-            className="flex items-center gap-2 text-sm text-gray-500 hover:text-red-600 transition-colors w-full px-1 py-1.5 rounded-lg hover:bg-red-50 cursor-pointer"
+            className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-red-600 transition-colors w-full px-1 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 cursor-pointer"
           >
             <LogOut size={14} />
             Sair

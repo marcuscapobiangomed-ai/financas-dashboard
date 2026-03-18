@@ -15,8 +15,8 @@ export function Dashboard() {
     <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">{getMonthLabel(currentMonthKey)}</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{daysRemainingInMonth()} dias restantes no mês</p>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{getMonthLabel(currentMonthKey)}</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{daysRemainingInMonth()} dias restantes no mês</p>
         </div>
       </div>
 

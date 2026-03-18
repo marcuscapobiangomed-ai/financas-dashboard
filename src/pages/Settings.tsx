@@ -1,12 +1,14 @@
-import { useState } from 'react'
-import { Settings as SettingsIcon, Download, Upload, Trash2, Plus, CreditCard, Pencil, Check, ArrowRightLeft } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Settings as SettingsIcon, Download, Upload, Trash2, Plus, CreditCard, Pencil, Check, ArrowRightLeft, Bell } from 'lucide-react'
 import { useFinanceStore } from '../store/useFinanceStore'
+import { useAuthStore } from '../store/useAuthStore'
 import { useSectionConfig } from '../hooks/useSectionConfig'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { downloadJSON, downloadCSV, transactionsToCSV } from '../utils/exportData'
 import { DEFAULT_CARD_SECTIONS } from '../constants/defaultBudget'
 import { CardSection } from '../types/budget'
+import { isNotificationSupported, getNotificationPermission, requestNotificationPermission, savePushSubscription } from '../lib/notifications'
 
 export function Settings() {
   const appSettings = useFinanceStore((s) => s.appSettings)
@@ -26,8 +28,14 @@ export function Settings() {
   const [migrateMsg, setMigrateMsg] = useState('')
   const [editingCardId, setEditingCardId] = useState<string | null>(null)
   const [editingLabel, setEditingLabel] = useState('')
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>('default')
+  const userId = useAuthStore((s) => s.user?.id)
 
   const cardSections: CardSection[] = appSettings.cardSections ?? DEFAULT_CARD_SECTIONS
+
+  useEffect(() => {
+    if (isNotificationSupported()) setNotifPermission(getNotificationPermission())
+  }, [])
 
   // ── Card management ──────────────────────────────────────────────
   function startEditCard(card: CardSection) {
@@ -130,17 +138,17 @@ export function Settings() {
     <div className="flex flex-col gap-6 max-w-xl">
       <div className="flex items-center gap-2">
         <SettingsIcon size={20} className="text-indigo-600" />
-        <h1 className="text-xl font-bold text-gray-900">Configurações</h1>
+        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Configurações</h1>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
+      <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-fit">
         {tabs.map(({ id, label }) => (
           <button
             key={id}
             onClick={() => setTab(id)}
             className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${
-              tab === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              tab === id ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
             {label}
@@ -152,11 +160,11 @@ export function Settings() {
       {tab === 'cards' && <>
 
       {/* Card Management */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <CreditCard size={15} className="text-indigo-500" />
-            <h2 className="text-sm font-semibold text-gray-700">Cartões de Crédito</h2>
+            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Cartões de Crédito</h2>
           </div>
           <button
             onClick={handleAddCard}
@@ -169,14 +177,14 @@ export function Settings() {
 
         <div className="flex flex-col gap-3">
           {cardSections.map((card) => (
-            <div key={card.id} className="flex items-end gap-3 p-3 bg-gray-50 rounded-lg">
+            <div key={card.id} className="flex items-end gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <div className="flex-1">
-                <label className="text-xs font-medium text-gray-500 block mb-1">Nome</label>
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Nome</label>
                 {editingCardId === card.id ? (
                   <div className="flex gap-1.5">
                     <input
                       autoFocus
-                      className="flex-1 border border-indigo-300 rounded-lg px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-100"
+                      className="flex-1 border border-indigo-300 dark:border-indigo-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900"
                       value={editingLabel}
                       onChange={(e) => setEditingLabel(e.target.value)}
                       onKeyDown={(e) => {
@@ -193,7 +201,7 @@ export function Settings() {
                   </div>
                 ) : (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-medium text-gray-800">{card.label}</span>
+                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{card.label}</span>
                     <button
                       onClick={() => startEditCard(card)}
                       className="p-1 rounded text-gray-400 hover:text-indigo-600 cursor-pointer"
@@ -234,8 +242,8 @@ export function Settings() {
       {tab === 'budget' && <>
 
       {/* Other Section Limits */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">Limites de Orçamento</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Limites de Orçamento</h2>
         <div className="flex flex-col gap-4">
           {([
             { id: 'despesas_fixas', label: 'Despesas Fixas' },
@@ -256,8 +264,8 @@ export function Settings() {
       </div>
 
       {/* Financial settings */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">Metas e Percentuais</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Metas e Percentuais</h2>
         <div className="flex flex-col gap-4">
           <Input
             label="Meta de Poupança (%)"
@@ -306,13 +314,39 @@ export function Settings() {
         </div>
       </div>
 
+      {/* Reference Rates for Investments */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Taxas de Referência</h2>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">Alterar estas taxas recalcula automaticamente os rendimentos dos investimentos.</p>
+        <div className="flex flex-col gap-4">
+          <Input
+            label="CDI anual (%)"
+            type="number"
+            value={String(appSettings.cdiRateAnnual ?? 14.15)}
+            onChange={(e) => updateAppSettings({ cdiRateAnnual: Number(e.target.value) })}
+            min="0"
+            max="100"
+            step="0.01"
+          />
+          <Input
+            label="IPCA anual (%)"
+            type="number"
+            value={String(appSettings.ipcaRateAnnual ?? 5.0)}
+            onChange={(e) => updateAppSettings({ ipcaRateAnnual: Number(e.target.value) })}
+            min="0"
+            max="100"
+            step="0.01"
+          />
+        </div>
+      </div>
+
       {/* Appearance */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">Aparência</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Aparência</h2>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-700">Modo Escuro</p>
-            <p className="text-xs text-gray-500">Alterar aparência do app</p>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Modo Escuro</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Alterar aparência do app</p>
           </div>
           <button
             onClick={() => updateAppSettings({ darkMode: !appSettings.darkMode })}
@@ -327,32 +361,76 @@ export function Settings() {
         </div>
       </div>
 
+      {/* Notifications */}
+      {isNotificationSupported() && (
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Bell size={15} className="text-indigo-500" />
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Notificações</h2>
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Alertas de Orçamento</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Notificar ao atingir {appSettings.alertThresholdPercent}% do limite de uma seção
+            </p>
+          </div>
+          <button
+            onClick={async () => {
+              if (appSettings.notificationsEnabled) {
+                updateAppSettings({ notificationsEnabled: false })
+              } else {
+                const perm = await requestNotificationPermission()
+                setNotifPermission(perm)
+                if (perm === 'granted') {
+                  updateAppSettings({ notificationsEnabled: true })
+                  if (userId) savePushSubscription(userId)
+                }
+              }
+            }}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
+              appSettings.notificationsEnabled && notifPermission === 'granted' ? 'bg-indigo-600' : 'bg-gray-200'
+            }`}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              appSettings.notificationsEnabled && notifPermission === 'granted' ? 'translate-x-6' : 'translate-x-1'
+            }`} />
+          </button>
+        </div>
+        {notifPermission === 'denied' && (
+          <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+            Permissão de notificação bloqueada pelo navegador. Desbloqueie nas configurações do navegador.
+          </p>
+        )}
+      </div>
+      )}
+
       </> /* end budget tab */}
 
       {/* ── DADOS tab ────────────────────────────────────────────── */}
       {tab === 'data' && <>
 
       {/* Migrate Month */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
         <div className="flex items-center gap-2 mb-4">
           <ArrowRightLeft size={15} className="text-indigo-500" />
-          <h2 className="text-sm font-semibold text-gray-700">Migrar dados entre meses</h2>
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Migrar dados entre meses</h2>
         </div>
         <div className="flex items-end gap-3">
           <div className="flex-1">
-            <label className="text-xs font-medium text-gray-500 block mb-1">De (AAAA-MM)</label>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">De (AAAA-MM)</label>
             <input
               type="month"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100"
+              className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900"
               value={migrateFrom}
               onChange={(e) => setMigrateFrom(e.target.value)}
             />
           </div>
           <div className="flex-1">
-            <label className="text-xs font-medium text-gray-500 block mb-1">Para (AAAA-MM)</label>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Para (AAAA-MM)</label>
             <input
               type="month"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100"
+              className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900"
               value={migrateTo}
               onChange={(e) => setMigrateTo(e.target.value)}
             />
@@ -369,8 +447,8 @@ export function Settings() {
       </div>
 
       {/* Data Management */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">Dados</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Dados</h2>
         <div className="flex flex-col gap-3">
           <Button variant="secondary" icon={<Download size={14} />} onClick={handleExportJSON} className="justify-start">
             Exportar backup (JSON)
@@ -379,7 +457,7 @@ export function Settings() {
             Exportar transações (CSV)
           </Button>
           <div>
-            <label className="inline-flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700 border border-gray-200 rounded-lg px-4 py-2 hover:bg-gray-50 transition-colors">
+            <label className="inline-flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <Upload size={14} />
               Importar backup (JSON)
               <input type="file" accept=".json" onChange={handleImport} className="hidden" />
@@ -387,7 +465,7 @@ export function Settings() {
             {importError && <p className="text-xs text-red-600 mt-1">{importError}</p>}
             {importSuccess && <p className="text-xs text-emerald-600 mt-1">Dados importados com sucesso!</p>}
           </div>
-          <div className="border-t border-gray-100 pt-3 mt-1">
+          <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-1">
             <Button variant="danger" icon={<Trash2 size={14} />} onClick={handleClearData} className="justify-start">
               Apagar todos os dados
             </Button>
@@ -397,8 +475,8 @@ export function Settings() {
 
       </> /* end data tab */}
 
-      <p className="text-xs text-gray-400 text-center">
-        Dados salvos localmente no seu navegador · {transactions.length} transações registradas
+      <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
+        Dados sincronizados com Supabase · {transactions.length} transações registradas
       </p>
     </div>
   )

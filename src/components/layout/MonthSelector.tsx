@@ -10,16 +10,16 @@ export function MonthSelector() {
     <div className="flex items-center gap-2">
       <button
         onClick={() => setCurrentMonthKey(prevMonthKey(currentMonthKey))}
-        className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 cursor-pointer transition-colors"
+        className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-pointer transition-colors"
       >
         <ChevronLeft size={16} />
       </button>
-      <span className="text-sm font-semibold text-gray-800 min-w-[140px] text-center">
+      <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 min-w-[140px] text-center">
         {getMonthLabel(currentMonthKey)}
       </span>
       <button
         onClick={() => setCurrentMonthKey(nextMonthKey(currentMonthKey))}
-        className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 cursor-pointer transition-colors"
+        className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-pointer transition-colors"
       >
         <ChevronRight size={16} />
       </button>
