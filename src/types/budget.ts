@@ -1,4 +1,4 @@
-import { Transaction, ExtraordinaryEntry } from './transaction'
+import { Transaction } from './transaction'
 
 export interface SectionSummary {
   section: string
@@ -14,10 +14,16 @@ export interface MonthSettings {
   monthKey: string
   isClosed: boolean
   notes?: string
+  highlights?: string[]
+  lessons?: string
   sectionLimits: Record<string, number>
   tithePercent: number
   offeringPercent: number
   savingsGoal?: number
+  copiedFromMonths?: string[]
+  closedAt?: string
+  closedBy?: string
+  openedAt?: string
 }
 
 export interface CardSection {

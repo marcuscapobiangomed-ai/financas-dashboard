@@ -51,6 +51,20 @@ export const INVESTMENT_TYPES: InvestmentTypeMeta[] = [
     description: 'Fundo de Investimento DI / Renda Fixa',
   },
   {
+    type: 'acoes',
+    label: 'Ações',
+    isTaxExempt: false,
+    yieldInputMode: 'variable_income',
+    description: 'Ações de Empresas (B3)',
+  },
+  {
+    type: 'fiis',
+    label: 'FIIs',
+    isTaxExempt: true,
+    yieldInputMode: 'variable_income',
+    description: 'Fundos de Investimento Imobiliário',
+  },
+  {
     type: 'manual',
     label: 'Outro (manual)',
     isTaxExempt: false,

@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react'
-import { Settings as SettingsIcon, Download, Upload, Trash2, Plus, CreditCard, Pencil, Check, ArrowRightLeft, Bell } from 'lucide-react'
+import { useState } from 'react'
+import { Settings as SettingsIcon, Download, Upload, Trash2, Plus, CreditCard, Pencil, Check, ArrowRightLeft, Bell, Database, Wallet, CheckCircle, AlertCircle, TrendingUp, Target, Palette, Layers, Merge, Replace } from 'lucide-react'
 import { useFinanceStore } from '../store/useFinanceStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { useSectionConfig } from '../hooks/useSectionConfig'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
-import { downloadJSON, downloadCSV, transactionsToCSV } from '../utils/exportData'
+import { downloadJSON, downloadCSV, transactionsToCSV, investmentsToCSV } from '../utils/exportData'
 import { DEFAULT_CARD_SECTIONS } from '../constants/defaultBudget'
 import { CardSection } from '../types/budget'
 import { isNotificationSupported, getNotificationPermission, requestNotificationPermission, savePushSubscription } from '../lib/notifications'
@@ -23,19 +23,21 @@ export function Settings() {
   const [tab, setTab] = useState<'budget' | 'cards' | 'data'>('budget')
   const [importError, setImportError] = useState('')
   const [importSuccess, setImportSuccess] = useState(false)
+  const [importMode, setImportMode] = useState<'replace' | 'merge'>('replace')
+  const [exportSuccess, setExportSuccess] = useState<string | null>(null)
   const [migrateFrom, setMigrateFrom] = useState('')
   const [migrateTo, setMigrateTo] = useState('')
   const [migrateMsg, setMigrateMsg] = useState('')
   const [editingCardId, setEditingCardId] = useState<string | null>(null)
   const [editingLabel, setEditingLabel] = useState('')
-  const [notifPermission, setNotifPermission] = useState<NotificationPermission>('default')
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>(() => {
+    if (isNotificationSupported()) return getNotificationPermission()
+    return 'denied'
+  })
   const userId = useAuthStore((s) => s.user?.id)
+  const investments = useFinanceStore((s) => s.investments)
 
   const cardSections: CardSection[] = appSettings.cardSections ?? DEFAULT_CARD_SECTIONS
-
-  useEffect(() => {
-    if (isNotificationSupported()) setNotifPermission(getNotificationPermission())
-  }, [])
 
   // ── Card management ──────────────────────────────────────────────
   function startEditCard(card: CardSection) {
@@ -86,11 +88,22 @@ export function Settings() {
   function handleExportJSON() {
     const json = exportData()
     downloadJSON(json, `financas-backup-${new Date().toISOString().split('T')[0]}.json`)
+    setExportSuccess('Backup completo exportado com sucesso!')
+    setTimeout(() => setExportSuccess(null), 3000)
   }
 
   function handleExportCSV() {
     const csv = transactionsToCSV(transactions, sectionLabels)
     downloadCSV(csv, `financas-transacoes-${new Date().toISOString().split('T')[0]}.csv`)
+    setExportSuccess('Transações exportadas com sucesso!')
+    setTimeout(() => setExportSuccess(null), 3000)
+  }
+
+  function handleExportInvestmentsCSV() {
+    const csv = investmentsToCSV(investments)
+    downloadCSV(csv, `financas-investimentos-${new Date().toISOString().split('T')[0]}.csv`)
+    setExportSuccess('Investimentos exportados com sucesso!')
+    setTimeout(() => setExportSuccess(null), 3000)
   }
 
   function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
@@ -99,13 +112,25 @@ export function Settings() {
     const reader = new FileReader()
     reader.onload = (ev) => {
       const text = ev.target?.result as string
-      const ok = importData(text)
-      if (ok) {
-        setImportSuccess(true)
-        setImportError('')
-        setTimeout(() => setImportSuccess(false), 3000)
+      
+      if (importMode === 'merge') {
+        const ok = importData(text, true)
+        if (ok) {
+          setImportSuccess(true)
+          setImportError('')
+          setTimeout(() => setImportSuccess(false), 3000)
+        } else {
+          setImportError('Arquivo inválido. Use um backup gerado pelo app.')
+        }
       } else {
-        setImportError('Arquivo inválido. Use um backup gerado pelo app.')
+        const ok = importData(text)
+        if (ok) {
+          setImportSuccess(true)
+          setImportError('')
+          setTimeout(() => setImportSuccess(false), 3000)
+        } else {
+          setImportError('Arquivo inválido. Use um backup gerado pelo app.')
+        }
       }
     }
     reader.readAsText(file)
@@ -129,28 +154,36 @@ export function Settings() {
   }
 
   const tabs = [
-    { id: 'budget', label: 'Orçamento' },
-    { id: 'cards', label: 'Cartões' },
-    { id: 'data', label: 'Dados' },
+    { id: 'budget', label: 'Orçamento', icon: Wallet },
+    { id: 'cards', label: 'Cartões', icon: CreditCard },
+    { id: 'data', label: 'Dados', icon: Database },
   ] as const
 
   return (
-    <div className="flex flex-col gap-6 max-w-xl">
-      <div className="flex items-center gap-2">
-        <SettingsIcon size={20} className="text-indigo-600" />
-        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Configurações</h1>
+    <div className="flex flex-col gap-6 p-6 max-w-6xl mx-auto w-full min-h-[calc(100vh-8rem)]">
+      <div className="flex items-center gap-3">
+        <div className="p-2.5 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/20 border border-indigo-500/20">
+          <SettingsIcon size={24} className="text-indigo-600 dark:text-indigo-400" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Configurações</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Personalize o app conforme sua necessidade</p>
+        </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-fit">
-        {tabs.map(({ id, label }) => (
+      <div className="flex gap-2 bg-white/40 dark:bg-gray-800/40 backdrop-blur-xl border border-gray-200/50 dark:border-white/10 p-1.5 rounded-2xl w-fit">
+        {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => setTab(id)}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${
-              tab === id ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 cursor-pointer ${
+              tab === id 
+                ? 'bg-indigo-600 dark:bg-indigo-500 text-white shadow-lg shadow-indigo-500/30' 
+                : 'text-gray-600 dark:text-gray-400 hover:bg-white/60 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-gray-200'
             }`}
           >
+            <Icon size={16} />
             {label}
           </button>
         ))}
@@ -160,58 +193,65 @@ export function Settings() {
       {tab === 'cards' && <>
 
       {/* Card Management */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <CreditCard size={15} className="text-indigo-500" />
-            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Cartões de Crédito</h2>
+      <div className="bg-white/40 dark:bg-gray-800/40 backdrop-blur-xl border border-gray-200/50 dark:border-white/10 rounded-2xl p-6 shadow-xl shadow-black/5">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/20">
+              <CreditCard size={18} className="text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Cartões de Crédito</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Gerencie seus cartões</p>
+            </div>
           </div>
           <button
             onClick={handleAddCard}
-            className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-medium cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 dark:bg-indigo-500/20 hover:bg-indigo-500/20 dark:hover:bg-indigo-500/30 rounded-xl transition-colors cursor-pointer"
           >
-            <Plus size={13} />
+            <Plus size={14} />
             Adicionar cartão
           </button>
         </div>
 
-        <div className="flex flex-col gap-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {cardSections.map((card) => (
-            <div key={card.id} className="flex items-end gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-              <div className="flex-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Nome</label>
-                {editingCardId === card.id ? (
-                  <div className="flex gap-1.5">
-                    <input
-                      autoFocus
-                      className="flex-1 border border-indigo-300 dark:border-indigo-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900"
-                      value={editingLabel}
-                      onChange={(e) => setEditingLabel(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') saveCardLabel(card.id)
-                        if (e.key === 'Escape') setEditingCardId(null)
-                      }}
-                    />
-                    <button
-                      onClick={() => saveCardLabel(card.id)}
-                      className="p-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 cursor-pointer"
-                    >
-                      <Check size={13} />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{card.label}</span>
-                    <button
-                      onClick={() => startEditCard(card)}
-                      className="p-1 rounded text-gray-400 hover:text-indigo-600 cursor-pointer"
-                    >
-                      <Pencil size={11} />
-                    </button>
-                  </div>
-                )}
+            <div key={card.id} className="group relative p-4 bg-white/60 dark:bg-white/5 border border-gray-200/50 dark:border-white/10 rounded-xl hover:border-indigo-500/50 transition-all">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">Nome</label>
+                  {editingCardId === card.id ? (
+                    <div className="flex gap-2">
+                      <input
+                        autoFocus
+                        className="flex-1 border border-indigo-300 dark:border-indigo-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900"
+                        value={editingLabel}
+                        onChange={(e) => setEditingLabel(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') saveCardLabel(card.id)
+                          if (e.key === 'Escape') setEditingCardId(null)
+                        }}
+                      />
+                      <button
+                        onClick={() => saveCardLabel(card.id)}
+                        className="p-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 cursor-pointer"
+                      >
+                        <Check size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{card.label}</span>
+                      <button
+                        onClick={() => startEditCard(card)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 cursor-pointer opacity-0 group-hover:opacity-100 transition-all"
+                      >
+                        <Pencil size={12} />
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="w-36">
+              <div>
                 <Input
                   label="Limite"
                   type="number"
@@ -225,7 +265,7 @@ export function Settings() {
               {cardSections.length > 1 && (
                 <button
                   onClick={() => handleRemoveCard(card.id)}
-                  className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer mb-0.5"
+                  className="absolute top-4 right-4 p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 cursor-pointer opacity-0 group-hover:opacity-100 transition-all"
                   title="Remover cartão"
                 >
                   <Trash2 size={14} />
@@ -242,9 +282,17 @@ export function Settings() {
       {tab === 'budget' && <>
 
       {/* Other Section Limits */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
-        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Limites de Orçamento</h2>
-        <div className="flex flex-col gap-4">
+      <div className="bg-white/40 dark:bg-gray-800/40 backdrop-blur-xl border border-gray-200/50 dark:border-white/10 rounded-2xl p-6 shadow-xl shadow-black/5">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20">
+            <Layers size={18} className="text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Limites de Orçamento</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Valores padrão para novas seções</p>
+          </div>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
           {([
             { id: 'despesas_fixas', label: 'Despesas Fixas' },
             { id: 'gastos_diarios', label: 'Gastos com Dinheiro Físico' },
@@ -264,9 +312,17 @@ export function Settings() {
       </div>
 
       {/* Financial settings */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
-        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Metas e Percentuais</h2>
-        <div className="flex flex-col gap-4">
+      <div className="bg-white/40 dark:bg-gray-800/40 backdrop-blur-xl border border-gray-200/50 dark:border-white/10 rounded-2xl p-6 shadow-xl shadow-black/5">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2.5 rounded-xl bg-purple-500/10 dark:bg-purple-500/20">
+            <Target size={18} className="text-purple-600 dark:text-purple-400" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Metas e Percentuais</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Configurações financeiras padrões</p>
+          </div>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
           <Input
             label="Meta de Poupança (%)"
             type="number"
@@ -304,7 +360,7 @@ export function Settings() {
             step="5"
           />
           <Input
-            label="Saldo inicial (antes de começar a usar o app)"
+            label="Saldo inicial"
             type="number"
             prefix="R$"
             value={String(appSettings.initialBalance ?? 0)}
@@ -315,10 +371,18 @@ export function Settings() {
       </div>
 
       {/* Reference Rates for Investments */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
-        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Taxas de Referência</h2>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">Alterar estas taxas recalcula automaticamente os rendimentos dos investimentos.</p>
-        <div className="flex flex-col gap-4">
+      <div className="bg-white/40 dark:bg-gray-800/40 backdrop-blur-xl border border-gray-200/50 dark:border-white/10 rounded-2xl p-6 shadow-xl shadow-black/5">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="p-2.5 rounded-xl bg-amber-500/10 dark:bg-amber-500/20">
+            <TrendingUp size={18} className="text-amber-600 dark:text-amber-400" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Taxas de Referência</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Para cálculo de investimentos</p>
+          </div>
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-6">Alterar estas taxas recalcula automaticamente os rendimentos.</p>
+        <div className="grid gap-4 sm:grid-cols-2">
           <Input
             label="CDI anual (%)"
             type="number"
@@ -341,21 +405,29 @@ export function Settings() {
       </div>
 
       {/* Appearance */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
-        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Aparência</h2>
-        <div className="flex items-center justify-between">
+      <div className="bg-white/40 dark:bg-gray-800/40 backdrop-blur-xl border border-gray-200/50 dark:border-white/10 rounded-2xl p-6 shadow-xl shadow-black/5">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2.5 rounded-xl bg-pink-500/10 dark:bg-pink-500/20">
+            <Palette size={18} className="text-pink-600 dark:text-pink-400" />
+          </div>
           <div>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Modo Escuro</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Alterar aparência do app</p>
+            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Aparência</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Personalize o visual do app</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-between p-4 bg-white/60 dark:bg-white/5 border border-gray-200/50 dark:border-white/10 rounded-xl">
+          <div>
+            <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">Modo Escuro</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Alternar entre tema claro e escuro</p>
           </div>
           <button
             onClick={() => updateAppSettings({ darkMode: !appSettings.darkMode })}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
+            className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors cursor-pointer ${
               appSettings.darkMode ? 'bg-indigo-600' : 'bg-gray-200'
             }`}
           >
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              appSettings.darkMode ? 'translate-x-6' : 'translate-x-1'
+            <span className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform shadow-md ${
+              appSettings.darkMode ? 'translate-x-7' : 'translate-x-1'
             }`} />
           </button>
         </div>
@@ -363,16 +435,21 @@ export function Settings() {
 
       {/* Notifications */}
       {isNotificationSupported() && (
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Bell size={15} className="text-indigo-500" />
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Notificações</h2>
-        </div>
-        <div className="flex items-center justify-between">
+      <div className="bg-white/40 dark:bg-gray-800/40 backdrop-blur-xl border border-gray-200/50 dark:border-white/10 rounded-2xl p-6 shadow-xl shadow-black/5">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2.5 rounded-xl bg-rose-500/10 dark:bg-rose-500/20">
+            <Bell size={18} className="text-rose-600 dark:text-rose-400" />
+          </div>
           <div>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Alertas de Orçamento</p>
+            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Notificações</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Alertas e avisos</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-between p-4 bg-white/60 dark:bg-white/5 border border-gray-200/50 dark:border-white/10 rounded-xl">
+          <div>
+            <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">Alertas de Orçamento</p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Notificar ao atingir {appSettings.alertThresholdPercent}% do limite de uma seção
+              Notificar ao atingir {appSettings.alertThresholdPercent}% do limite
             </p>
           </div>
           <button
@@ -388,18 +465,18 @@ export function Settings() {
                 }
               }
             }}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
+            className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors cursor-pointer ${
               appSettings.notificationsEnabled && notifPermission === 'granted' ? 'bg-indigo-600' : 'bg-gray-200'
             }`}
           >
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              appSettings.notificationsEnabled && notifPermission === 'granted' ? 'translate-x-6' : 'translate-x-1'
+            <span className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform shadow-md ${
+              appSettings.notificationsEnabled && notifPermission === 'granted' ? 'translate-x-7' : 'translate-x-1'
             }`} />
           </button>
         </div>
         {notifPermission === 'denied' && (
-          <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
-            Permissão de notificação bloqueada pelo navegador. Desbloqueie nas configurações do navegador.
+          <p className="text-xs text-amber-600 dark:text-amber-400 mt-3 ml-1">
+            Permissão de notificação bloqueada. Desbloqueie nas configurações do navegador.
           </p>
         )}
       </div>
@@ -411,65 +488,214 @@ export function Settings() {
       {tab === 'data' && <>
 
       {/* Migrate Month */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <ArrowRightLeft size={15} className="text-indigo-500" />
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Migrar dados entre meses</h2>
+      <div className="bg-white/40 dark:bg-gray-800/40 backdrop-blur-xl border border-gray-200/50 dark:border-white/10 rounded-2xl p-6 shadow-xl shadow-black/5">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="p-2.5 rounded-xl bg-cyan-500/10 dark:bg-cyan-500/20">
+            <ArrowRightLeft size={18} className="text-cyan-600 dark:text-cyan-400" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Migrar dados entre meses</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Copie transações de um mês para outro</p>
+          </div>
         </div>
-        <div className="flex items-end gap-3">
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-6 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-200/30 dark:border-blue-700/30">
+          Use esta ferramenta para <strong>copiar</strong> todas as transações de um mês para outro. 
+          Útil quando você registrou informações no mês errado ou quer começar um novo mês copiando dados do anterior.
+        </p>
+        
+        <div className="flex items-center gap-4">
           <div className="flex-1">
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">De (AAAA-MM)</label>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">Mês de origem</label>
             <input
               type="month"
-              className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900"
+              className="w-full border border-gray-200 dark:border-gray-600 bg-white/60 dark:bg-white/5 text-gray-900 dark:text-gray-100 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
               value={migrateFrom}
               onChange={(e) => setMigrateFrom(e.target.value)}
             />
           </div>
+          
+          <div className="flex flex-col items-center justify-center pt-5">
+            <ArrowRightLeft size={20} className="text-gray-400 dark:text-gray-500 rotate-90 sm:rotate-0" />
+            <span className="text-xs text-gray-400 dark:text-gray-500 mt-1 hidden sm:block">copia para</span>
+          </div>
+          
           <div className="flex-1">
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Para (AAAA-MM)</label>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">Mês de destino</label>
             <input
               type="month"
-              className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900"
+              className="w-full border border-gray-200 dark:border-gray-600 bg-white/60 dark:bg-white/5 text-gray-900 dark:text-gray-100 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
               value={migrateTo}
               onChange={(e) => setMigrateTo(e.target.value)}
             />
           </div>
-          <Button onClick={handleMigrate} disabled={!migrateFrom || !migrateTo}>
+          
+          <Button onClick={handleMigrate} disabled={!migrateFrom || !migrateTo} className="mt-5">
             Migrar
           </Button>
         </div>
+        
         {migrateMsg && (
-          <p className={`text-xs mt-2 ${migrateMsg.includes('0 reg') || migrateMsg.includes('iguais') || migrateMsg.includes('Nenhum') ? 'text-amber-600' : 'text-emerald-600'}`}>
+          <p className={`text-sm mt-4 p-3 rounded-xl ${
+            migrateMsg.includes('0 reg') || migrateMsg.includes('iguais') || migrateMsg.includes('Nenhum') 
+              ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200/30 dark:border-amber-700/30' 
+              : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200/30 dark:border-emerald-700/30'
+          }`}>
             {migrateMsg}
           </p>
         )}
       </div>
 
       {/* Data Management */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
-        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Dados</h2>
-        <div className="flex flex-col gap-3">
-          <Button variant="secondary" icon={<Download size={14} />} onClick={handleExportJSON} className="justify-start">
-            Exportar backup (JSON)
-          </Button>
-          <Button variant="secondary" icon={<Download size={14} />} onClick={handleExportCSV} className="justify-start">
-            Exportar transações (CSV)
-          </Button>
+      <div className="bg-white/40 dark:bg-gray-800/40 backdrop-blur-xl border border-gray-200/50 dark:border-white/10 rounded-2xl p-6 shadow-xl shadow-black/5">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2.5 rounded-xl bg-orange-500/10 dark:bg-orange-500/20">
+            <Database size={18} className="text-orange-600 dark:text-orange-400" />
+          </div>
           <div>
-            <label className="inline-flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-              <Upload size={14} />
-              Importar backup (JSON)
+            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Dados</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Gerencie suas informações</p>
+          </div>
+        </div>
+
+        {/* Export Section */}
+        <div className="mb-6">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
+            <Download size={14} className="text-emerald-600" />
+            Exportar Dados
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+            Baixe seus dados para backup ou para usar em outras ferramentas.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <button
+              onClick={handleExportJSON}
+              className="flex items-center gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200/30 dark:border-emerald-700/30 rounded-xl hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors cursor-pointer text-left group"
+            >
+              <div className="p-2 rounded-lg bg-emerald-500/20">
+                <Download size={18} className="text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 group-hover:text-emerald-700 dark:group-hover:text-emerald-300">Backup Completo</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Todas as transações</p>
+              </div>
+            </button>
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200/30 dark:border-blue-700/30 rounded-xl hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors cursor-pointer text-left group"
+            >
+              <div className="p-2 rounded-lg bg-blue-500/20">
+                <Download size={18} className="text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 group-hover:text-blue-700 dark:group-hover:text-blue-300">Transações CSV</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Para Excel/Planilhas</p>
+              </div>
+            </button>
+            <button
+              onClick={handleExportInvestmentsCSV}
+              className="flex items-center gap-3 p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200/30 dark:border-purple-700/30 rounded-xl hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors cursor-pointer text-left group"
+            >
+              <div className="p-2 rounded-lg bg-purple-500/20">
+                <TrendingUp size={18} className="text-purple-600 dark:text-purple-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 group-hover:text-purple-700 dark:group-hover:text-purple-300">Investimentos CSV</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Carteira de investimentos</p>
+              </div>
+            </button>
+          </div>
+          {exportSuccess && (
+            <p className="text-sm mt-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200/30 dark:border-emerald-700/30 flex items-center gap-2">
+              <CheckCircle size={16} />
+              {exportSuccess}
+            </p>
+          )}
+        </div>
+
+        {/* Import Section */}
+        <div className="mb-6">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
+            <Upload size={14} className="text-blue-600" />
+            Importar Dados
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+            Restaure um backup anterior ou importe dados de outro sistema.
+          </p>
+          
+          {/* Mode selection */}
+          <div className="flex gap-4 mb-4 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="importMode"
+                checked={importMode === 'replace'}
+                onChange={() => setImportMode('replace')}
+                className="w-4 h-4 text-indigo-600"
+              />
+              <div className="flex items-center gap-2">
+                <Replace size={14} className="text-gray-500" />
+                <span className="text-sm text-gray-700 dark:text-gray-300">Substituir tudo</span>
+              </div>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="importMode"
+                checked={importMode === 'merge'}
+                onChange={() => setImportMode('merge')}
+                className="w-4 h-4 text-indigo-600"
+              />
+              <div className="flex items-center gap-2">
+                <Merge size={14} className="text-gray-500" />
+                <span className="text-sm text-gray-700 dark:text-gray-300">Mesclar (juntar)</span>
+              </div>
+            </label>
+          </div>
+          
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+            {importMode === 'replace' 
+              ? '⚠️ Substituirá TODOS os dados atuais pelos dados do backup.'
+              : '➕ Adicionará os dados do backup aos dados existentes (sem duplicar).'}
+          </p>
+          
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex items-center gap-3 p-4 cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200/50 dark:border-white/10 bg-white/60 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 rounded-xl transition-colors">
+              <div className="p-2 rounded-lg bg-indigo-500/20">
+                <Upload size={18} className="text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold">Importar Backup</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Arquivo JSON do app</p>
+              </div>
               <input type="file" accept=".json" onChange={handleImport} className="hidden" />
             </label>
-            {importError && <p className="text-xs text-red-600 mt-1">{importError}</p>}
-            {importSuccess && <p className="text-xs text-emerald-600 mt-1">Dados importados com sucesso!</p>}
           </div>
-          <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-1">
-            <Button variant="danger" icon={<Trash2 size={14} />} onClick={handleClearData} className="justify-start">
-              Apagar todos os dados
-            </Button>
-          </div>
+          {importError && (
+            <p className="text-sm mt-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200/30 dark:border-red-700/30 flex items-center gap-2">
+              <AlertCircle size={16} />
+              {importError}
+            </p>
+          )}
+          {importSuccess && (
+            <p className="text-sm mt-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200/30 dark:border-emerald-700/30 flex items-center gap-2">
+              <CheckCircle size={16} />
+              Dados importados com sucesso! Modo: {importMode === 'replace' ? 'Substituição' : 'Mesclagem'}
+            </p>
+          )}
+        </div>
+
+        {/* Danger Zone */}
+        <div className="border-t border-gray-200/50 dark:border-white/10 pt-4 mt-1">
+          <h3 className="text-sm font-semibold text-red-600 dark:text-red-400 mb-3 flex items-center gap-2">
+            <Trash2 size={14} />
+            Zona de Perigo
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+            Esta ação é irreversível. Todos os seus dados serão excluídos permanentemente.
+          </p>
+          <Button variant="danger" icon={<Trash2 size={16} />} onClick={handleClearData} className="justify-start h-12 w-full">
+            Apagar todos os dados
+          </Button>
         </div>
       </div>
 

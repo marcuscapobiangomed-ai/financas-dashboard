@@ -27,12 +27,12 @@ export function useRealtimeSync() {
     ]
 
     function handleChange() {
+      if (!user?.id) return
       const now = Date.now()
       if (now - lastReloadRef.current < DEBOUNCE_MS) return
       lastReloadRef.current = now
 
-      // Reload all data from Supabase
-      fetchAllUserData(user!.id).then((data) => {
+      fetchAllUserData(user.id).then((data) => {
         if (data) loadFromSupabase(data)
       }).catch((err) => {
         console.error('[realtime] Failed to reload data:', err)
@@ -44,7 +44,7 @@ export function useRealtimeSync() {
 
     tables.forEach((table) => {
       channel.on(
-        'postgres_changes' as any,
+        'postgres_changes' as const,
         {
           event: '*',
           schema: 'public',
@@ -62,5 +62,5 @@ export function useRealtimeSync() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [user?.id, loadFromSupabase])
+  }, [user, loadFromSupabase])
 }

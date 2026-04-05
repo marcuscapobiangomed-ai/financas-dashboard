@@ -11,7 +11,6 @@ import {
   netYieldAfterIR,
   resolveMonthlyYieldPercent,
   getEffectiveAnnualRate,
-  BUSINESS_DAYS_PER_YEAR,
 } from './investmentCalc'
 
 describe('annualToDaily', () => {

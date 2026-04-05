@@ -28,7 +28,7 @@ function getLocalStorageData() {
 }
 
 /** Migrate localStorage data into the finance store and sync to Supabase */
-async function migrateLocalData(userId: string) {
+async function migrateLocalData() {
   const local = getLocalStorageData()
   if (!local) return false
 
@@ -74,7 +74,7 @@ interface AuthStore {
   updatePassword: (newPassword: string) => Promise<{ error?: string }>
 }
 
-export const useAuthStore = create<AuthStore>()((set, get) => ({
+export const useAuthStore = create<AuthStore>()((set) => ({
   user: null,
   session: null,
   loading: true,
@@ -96,7 +96,7 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
         console.log('[migration] initialize: supabaseIsEmpty=', supabaseIsEmpty, 'txCount=', data.transactions.length)
 
         if (supabaseIsEmpty && shouldMigrate()) {
-          const ok = await migrateLocalData(session.user.id)
+          const ok = await migrateLocalData()
           console.log('[migration] initialize: migrateLocalData result=', ok)
           if (ok) set({ migrated: true })
         } else {
@@ -118,7 +118,7 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
           const supabaseIsEmpty = data.transactions.length === 0
 
           if (supabaseIsEmpty && shouldMigrate()) {
-            const ok = await migrateLocalData(session.user.id)
+            const ok = await migrateLocalData()
             if (ok) set({ migrated: true })
           } else {
             useFinanceStore.getState().loadFromSupabase(data)
@@ -145,7 +145,7 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
       const supabaseIsEmpty = storeData.transactions.length === 0
 
       if (supabaseIsEmpty && shouldMigrate()) {
-        const ok = await migrateLocalData(data.user.id)
+        const ok = await migrateLocalData()
         if (ok) set({ migrated: true })
       } else {
         useFinanceStore.getState().loadFromSupabase(storeData)
@@ -168,7 +168,7 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
       const supabaseIsEmpty = storeData.transactions.length === 0
 
       if (supabaseIsEmpty && shouldMigrate()) {
-        const ok = await migrateLocalData(data.user.id)
+        const ok = await migrateLocalData()
         if (ok) set({ migrated: true })
       } else {
         useFinanceStore.getState().loadFromSupabase(storeData)

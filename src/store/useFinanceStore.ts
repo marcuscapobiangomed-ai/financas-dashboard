@@ -27,10 +27,13 @@ import {
 } from '../lib/supabaseData'
 
 function getUserId(): string | null {
-  // Lazy import to avoid circular dependency
-  // @ts-ignore: dynamic require to break circular dependency
-  const { useAuthStore } = require('./useAuthStore')
-  return useAuthStore.getState().user?.id ?? null
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { useAuthStore } = require('./useAuthStore')
+    return useAuthStore.getState().user?.id ?? null
+  } catch {
+    return null
+  }
 }
 
 /** Fire-and-forget sync with error feedback */
@@ -56,6 +59,7 @@ interface FinanceStore {
 
   // Transaction actions
   addTransaction: (t: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => void
+  addTransactions: (ts: Transaction[]) => void
   addInstallmentTransactions: (
     base: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'installmentGroupId' | 'installmentCurrent' | 'monthKey'>,
     installmentTotal: number
@@ -96,7 +100,7 @@ interface FinanceStore {
 
   // Data management
   exportData: () => string
-  importData: (json: string) => boolean
+  importData: (json: string, merge?: boolean) => boolean
   clearAllData: () => void
   migrateMonth: (fromMonthKey: string, toMonthKey: string) => number
 
@@ -240,6 +244,19 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
     if (newT.type === 'expense') {
       Promise.resolve().then(() => checkBudgetAlert(get(), newT.monthKey, newT.section))
     }
+  },
+
+  addTransactions: (ts) => {
+    const now = new Date().toISOString()
+    const newTs = ts.map((t) => ({
+      ...t,
+      id: t.id || generateId(),
+      createdAt: t.createdAt || now,
+      updatedAt: now,
+    }))
+    set((s) => ({ transactions: [...s.transactions, ...newTs] }))
+    const uid = getUserId()
+    if (uid) syncRemote(() => bulkUpsertTransactions(uid, newTs))
   },
 
   addInstallmentTransactions: (base, installmentTotal) => {
@@ -579,10 +596,43 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
     }, null, 2)
   },
 
-  importData: (json) => {
+  importData: (json, merge = false) => {
     try {
       const data = JSON.parse(json)
       if (!data.transactions || !Array.isArray(data.transactions)) return false
+
+      if (merge) {
+        const { transactions: existingTxs, recurringTemplates: existingRecurring, extraordinaryEntries: existingExtra, investments: existingInv, monthSettings: existingMs } = get()
+        
+        const newTxs = data.transactions.filter((t: Transaction) => !existingTxs.some((e) => e.id === t.id))
+        const newRecurring = (data.recurringTemplates ?? []).filter((r: RecurringTemplate) => !existingRecurring.some((e) => e.id === r.id))
+        const newExtra = (data.extraordinaryEntries ?? []).filter((e: ExtraordinaryEntry) => !existingExtra.some((o) => o.id === e.id))
+        const newInv = (data.investments ?? []).filter((i: Investment) => !existingInv.some((o) => o.id === i.id))
+        
+        const mergedSettings = { ...existingMs, ...(data.monthSettings ?? {}) }
+        
+        set({
+          transactions: [...existingTxs, ...newTxs],
+          recurringTemplates: [...existingRecurring, ...newRecurring],
+          extraordinaryEntries: [...existingExtra, ...newExtra],
+          investments: [...existingInv, ...newInv],
+          monthSettings: mergedSettings,
+        })
+        
+        const uid = getUserId()
+        if (uid) {
+          syncRemote(async () => {
+            if (newTxs.length > 0) await bulkUpsertTransactions(uid, newTxs)
+            for (const t of newRecurring) await upsertRecurringTemplate(uid, t as RecurringTemplate)
+            for (const e of newExtra) await upsertExtraordinaryEntry(uid, e as ExtraordinaryEntry)
+            for (const inv of newInv) await upsertInvestment(uid, inv as Investment)
+            for (const [key, ms] of Object.entries(data.monthSettings ?? {})) {
+              await upsertMonthSettingsRemote(uid, key, ms as MonthSettings)
+            }
+          })
+        }
+        return true
+      }
 
       const imported = {
         transactions: data.transactions,

@@ -1,4 +1,4 @@
-import { Transaction, ExtraordinaryEntry, SectionType } from '../types/transaction'
+import { Transaction, SectionType } from '../types/transaction'
 import { SectionSummary } from '../types/budget'
 
 export function computeSectionSummary(

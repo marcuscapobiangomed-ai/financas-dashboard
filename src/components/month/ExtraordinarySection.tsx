@@ -54,9 +54,9 @@ function AddEntryForm({ monthKey, onDone }: { monthKey: string; onDone: () => vo
   }
 
   return (
-    <div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-lg p-4 flex flex-col gap-3">
+    <div className="bg-indigo-50/80 dark:bg-indigo-900/30 rounded-xl p-4 flex flex-col gap-3">
       <div className="grid grid-cols-2 gap-3">
-        <Select label="Tipo" value={type} onChange={(e) => setType(e.target.value as any)}>
+        <Select label="Tipo" value={type} onChange={(e) => setType(e.target.value as ExtraordinaryEntry['type'])}>
           {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
         </Select>
         <Input
@@ -97,10 +97,10 @@ function AddEntryForm({ monthKey, onDone }: { monthKey: string; onDone: () => vo
         placeholder="Férias de julho..."
       />
       {grossNum > 0 && (
-        <div className="grid grid-cols-3 gap-2 text-xs text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 rounded p-2">
+        <div className="grid grid-cols-3 gap-2 text-xs text-gray-600 dark:text-gray-400 bg-white/50 dark:bg-gray-800/50 rounded-lg p-2">
           <div>Dízimo: <strong className="text-gray-800 dark:text-gray-200">{formatCurrency(computed.tithe)}</strong></div>
           <div>Oferta: <strong className="text-gray-800 dark:text-gray-200">{formatCurrency(computed.offering)}</strong></div>
-          <div>Líquido: <strong className="text-emerald-700">{formatCurrency(computed.netAmount)}</strong></div>
+          <div>Líquido: <strong className="text-emerald-700 dark:text-emerald-400">{formatCurrency(computed.netAmount)}</strong></div>
         </div>
       )}
       <div className="flex gap-2">
@@ -120,20 +120,25 @@ export function ExtraordinarySection({ monthKey, disabled }: Props) {
   const totalNet = entries.reduce((s, e) => s + e.netAmount, 0)
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50 dark:border-gray-700">
-        <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">Férias / PLR / 13°</span>
-        <span className="text-sm font-bold text-emerald-600">{formatCurrency(totalNet)} líquido</span>
+    <div className="glass-panel-lg glass-panel-hover-success overflow-hidden group">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100/50 dark:border-gray-700/50">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+            <span className="text-lg">💰</span>
+          </div>
+          <span className="text-base font-semibold text-gray-800 dark:text-gray-200">Renda Extraordinária</span>
+        </div>
+        <span className="text-lg font-bold text-emerald-600">{formatCurrency(totalNet)}</span>
       </div>
 
-      <div className="divide-y divide-gray-50 dark:divide-gray-700">
+      <div className="divide-y divide-gray-50/50 dark:divide-gray-700/50">
         {entries.map((e) => {
           const typeLabel = TYPES.find((t) => t.value === e.type)?.label ?? e.type
           return (
-            <div key={e.id} className="px-4 py-3 flex items-center justify-between group">
-              <div>
+            <div key={e.id} className="px-5 py-3.5 flex items-center justify-between group-hover:bg-emerald-50/30 dark:hover:bg-emerald-900/20 transition-colors">
+              <div className="flex flex-col">
                 <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{typeLabel}{e.description ? ` — ${e.description}` : ''}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                   Bruto: {formatCurrency(e.grossAmount)} · Dízimo: {formatCurrency(e.tithe)} · Oferta: {formatCurrency(e.offering)}
                 </p>
               </div>
@@ -142,9 +147,9 @@ export function ExtraordinarySection({ monthKey, disabled }: Props) {
                 {!disabled && (
                   <button
                     onClick={() => deleteExtraordinary(e.id)}
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-opacity"
+                    className="opacity-0 group-hover:opacity-100 p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/40 cursor-pointer transition-all"
                   >
-                    <Trash2 size={13} />
+                    <Trash2 size={14} />
                   </button>
                 )}
               </div>
@@ -154,18 +159,18 @@ export function ExtraordinarySection({ monthKey, disabled }: Props) {
       </div>
 
       {entries.length === 0 && !adding && (
-        <p className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500 italic">Nenhuma renda extraordinária este mês.</p>
+        <p className="px-5 py-4 text-sm text-gray-400 dark:text-gray-500 italic text-center">Nenhuma renda extraordinária este mês.</p>
       )}
 
-      {adding && <div className="p-4"><AddEntryForm monthKey={monthKey} onDone={() => setAdding(false)} /></div>}
+      {adding && <div className="p-4 border-t border-gray-100/50 dark:border-gray-700/50"><AddEntryForm monthKey={monthKey} onDone={() => setAdding(false)} /></div>}
 
       {!disabled && !adding && (
-        <div className="px-4 py-2.5 border-t border-gray-50 dark:border-gray-700">
+        <div className="px-5 py-3.5 border-t border-gray-100/50 dark:border-gray-700/50 bg-white/20 dark:bg-gray-800/20">
           <button
             onClick={() => setAdding(true)}
-            className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-medium cursor-pointer"
+            className="pill-button-success"
           >
-            <Plus size={13} />
+            <Plus size={14} />
             Adicionar renda extra
           </button>
         </div>

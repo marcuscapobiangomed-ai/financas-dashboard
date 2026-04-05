@@ -39,7 +39,7 @@ export function TopBar() {
   return (
     <>
       {/* Mobile top header */}
-      <header className="md:hidden sticky top-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-4 py-3 flex items-center justify-between">
+      <header className="md:hidden sticky top-0 z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-100/50 dark:border-white/5 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setDrawerOpen(true)}
@@ -112,7 +112,7 @@ export function TopBar() {
       )}
 
       {/* Mobile bottom navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 flex">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-t border-gray-100/50 dark:border-white/5 flex">
         {bottomNavItems.map(({ to, icon: Icon, label, exact }) => (
           <NavLink
             key={to}
@@ -124,7 +124,7 @@ export function TopBar() {
               }`
             }
           >
-            {({ isActive }) => (
+            {() => (
               <>
                 <div className="relative">
                   <Icon size={18} />

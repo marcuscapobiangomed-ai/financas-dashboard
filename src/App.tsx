@@ -1,5 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useFinanceStore } from './store/useFinanceStore'
 import { useAuthStore } from './store/useAuthStore'
 import { AuthGuard } from './components/auth/AuthGuard'
@@ -55,6 +55,8 @@ function MigrationBanner() {
 
 function AppShell() {
   const darkMode = useFinanceStore((s) => s.appSettings.darkMode)
+  const location = useLocation()
+  const isIRPage = location.pathname === '/ir-report'
   useRealtimeSync()
 
   useEffect(() => {
@@ -62,11 +64,11 @@ function AppShell() {
   }, [darkMode])
 
   return (
-    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="flex min-h-screen bg-gradient-to-br from-indigo-50/50 via-white to-gray-50 dark:from-indigo-950/20 dark:via-gray-900 dark:to-gray-900">
       <Sidebar />
       <div className="flex flex-col flex-1 min-w-0">
         <TopBar />
-        <main className="flex-1 p-4 md:p-6 max-w-5xl w-full mx-auto">
+        <main className={`flex-1 p-4 md:p-6 ${isIRPage ? 'max-w-full' : 'max-w-5xl'} w-full mx-auto`}>
           <MigrationBanner />
           <Suspense fallback={<PageLoader />}>
             <Routes>

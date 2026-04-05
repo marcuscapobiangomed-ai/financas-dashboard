@@ -25,7 +25,7 @@ export function Sidebar() {
   const signOut = useAuthStore((s) => s.signOut)
 
   return (
-    <aside className="hidden md:flex flex-col w-60 min-h-screen bg-white dark:bg-gray-800 border-r border-gray-100 dark:border-gray-700 px-3 py-4">
+    <aside className="hidden md:flex flex-col w-60 min-h-screen bg-white/60 dark:bg-gray-900/40 backdrop-blur-xl border-r border-gray-100/50 dark:border-white/5 px-3 py-4">
       <div className="flex items-center gap-2 px-3 mb-6">
         <PiggyBank size={24} className="text-indigo-600" />
         <span className="font-bold text-gray-900 dark:text-gray-100 text-base">Finanças</span>

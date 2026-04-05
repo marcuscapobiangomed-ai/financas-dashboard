@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { TrendingUp, Plus, Pencil, Trash2, Play, Pause, Wallet, ShieldCheck, Settings2, RefreshCw } from 'lucide-react'
+import { TrendingUp, Plus, Pencil, Trash2, Play, Pause, Wallet, ShieldCheck, Settings2, RefreshCw, BarChart3, LineChart, PieChart } from 'lucide-react'
 import { useFinanceStore } from '../store/useFinanceStore'
 import { Investment, InvestmentType } from '../types/investment'
 import { Button } from '../components/ui/Button'
@@ -10,13 +10,10 @@ import {
   computeProjection,
   daysSinceStartMonth,
   netYieldAfterIR,
-  getIRBracketLabel,
   getEffectiveAnnualRate,
   effectiveAnnualRate,
   effectiveAnnualRateIPCA,
   poupancaAnnualRate,
-  annualToMonthly,
-  annualToDaily,
 } from '../utils/investmentCalc'
 
 function fmt(v: number) {
@@ -43,6 +40,10 @@ interface FormState {
   monthlyYieldPercent: string
   startMonth: string
   notes: string
+  // Variable income
+  ticker: string
+  shares: string
+  averagePrice: string
 }
 
 function blankForm(): FormState {
@@ -55,6 +56,9 @@ function blankForm(): FormState {
     monthlyYieldPercent: '',
     startMonth: getCurrentMonthKey(),
     notes: '',
+    ticker: '',
+    shares: '',
+    averagePrice: '',
   }
 }
 
@@ -72,6 +76,7 @@ export function Investments() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(blankForm())
+  const [activeTab, setActiveTab] = useState<'all' | 'fixed' | 'variable' | string>('all')
   const [applyMsg, setApplyMsg] = useState('')
   const fetchLatestRates = useFinanceStore((s) => s.fetchLatestRates)
   const ratesFetching = useFinanceStore((s) => s.ratesFetching)
@@ -110,12 +115,26 @@ export function Investments() {
 
   const activeInvestments = investments.filter((i) => i.isActive)
   const totalPrincipal = activeInvestments.reduce((s, i) => s + i.principal, 0)
+  
+  const fixedInvestments = activeInvestments.filter(i => {
+    const m = getInvestmentMeta(i.investmentType)
+    return m.yieldInputMode !== 'variable_income'
+  })
+  const variableInvestments = activeInvestments.filter(i => {
+    const m = getInvestmentMeta(i.investmentType)
+    return m.yieldInputMode === 'variable_income'
+  })
+
+  const totalFixed = fixedInvestments.reduce((s, i) => s + i.principal, 0)
+  const totalVariable = variableInvestments.reduce((s, i) => s + i.principal, 0)
+
   const totalMonthlyYieldGross = activeInvestments.reduce(
     (s, i) => s + (i.principal * i.monthlyYieldPercent / 100), 0
   )
 
   const totalMonthlyTax = activeInvestments.reduce((s, i) => {
     const meta = getInvestmentMeta(i.investmentType)
+    if (meta.yieldInputMode === 'variable_income') return s // Simplified: no automatic tax for variable here
     const monthlyAmt = i.principal * i.monthlyYieldPercent / 100
     const days = daysSinceStartMonth(i.startMonth)
     const { taxAmount } = netYieldAfterIR(monthlyAmt, days, meta.isTaxExempt)
@@ -129,12 +148,27 @@ export function Investments() {
     (t) => t.monthKey === currentMonthKey && t.tags?.includes('investment-yield')
   )
 
+  const filteredInvestments = investments.filter(i => {
+    if (activeTab === 'all') return true
+    const m = getInvestmentMeta(i.investmentType)
+    if (activeTab === 'fixed') return m.yieldInputMode !== 'variable_income'
+    if (activeTab === 'variable') return m.yieldInputMode === 'variable_income'
+    return true
+  })
+
   // ── form helpers ──────────────────────────────────────────────────────────────
 
   const selectedMeta = getInvestmentMeta(form.investmentType)
 
   function getFormPreview() {
-    const principal = parseFloat(form.principal) || 0
+    let principal = parseFloat(form.principal) || 0
+    
+    if (selectedMeta.yieldInputMode === 'variable_income') {
+      const sh = parseFloat(form.shares) || 0
+      const pr = parseFloat(form.averagePrice) || 0
+      principal = sh * pr
+    }
+
     if (principal <= 0) return null
 
     let annualRate = 0
@@ -149,6 +183,9 @@ export function Investments() {
     } else if (selectedMeta.yieldInputMode === 'ipca_plus') {
       const spread = parseFloat(form.ipcaPercent) || 0
       annualRate = effectiveAnnualRateIPCA(spread, ipcaRate)
+    } else if (selectedMeta.yieldInputMode === 'variable_income') {
+      const m = parseFloat(form.monthlyYieldPercent) || 0
+      annualRate = m * 12
     } else {
       const m = parseFloat(form.monthlyYieldPercent) || 0
       if (m <= 0) return null
@@ -177,6 +214,9 @@ export function Investments() {
       monthlyYieldPercent: String(inv.monthlyYieldPercent),
       startMonth: inv.startMonth,
       notes: inv.notes ?? '',
+      ticker: inv.ticker ?? '',
+      shares: inv.shares != null ? String(inv.shares) : '',
+      averagePrice: inv.averagePrice != null ? String(inv.averagePrice) : '',
     })
     setModalOpen(true)
   }
@@ -190,25 +230,35 @@ export function Investments() {
       cdiPercent: type === 'poupanca' ? '' : f.cdiPercent || '100',
       ipcaPercent: f.ipcaPercent,
       monthlyYieldPercent: f.monthlyYieldPercent,
+      ticker: meta.yieldInputMode === 'variable_income' ? f.ticker : '',
+      shares: meta.yieldInputMode === 'variable_income' ? f.shares : '',
+      averagePrice: meta.yieldInputMode === 'variable_income' ? f.averagePrice : '',
     }))
   }
 
   function handleSubmit() {
     const name = form.name.trim()
-    const principal = parseFloat(form.principal)
-    if (!name || isNaN(principal) || principal <= 0) return
+    
+    let principal = parseFloat(form.principal)
+    const sharesNum = parseFloat(form.shares)
+    const avgPriceNum = parseFloat(form.averagePrice)
+
+    if (selectedMeta.yieldInputMode === 'variable_income') {
+      if (isNaN(sharesNum) || isNaN(avgPriceNum) || sharesNum <= 0 || avgPriceNum <= 0) return
+      principal = sharesNum * avgPriceNum
+    } else {
+      if (isNaN(principal) || principal <= 0) return
+    }
 
     const cdiPct = parseFloat(form.cdiPercent) || undefined
     const ipcaPct = parseFloat(form.ipcaPercent) || undefined
     const manualYield = parseFloat(form.monthlyYieldPercent) || 0
 
-    // For manual type, require a yield
     if (form.investmentType === 'manual' && manualYield <= 0) return
-    // For CDI types (non-poupanca), require cdiPercent
     if (selectedMeta.yieldInputMode === 'cdi_percent' && form.investmentType !== 'poupanca' && (!cdiPct || cdiPct <= 0)) return
 
-    const payload = {
-      name,
+    const payload: Omit<Investment, 'id'> = {
+      name: name || (form.ticker ? form.ticker.toUpperCase() : selectedMeta.label),
       principal,
       monthlyYieldPercent: manualYield,
       startMonth: form.startMonth,
@@ -217,6 +267,9 @@ export function Investments() {
       investmentType: form.investmentType as InvestmentType,
       cdiPercent: cdiPct,
       ipcaPercent: ipcaPct,
+      ticker: form.ticker.toUpperCase().trim() || undefined,
+      shares: sharesNum || undefined,
+      averagePrice: avgPriceNum || undefined,
     }
 
     if (editingId) {
@@ -261,13 +314,6 @@ export function Investments() {
     return computeProjection(inv.principal, annual)
   }
 
-  function getInvTax(inv: Investment) {
-    const meta = getInvestmentMeta(inv.investmentType)
-    const proj = getInvProjection(inv)
-    const days = daysSinceStartMonth(inv.startMonth)
-    return { ...netYieldAfterIR(proj.monthlyAmount, days, meta.isTaxExempt), days, isTaxExempt: meta.isTaxExempt }
-  }
-
   function getInvRateLabel(inv: Investment) {
     const type = inv.investmentType ?? 'manual'
     if (type === 'poupanca') return 'Poupança'
@@ -279,20 +325,48 @@ export function Investments() {
   // ── render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col gap-6 max-w-2xl">
+    <div className="flex flex-col gap-8 w-full px-4 sm:px-6 lg:px-8 py-6">
       {/* header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <TrendingUp size={20} className="text-emerald-600" />
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Investimentos</h1>
+      <div className="flex flex-col gap-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-100 to-cyan-100 dark:from-emerald-900/40 dark:to-cyan-900/30 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+              <TrendingUp size={28} className="text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 font-display">Investimentos</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Gerencie sua carteira de investimentos</p>
+            </div>
+          </div>
+          <Button icon={<Plus size={18} />} onClick={openNew} className="shadow-lg shadow-indigo-500/20 px-6 py-3 text-sm">
+            Novo Investimento
+          </Button>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={handleApply}>
-            Aplicar rendimentos — {formatMonthKey(currentMonthKey)}
-          </Button>
-          <Button icon={<Plus size={14} />} onClick={openNew}>
-            Novo
-          </Button>
+
+        {/* Tab Selection */}
+        <div className="flex p-1 bg-gray-100/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-200/30 dark:border-white/5">
+          {[
+            { id: 'all', label: 'Tudo', icon: BarChart3 },
+            { id: 'fixed', label: 'Renda Fixa', icon: LineChart },
+            { id: 'variable', label: 'Renda Var.', icon: PieChart },
+          ].map((tab) => {
+            const Icon = tab.icon
+            const isActive = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-semibold rounded-lg transition-all ${
+                  isActive
+                    ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                <Icon size={14} />
+                {tab.label}
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -357,20 +431,32 @@ export function Investments() {
 
       {/* portfolio summary */}
       {activeInvestments.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: 'Total investido', value: fmt(totalPrincipal), color: 'text-gray-800 dark:text-gray-200' },
-            { label: 'Rend. mensal bruto', value: fmt(totalMonthlyYieldGross), color: 'text-emerald-600' },
-            { label: 'Rend. mensal líquido', value: fmt(totalMonthlyNet), color: 'text-emerald-700' },
-            { label: 'IR estimado/mês', value: fmt(totalMonthlyTax), color: 'text-red-500' },
-          ].map(({ label, value, color }) => (
-            <div key={label} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-4">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{label}</p>
-              <p className={`text-base font-bold ${color}`}>{value}</p>
-            </div>
-          ))}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="glass-panel-lg p-5 flex flex-col justify-between">
+            <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-2">Patrimônio Total</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{fmt(totalPrincipal)}</p>
+          </div>
+          <div className="glass-panel-lg p-5 border-t-4 border-t-indigo-500">
+            <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-2">Renda Fixa</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{fmt(totalFixed)}</p>
+          </div>
+          <div className="glass-panel-lg p-5 border-t-4 border-t-emerald-500">
+            <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-2">Renda Var.</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{fmt(totalVariable)}</p>
+          </div>
+          <div className="glass-panel-lg p-5 bg-gradient-to-br from-emerald-50/80 to-cyan-50/80 dark:from-emerald-900/30 dark:to-cyan-900/20">
+            <p className="text-xs text-emerald-600 font-bold uppercase tracking-wider mb-2">Rend. Mensal Liq.</p>
+            <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">+{fmt(totalMonthlyNet)}</p>
+          </div>
         </div>
       )}
+
+      {/* rendimentos aplicados info */}
+      <div className="flex items-center justify-between">
+           <Button variant="secondary" size="sm" onClick={handleApply} className="text-xs h-9 px-3">
+            Aplicar rendimentos — {formatMonthKey(currentMonthKey)}
+          </Button>
+      </div>
 
       {/* applied this month */}
       {appliedThisMonth.length > 0 && (
@@ -394,99 +480,122 @@ export function Investments() {
         </div>
       )}
 
-      {/* empty state */}
-      {investments.length === 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-10 text-center">
-          <TrendingUp size={32} className="text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">Nenhum investimento cadastrado.</p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Adicione suas aplicações para calcular os rendimentos automaticamente.</p>
-        </div>
-      )}
-
       {/* investment list */}
-      {investments.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Carteira</h2>
-          <div className="flex flex-col gap-3">
-            {investments.map((inv) => {
+      {filteredInvestments.length > 0 ? (
+        <div className="flex flex-col gap-6">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+              {activeTab === 'all' ? 'Sua Carteira' : activeTab === 'fixed' ? 'Renda Fixa' : 'Renda Variável'}
+            </h2>
+            <span className="text-[10px] font-bold text-gray-400">{filteredInvestments.length} ATIVOS</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredInvestments.map((inv) => {
               const proj = getInvProjection(inv)
-              const tax = getInvTax(inv)
               const meta = getInvestmentMeta(inv.investmentType)
+              const isVariable = meta.yieldInputMode === 'variable_income'
 
               return (
                 <div
                   key={inv.id}
-                  className={`p-3 rounded-lg border transition-colors ${inv.isActive ? 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700' : 'bg-gray-50 dark:bg-gray-700 border-gray-100 dark:border-gray-700 opacity-60'}`}
+                  className={`glass-panel-lg p-6 flex flex-col gap-4 group relative overflow-hidden transition-all hover:scale-[1.01] ${!inv.isActive ? 'opacity-60 grayscale' : ''}`}
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0 mt-0.5">
-                      <TrendingUp size={14} className="text-emerald-600" />
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{inv.name}</p>
-                        <span className="text-[10px] font-semibold bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded">
-                          {meta.label}
-                        </span>
-                        {tax.isTaxExempt && (
-                          <span className="text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                            <ShieldCheck size={9} /> Isento IR
-                          </span>
-                        )}
+                  {/* Neon glow indicator */}
+                  <div className={`absolute inset-x-0 top-0 h-1 ${isVariable ? 'bg-gradient-to-r from-emerald-400 to-cyan-400 shadow-[0_0_20px_rgba(16,185,129,0.6)]' : 'bg-gradient-to-r from-indigo-500 to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.5)]'}`} />
+                  
+                  {/* Header */}
+                  <div className="flex items-start justify-between pt-2">
+                    <div className="flex gap-4 items-center">
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border-2 border-white/20 shadow-lg ${isVariable ? 'bg-gradient-to-br from-emerald-100 to-cyan-50 dark:from-emerald-900/50 dark:to-cyan-900/30 text-emerald-600' : 'bg-gradient-to-br from-indigo-100 to-purple-50 dark:from-indigo-900/50 dark:to-purple-900/30 text-indigo-600'}`}>
+                        {isVariable ? <PieChart size={24} /> : <LineChart size={24} />}
                       </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {getInvRateLabel(inv)} · {proj.annualRate.toFixed(2)}% a.a. · desde {formatMonthKey(inv.startMonth)}
-                      </p>
-                      {inv.notes && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{inv.notes}</p>}
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{inv.name}</p>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          {inv.ticker && (
+                            <span className="text-xs font-extrabold bg-gray-900/10 dark:bg-white/10 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-lg border border-gray-200/30 dark:border-white/10">
+                              {inv.ticker}
+                            </span>
+                          )}
+                          <span className={`text-xs font-bold px-3 py-1 rounded-full ${isVariable ? 'bg-emerald-100/70 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : 'bg-indigo-100/70 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300'}`}>
+                            {meta.label}
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{fmt(inv.principal)}</p>
+                    {/* Main value */}
+                    <div className="text-right">
+                      <p className="text-xl font-black text-gray-900 dark:text-gray-100">{fmt(inv.principal)}</p>
+                      <span className="text-xs text-gray-500">desde {formatMonthKey(inv.startMonth)}</span>
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="flex items-center gap-3 pt-3 border-t border-gray-100/50 dark:border-white/5">
+                    <div className="flex-1">
+                      <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Rendimento/mês</span>
+                      <p className="text-base font-bold text-emerald-600 dark:text-emerald-400">+{fmt(proj.monthlyAmount)}</p>
+                    </div>
+                    <div className="flex-1">
+                      <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Rendimento/ano</span>
+                      <p className="text-base font-bold text-indigo-600 dark:text-indigo-400">+{fmt(proj.annualAmount)}</p>
+                    </div>
+                    <div className="flex-1">
+                      <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Taxa a.a.</span>
+                      <p className="text-base font-bold text-gray-700 dark:text-gray-300">{proj.annualRate.toFixed(2)}%</p>
+                    </div>
+                    {!isVariable && (
+                      <div className="flex-1">
+                        <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Tipo</span>
+                        <p className="text-xs font-bold text-gray-600 dark:text-gray-300">{getInvRateLabel(inv)}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Status & Actions */}
+                  <div className="flex items-center justify-between pt-3 border-t border-gray-100/50 dark:border-white/5">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2.5 h-2.5 rounded-full ${inv.isActive ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]' : 'bg-gray-400'}`} />
+                      <span className="text-sm font-bold text-gray-600 dark:text-gray-300">{inv.isActive ? 'ATIVO' : 'PAUSADO'}</span>
                     </div>
 
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => updateInvestment(inv.id, { isActive: !inv.isActive })}
-                        className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 cursor-pointer transition-colors"
+                        className="p-2.5 rounded-xl bg-gray-100/50 dark:bg-white/5 text-gray-500 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all"
                         title={inv.isActive ? 'Pausar' : 'Ativar'}
                       >
-                        {inv.isActive ? <Pause size={13} /> : <Play size={13} />}
+                        {inv.isActive ? <Pause size={18} /> : <Play size={18} />}
                       </button>
                       <button
                         onClick={() => openEdit(inv)}
-                        className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 cursor-pointer transition-colors"
+                        className="p-2.5 rounded-xl bg-gray-100/50 dark:bg-white/5 text-gray-500 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all"
                       >
-                        <Pencil size={13} />
+                        <Pencil size={18} />
                       </button>
                       <button
                         onClick={() => {
                           if (window.confirm(`Excluir "${inv.name}"?`)) deleteInvestment(inv.id)
                         }}
-                        className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 cursor-pointer transition-colors"
+                        className="p-2.5 rounded-xl bg-gray-100/50 dark:bg-white/5 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all"
                       >
-                        <Trash2 size={13} />
+                        <Trash2 size={18} />
                       </button>
                     </div>
-                  </div>
-
-                  {/* projections row */}
-                  <div className="mt-2 pt-2 border-t border-gray-50 dark:border-gray-700 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                    <span className="text-emerald-600">+{fmt(proj.dailyAmount)}/dia</span>
-                    <span className="text-emerald-600 font-semibold">+{fmt(proj.monthlyAmount)}/mês</span>
-                    <span className="text-emerald-600">+{fmt(proj.annualAmount)}/ano</span>
-                    {!tax.isTaxExempt && (
-                      <>
-                        <span className="text-gray-300 dark:text-gray-600">|</span>
-                        <span className="text-red-400">IR: {getIRBracketLabel(tax.days)}</span>
-                        <span className="text-emerald-700 font-semibold">Líq: {fmt(tax.netYield)}/mês</span>
-                      </>
-                    )}
                   </div>
                 </div>
               )
             })}
           </div>
+        </div>
+      ) : (
+        <div className="glass-panel p-12 text-center flex flex-col items-center gap-3">
+          <BarChart3 size={32} className="text-gray-300 dark:text-gray-600" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">Nenhum investimento encontrado nesta categoria.</p>
+           <Button variant="secondary" size="sm" onClick={openNew}>Adicionar Primeiro</Button>
         </div>
       )}
 
@@ -516,22 +625,57 @@ export function Investments() {
             )}
           </div>
 
-          <Input
-            label="Nome"
-            value={form.name}
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            placeholder={`Ex: ${selectedMeta.label} Nubank, ${selectedMeta.label} Inter...`}
-          />
+          {selectedMeta.yieldInputMode === 'variable_income' ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <Input
+                  label="Ticker"
+                  value={form.ticker}
+                  onChange={(e) => setForm((f) => ({ ...f, ticker: e.target.value }))}
+                  placeholder="Ex: PETR4, IVVB11..."
+                />
+              </div>
+              <Input
+                label="Quantidade"
+                type="number"
+                value={form.shares}
+                onChange={(e) => setForm((f) => ({ ...f, shares: e.target.value }))}
+                placeholder="Ex: 100"
+              />
+              <Input
+                label="Preço Médio"
+                type="number"
+                prefix="R$"
+                value={form.averagePrice}
+                onChange={(e) => setForm((f) => ({ ...f, averagePrice: e.target.value }))}
+                placeholder="Ex: 35.50"
+              />
+              {form.shares && form.averagePrice && (
+                 <div className="col-span-2 bg-gray-50 dark:bg-gray-800/50 p-2 rounded border border-gray-100 dark:border-white/5 text-[10px] font-bold text-gray-500 uppercase">
+                    Total Investido: <span className="text-indigo-600 dark:text-indigo-400">{fmt((parseFloat(form.shares) || 0) * (parseFloat(form.averagePrice) || 0))}</span>
+                 </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <Input
+                label="Nome"
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder={`Ex: ${selectedMeta.label} Nubank, ${selectedMeta.label} Inter...`}
+              />
 
-          <Input
-            label="Valor investido (R$)"
-            type="number"
-            prefix="R$"
-            min="0"
-            step="100"
-            value={form.principal}
-            onChange={(e) => setForm((f) => ({ ...f, principal: e.target.value }))}
-          />
+              <Input
+                label="Valor investido (R$)"
+                type="number"
+                prefix="R$"
+                min="0"
+                step="100"
+                value={form.principal}
+                onChange={(e) => setForm((f) => ({ ...f, principal: e.target.value }))}
+              />
+            </>
+          )}
 
           {/* Conditional yield fields */}
           {selectedMeta.yieldInputMode === 'cdi_percent' && form.investmentType !== 'poupanca' && (
@@ -548,7 +692,6 @@ export function Investments() {
               {form.cdiPercent && (
                 <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-1">
                   {form.cdiPercent}% x CDI ({cdiRate.toFixed(2)}%) = {effectiveAnnualRate(parseFloat(form.cdiPercent) || 0, cdiRate).toFixed(2)}% a.a.
-                  {' · '}{annualToMonthly(effectiveAnnualRate(parseFloat(form.cdiPercent) || 0, cdiRate)).toFixed(4)}% a.m.
                 </p>
               )}
             </div>
@@ -558,9 +701,6 @@ export function Investments() {
             <div className="bg-gray-50 dark:bg-gray-700 rounded-lg px-3 py-2">
               <p className="text-xs text-gray-600 dark:text-gray-400">
                 Rendimento calculado automaticamente: 70% da Selic
-              </p>
-              <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-0.5">
-                = {poupancaAnnualRate(cdiRate).toFixed(2)}% a.a. · {annualToMonthly(poupancaAnnualRate(cdiRate)).toFixed(4)}% a.m.
               </p>
             </div>
           )}
@@ -576,18 +716,13 @@ export function Investments() {
                 onChange={(e) => setForm((f) => ({ ...f, ipcaPercent: e.target.value }))}
                 placeholder="Ex: 6.5"
               />
-              {form.ipcaPercent && (
-                <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-1">
-                  IPCA ({ipcaRate.toFixed(2)}%) + {form.ipcaPercent}% = {effectiveAnnualRateIPCA(parseFloat(form.ipcaPercent) || 0, ipcaRate).toFixed(2)}% a.a.
-                </p>
-              )}
             </div>
           )}
 
-          {selectedMeta.yieldInputMode === 'manual_monthly' && (
+          {(selectedMeta.yieldInputMode === 'manual_monthly' || selectedMeta.yieldInputMode === 'variable_income') && (
             <div>
               <Input
-                label="Rendimento mensal (%)"
+                label={selectedMeta.yieldInputMode === 'variable_income' ? "Dividendos mensais est. (%)" : "Rendimento mensal (%)"}
                 type="number"
                 min="0"
                 step="0.01"
@@ -595,32 +730,17 @@ export function Investments() {
                 onChange={(e) => setForm((f) => ({ ...f, monthlyYieldPercent: e.target.value }))}
                 placeholder="Ex: 0.80"
               />
-              {form.principal && form.monthlyYieldPercent && (
-                <p className="text-xs text-emerald-600 mt-1">
-                  = {fmt(parseFloat(form.principal || '0') * parseFloat(form.monthlyYieldPercent || '0') / 100)}/mês
-                  {' · '}≈ {(parseFloat(form.monthlyYieldPercent || '0') * 12).toFixed(1)}% ao ano
-                </p>
-              )}
             </div>
           )}
 
           {/* Live preview */}
           {preview && (
             <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-lg px-3 py-2.5 border border-emerald-100 dark:border-emerald-800">
-              <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-1">Projeção de rendimento bruto</p>
+              <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-1">Rendimento estimado</p>
               <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-emerald-600">
-                <span>Diário: <strong>{fmt(preview.dailyAmount)}</strong></span>
                 <span>Mensal: <strong>{fmt(preview.monthlyAmount)}</strong></span>
                 <span>Anual: <strong>{fmt(preview.annualAmount)}</strong></span>
               </div>
-              <p className="text-[10px] text-emerald-500 mt-1">
-                {preview.dailyRate.toFixed(4)}% a.d. · {preview.monthlyRate.toFixed(4)}% a.m. · {preview.annualRate.toFixed(2)}% a.a.
-              </p>
-              {!selectedMeta.isTaxExempt && (
-                <p className="text-[10px] text-red-400 mt-0.5">
-                  IR regressivo: 22,5% (até 6m) → 20% (1a) → 17,5% (2a) → 15% (2a+)
-                </p>
-              )}
             </div>
           )}
 
@@ -648,7 +768,7 @@ export function Investments() {
             <Button
               onClick={handleSubmit}
               className="flex-1"
-              disabled={!form.name.trim() || !form.principal || parseFloat(form.principal) <= 0}
+              disabled={(selectedMeta.yieldInputMode !== 'variable_income' && (!form.name.trim() || !form.principal || parseFloat(form.principal) <= 0)) || (selectedMeta.yieldInputMode === 'variable_income' && (!form.ticker || !form.shares || !form.averagePrice))}
             >
               {editingId ? 'Salvar' : 'Adicionar'}
             </Button>

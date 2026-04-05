@@ -4,11 +4,11 @@ type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success'
 type ButtonSize = 'sm' | 'md' | 'lg'
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: 'bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800',
-  secondary: 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 active:bg-gray-100 dark:active:bg-gray-500',
-  ghost: 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-600',
-  danger: 'bg-red-600 text-white hover:bg-red-700 active:bg-red-800',
-  success: 'bg-emerald-600 text-white hover:bg-emerald-700',
+  primary: 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md hover:shadow-indigo-600/20 active:bg-indigo-800',
+  secondary: 'bg-white dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-800 active:bg-gray-100 dark:active:bg-gray-700',
+  ghost: 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 dark:active:bg-gray-700',
+  danger: 'bg-red-600 text-white hover:bg-red-700 hover:shadow-md hover:shadow-red-600/20 active:bg-red-800',
+  success: 'bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-md hover:shadow-emerald-600/20 active:bg-emerald-800',
 }
 
 const sizeClasses: Record<ButtonSize, string> = {
@@ -37,7 +37,7 @@ export function Button({
 }: ButtonProps) {
   return (
     <button
-      className={`inline-flex items-center gap-1.5 font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 font-medium rounded-xl transition-all duration-200 active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
       disabled={disabled || loading}
       {...props}
     >

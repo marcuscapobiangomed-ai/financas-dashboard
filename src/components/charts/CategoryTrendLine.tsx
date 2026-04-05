@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, ReferenceLine, Legend,
+  Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
 import { useFinanceStore } from '../../store/useFinanceStore'
 import { Category, CATEGORY_META } from '../../types/category'

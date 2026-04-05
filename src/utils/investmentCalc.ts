@@ -126,6 +126,8 @@ export function resolveMonthlyYieldPercent(
       return annualToMonthly(effectiveAnnualRateIPCA(ipcaPercent ?? 0, ipcaRateAnnual))
     case 'poupanca':
       return annualToMonthly(poupancaAnnualRate(cdiRateAnnual))
+    case 'acoes':
+    case 'fiis':
     case 'manual':
     default:
       return existingMonthlyYieldPercent
@@ -153,6 +155,8 @@ export function getEffectiveAnnualRate(
       return effectiveAnnualRateIPCA(ipcaPercent ?? 0, ipcaRateAnnual)
     case 'poupanca':
       return poupancaAnnualRate(cdiRateAnnual)
+    case 'acoes':
+    case 'fiis':
     case 'manual':
     default:
       return monthlyYieldPercent * 12

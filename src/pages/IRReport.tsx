@@ -1,605 +1,828 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo } from 'react'
 import {
-  FileText, Download, ChevronDown, ChevronUp,
-  AlertTriangle, Info, Building2, Landmark, ShieldCheck, Heart, Briefcase, Printer,
+  FileText, AlertTriangle, CheckCircle, XCircle,
+  Heart, Briefcase, TrendingUp,
+  ListChecks, Users, Calendar, Sparkles, Bell, Target, Zap,
+  Shield, Stethoscope, GraduationCap, Building2, Landmark,
 } from 'lucide-react'
 import { useFinanceStore } from '../store/useFinanceStore'
 import { getInvestmentMeta } from '../constants/investmentTypes'
-import { daysSinceStartMonth, netYieldAfterIR } from '../utils/investmentCalc'
+import { AVAILABLE_BANKS, BankConnection } from '../lib/openBanking'
+import { uploadFile, UploadedFile } from '../lib/pdfParser'
+import type { Transaction } from '../types/transaction'
+import type { Investment } from '../types/investment'
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-const EXTRAORDINARY_LABELS: Record<string, string> = {
-  ferias: 'Férias',
-  plr: 'PLR',
-  decimo_terceiro: '13° Salário',
-  bonus: 'Bônus',
-  outro: 'Outros',
-}
-
-interface SectionProps {
-  id: string
-  title: string
-  icon: React.ReactNode
-  total: number
-  expanded: boolean
-  onToggle: () => void
-  badge?: string
-  badgeColor?: string
-  children: React.ReactNode
-}
-
-function ReportSection({ id, title, icon, total, expanded, onToggle, badge, badgeColor, children }: SectionProps) {
+function GlassCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
-      >
-        <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
-          {icon}
-        </div>
-        <div className="flex-1 text-left">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{title}</h3>
-            {badge && (
-              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${badgeColor ?? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
-                {badge}
-              </span>
-            )}
-          </div>
-        </div>
-        <p className="text-sm font-bold text-gray-800 dark:text-gray-200 mr-2">{fmt(total)}</p>
-        {expanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
-      </button>
-      {expanded && (
-        <div className="px-5 pb-4 border-t border-gray-50 dark:border-gray-700">
-          {children}
-        </div>
-      )}
+    <div className={`glass-card-lg p-5 ${className}`}>
+      {children}
     </div>
   )
 }
 
-function LineItem({ label, value, sub }: { label: string; value: number; sub?: string }) {
-  return (
-    <div className="flex items-center justify-between py-1.5 text-sm">
-      <div>
-        <span className="text-gray-700 dark:text-gray-300">{label}</span>
-        {sub && <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">{sub}</span>}
-      </div>
-      <span className="font-medium text-gray-800 dark:text-gray-200">{fmt(value)}</span>
-    </div>
-  )
+interface IRAnalysis {
+  isMandatory: boolean
+  reasons: { type: string; description: string; value?: number }[]
+  income: { regular: number; exclusive: number; exempt: number; total: number }
+  deductions: { tithes: number; offerings: number; health: number; education: number; inss: number; total: number }
+  investments: { taxable: { name: string; value: number; type: string }[]; exempt: { name: string; value: number; type: string }[] }
+  assets: { total: number; breakdown: { category: string; value: number }[] }
+  completeness: { score: number; missing: string[]; suggestions: string[] }
+  alerts: { type: 'warning' | 'error' | 'success'; title: string; description: string }[]
+}
+
+const OBRIGATORIEDADE_LIMITS = {
+  incomeThreshold: 211200,
+  exemptIncomeThreshold: 40000,
+  patrimonyThreshold: 300000,
+  ruralThreshold: 128400,
+}
+
+const DEDUCTIBLE_EXPENSE_PATTERNS = {
+  health: ['hospital', 'clínica', 'médic', 'dentista', 'laboratório', 'exame', 'remédio', 'farmácia', 'plano de saúde', 'convênio médico', 'psicólogo', 'fisioterapia', 'terapia'],
+  education: ['faculdade', 'universidade', 'escola', 'curso', 'graduação', 'mestrado', 'doutorado', 'idioma', 'livro didático', 'material escolar'],
+  inss: ['inss', 'previdência', 'contribuição previdenciária'],
+}
+
+function analyzeIRPF(
+  transactions: Transaction[],
+  extraordinaryEntries: { monthKey: string; type: string; grossAmount: number; tithe: number; offering: number }[],
+  investments: Investment[],
+  selectedYear: number
+): IRAnalysis {
+  const yearMonths = Array.from({ length: 12 }, (_, i) => `${selectedYear}-${String(i + 1).padStart(2, '0')}`)
+
+  const yearTransactions = transactions.filter(t => yearMonths.includes(t.monthKey))
+  const yearExtra = extraordinaryEntries.filter(e => yearMonths.includes(e.monthKey))
+
+  const regularIncome = yearTransactions
+    .filter(t => t.section === 'entradas' && !t.tags?.includes('investment-yield'))
+    .reduce((s, t) => s + t.amount, 0)
+
+  const exclusiveIncome = {
+    decimo: yearExtra.filter(e => e.type === 'decimo_terceiro').reduce((s, e) => s + e.grossAmount, 0),
+    plr: yearExtra.filter(e => e.type === 'plr').reduce((s, e) => s + e.grossAmount, 0),
+    taxableYields: 0,
+  }
+
+  const taxableInvestments: { name: string; value: number; type: string }[] = []
+  const exemptInvestments: { name: string; value: number; type: string }[] = []
+
+  investments.forEach(inv => {
+    const isExempt = getInvestmentMeta(inv.investmentType).isTaxExempt
+    const monthlyYield = inv.principal * inv.monthlyYieldPercent / 100
+    const startParts = inv.startMonth.split('-').map(Number)
+    const invStartMonth = startParts[0] * 12 + startParts[1]
+    let months = 0
+    yearMonths.forEach(mk => {
+      const [y, m] = mk.split('-').map(Number)
+      if (y * 12 + m >= invStartMonth && inv.isActive) months++
+    })
+    const annualYield = monthlyYield * months
+
+    if (annualYield > 0) {
+      if (isExempt) {
+        exemptInvestments.push({ name: inv.name, value: annualYield, type: getInvestmentMeta(inv.investmentType).label })
+      } else {
+        exclusiveIncome.taxableYields += annualYield
+        taxableInvestments.push({ name: inv.name, value: annualYield, type: getInvestmentMeta(inv.investmentType).label })
+      }
+    }
+  })
+
+  const exclusiveTotal = exclusiveIncome.decimo + exclusiveIncome.plr + exclusiveIncome.taxableYields
+
+  const exemptIncome = {
+    ferias: yearExtra.filter(e => e.type === 'ferias').reduce((s, e) => s + e.grossAmount, 0),
+    bonus: yearExtra.filter(e => e.type === 'bonus' || e.type === 'outro').reduce((s, e) => s + e.grossAmount, 0),
+    yields: exemptInvestments.reduce((s, i) => s + i.value, 0),
+  }
+  const exemptTotal = exemptIncome.ferias + exemptIncome.bonus + exemptIncome.yields
+
+  const totalIncome = regularIncome + exclusiveTotal + exemptTotal
+
+  const totalAssets = investments.reduce((s, inv) => s + inv.principal, 0)
+
+  const expenses = yearTransactions.filter(t => t.type === 'expense')
+  const healthExpenses = expenses.filter(e => DEDUCTIBLE_EXPENSE_PATTERNS.health.some(p => e.description?.toLowerCase().includes(p)))
+  const educationExpenses = expenses.filter(e => DEDUCTIBLE_EXPENSE_PATTERNS.education.some(p => e.description?.toLowerCase().includes(p)))
+
+  const deductions = {
+    tithes: yearExtra.reduce((s, e) => s + e.tithe, 0),
+    offerings: yearExtra.reduce((s, e) => s + e.offering, 0),
+    health: healthExpenses.reduce((s, e) => s + e.amount, 0),
+    education: educationExpenses.reduce((s, e) => s + e.amount, 0),
+    inss: 0,
+  }
+  const deductionsTotal = deductions.tithes + deductions.offerings + deductions.health + deductions.education + deductions.inss
+
+  const reasons: { type: string; description: string; value?: number }[] = []
+  const alerts: { type: 'warning' | 'error' | 'success'; title: string; description: string }[] = []
+
+  if (regularIncome > OBRIGATORIEDADE_LIMITS.incomeThreshold) {
+    reasons.push({ type: 'renda', description: 'Renda tributável acima de R$ 211.200', value: regularIncome })
+  }
+  if (exemptTotal > OBRIGATORIEDADE_LIMITS.exemptIncomeThreshold) {
+    reasons.push({ type: 'isenta', description: 'Renda isenta acima de R$ 40.000', value: exemptTotal })
+  }
+  if (totalAssets > OBRIGATORIEDADE_LIMITS.patrimonyThreshold) {
+    reasons.push({ type: 'patrimonio', description: 'Bens acima de R$ 300.000', value: totalAssets })
+  }
+
+  const isMandatory = reasons.length > 0
+
+  if (deductions.tithes > regularIncome * 0.1) {
+    alerts.push({
+      type: 'warning',
+      title: 'Dízimos acima do limite',
+      description: `Você declarou R$ ${fmt(deductions.tithes)} em dízimos, mas apenas R$ ${fmt(regularIncome * 0.1)} (10%) será considerado na dedução.`,
+    })
+  }
+
+  if (deductions.education > 0 && regularIncome > 0) {
+    const maxEducation = regularIncome * 0.3
+    if (deductions.education > maxEducation) {
+      alerts.push({
+        type: 'warning',
+        title: 'Despesas com educação limitadas',
+        description: `Suas despesas com educação (R$ ${fmt(deductions.education)}) excedem o limite de 30% da renda (R$ ${fmt(maxEducation)}).`,
+      })
+    }
+  }
+
+  if (healthExpenses.length > 0) {
+    alerts.push({
+      type: 'success',
+      title: 'Despesas médicas detectadas',
+      description: `Encontramos R$ ${fmt(deductions.health)} em despesas médicas - estas são 100% dedutíveis!`,
+    })
+  }
+
+  if (taxableInvestments.length > 0) {
+    const estimatedIR = taxableInvestments.reduce((s, inv) => s + inv.value * 0.15, 0)
+    alerts.push({
+      type: 'warning',
+      title: 'Imposto sobre investimentos',
+      description: `Seus investimentos tributáveis devem gerar IR de aproximadamente R$ ${fmt(estimatedIR)} (15% sobre rendimentos).`,
+    })
+  }
+
+  const missing: string[] = []
+  const suggestions: string[] = []
+
+  if (regularIncome === 0) missing.push('Nenhuma renda tributável encontrada')
+  else suggestions.push(`Renda tributável de R$ ${fmt(regularIncome)} mapeada automaticamente`)
+
+  if (deductions.health === 0) suggestions.push('💡 Dica: Adicione despesas médicas para dedução integral')
+  if (deductions.education > 0) suggestions.push(`✓ Educação: R$ ${fmt(deductions.education)} em deduções`)
+
+  if (yearExtra.filter(e => e.type === 'decimo_terceiro').length === 0) suggestions.push('💡 Cadastre seu 13° salário nos lançamentos extraordinários')
+  if (yearExtra.filter(e => e.type === 'plr').length === 0) suggestions.push('💡 Cadastre PLR (Participação nos Lucros) se aplicável')
+  if (yearExtra.filter(e => e.type === 'ferias').length === 0) suggestions.push('💡 Cadastre férias/abono pecuniário')
+
+  const completenessScore = Math.min(100, Math.round(
+    (regularIncome > 0 ? 25 : 0) +
+    (exclusiveTotal > 0 ? 15 : 0) +
+    (exemptTotal > 0 ? 10 : 0) +
+    (totalAssets > 0 ? 20 : 0) +
+    (deductionsTotal > 0 ? 15 : 0) +
+    (investments.length > 0 ? 15 : 0)
+  ))
+
+  return {
+    isMandatory,
+    reasons,
+    income: { regular: regularIncome, exclusive: exclusiveTotal, exempt: exemptTotal, total: totalIncome },
+    deductions: { ...deductions, total: deductionsTotal },
+    investments: { taxable: taxableInvestments, exempt: exemptInvestments },
+    assets: {
+      total: totalAssets,
+      breakdown: [
+        { category: 'Investimentos', value: totalAssets },
+        { category: 'Conta Corrente', value: 0 },
+        { category: 'Outros', value: 0 },
+      ],
+    },
+    completeness: { score: completenessScore, missing, suggestions },
+    alerts,
+  }
+}
+
+function calculateIR(income: number): { aliquot: number; taxDue: number; effectiveRate: number } {
+  const table = [
+    { limit: 2259.20, aliquot: 0, deduction: 0 },
+    { limit: 2826.65, aliquot: 7.5, deduction: 169.44 },
+    { limit: 3751.05, aliquot: 15, deduction: 381.44 },
+    { limit: 4664.68, aliquot: 22.5, deduction: 662.77 },
+    { limit: Infinity, aliquot: 27.5, deduction: 896.00 },
+  ]
+  const row = table.find(t => income <= t.limit) || table[table.length - 1]
+  const taxDue = Math.max(0, income * (row.aliquot / 100) - row.deduction)
+  return { aliquot: row.aliquot, taxDue, effectiveRate: income > 0 ? (taxDue / income) * 100 : 0 }
 }
 
 export function IRReport() {
   const transactions = useFinanceStore((s) => s.transactions)
   const extraordinaryEntries = useFinanceStore((s) => s.extraordinaryEntries)
   const investments = useFinanceStore((s) => s.investments)
-  const appSettings = useFinanceStore((s) => s.appSettings)
 
   const currentYear = new Date().getFullYear()
   const [selectedYear, setSelectedYear] = useState(currentYear - 1)
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(['tributaveis', 'exclusiva', 'isentos', 'bens', 'deducoes'])
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'details' | 'checklist' | 'banks'>('dashboard')
+  const [checklistProgress, setChecklistProgress] = useState<Set<number>>(new Set())
+
+  const analysis = useMemo(() =>
+    analyzeIRPF(transactions, extraordinaryEntries, investments, selectedYear),
+    [transactions, extraordinaryEntries, investments, selectedYear]
   )
 
-  function toggleSection(id: string) {
-    setExpandedSections((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+  const { aliquot, taxDue: calculatedTax } = calculateIR(
+    analysis.income.regular - Math.min(analysis.deductions.tithes + analysis.deductions.offerings, analysis.income.regular * 0.1)
+  )
+
+  const toggleChecklist = (id: number) => {
+    const next = new Set(checklistProgress)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setChecklistProgress(next)
   }
 
-  const yearMonths = useMemo(() =>
-    Array.from({ length: 12 }, (_, i) =>
-      `${selectedYear}-${String(i + 1).padStart(2, '0')}`
-    ),
-    [selectedYear]
-  )
+  const checklistItems = [
+    { id: 1, text: 'Informe de Rendimentos (IRPF) do meu emprego', category: 'rendimentos' },
+    { id: 2, text: 'Extratos bancários', category: 'bens' },
+    { id: 3, text: 'Informe de Rendimentos de investimentos', category: 'investimentos' },
+    { id: 4, text: 'Extrato do FGTS', category: 'bens' },
+    { id: 5, text: 'INSS - Extrato de contribuições', category: 'rendimentos' },
+    { id: 6, text: 'Recibo de despesas médicas', category: 'deducoes' },
+    { id: 7, text: 'Recibo de plano de saúde', category: 'deducoes' },
+    { id: 8, text: 'Despesas com educação', category: 'deducoes' },
+    { id: 9, text: 'Recibo de dízimos', category: 'deducoes' },
+    { id: 10, text: 'CPF dos dependentes', category: 'familia' },
+  ]
 
-  const yearTransactions = useMemo(() =>
-    transactions.filter((t) => yearMonths.includes(t.monthKey)),
-    [transactions, yearMonths]
-  )
+  const checklistByCategory = checklistItems.reduce((acc, item) => {
+    if (!acc[item.category]) acc[item.category] = []
+    acc[item.category].push(item)
+    return acc
+  }, {} as Record<string, typeof checklistItems>)
 
-  const yearExtraordinary = useMemo(() =>
-    extraordinaryEntries.filter((e) => yearMonths.includes(e.monthKey)),
-    [extraordinaryEntries, yearMonths]
-  )
+  const progressPercent = Math.round((checklistProgress.size / checklistItems.length) * 100)
 
-  // ── RENDIMENTOS TRIBUTÁVEIS RECEBIDOS DE PJ ────────────────────
+  const [connectedBanks, setConnectedBanks] = useState<BankConnection[]>([])
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
+  const [isUploading, setIsUploading] = useState(false)
 
-  const regularIncome = useMemo(() => {
-    return yearTransactions
-      .filter((t) => t.section === 'entradas' && !t.tags?.includes('investment-yield'))
-      .reduce((s, t) => s + t.amount, 0)
-  }, [yearTransactions])
+  const handleDisconnectBank = (connectionId: string) => {
+    setConnectedBanks(prev => prev.filter(b => b.id !== connectionId))
+  }
 
-  // Monthly breakdown for income
-  const incomeByMonth = useMemo(() => {
-    return yearMonths.map((mk) => {
-      const monthTxs = yearTransactions.filter(
-        (t) => t.monthKey === mk && t.section === 'entradas' && !t.tags?.includes('investment-yield')
-      )
-      return { month: mk, total: monthTxs.reduce((s, t) => s + t.amount, 0) }
-    }).filter((m) => m.total > 0)
-  }, [yearTransactions, yearMonths])
-
-  // ── RENDIMENTOS TRIBUTAÇÃO EXCLUSIVA/DEFINITIVA ────────────────
-
-  const exclusiveIncome = useMemo(() => {
-    const decimo = yearExtraordinary
-      .filter((e) => e.type === 'decimo_terceiro')
-      .reduce((s, e) => s + e.grossAmount, 0)
-    const plr = yearExtraordinary
-      .filter((e) => e.type === 'plr')
-      .reduce((s, e) => s + e.grossAmount, 0)
-
-    // Taxable investment yields (estimated)
-    let taxableYields = 0
-    let estimatedIR = 0
-    const taxableInvestmentDetails: { name: string; type: string; yield: number; ir: number }[] = []
-
-    investments
-      .filter((inv) => !getInvestmentMeta(inv.investmentType).isTaxExempt)
-      .forEach((inv) => {
-        const monthlyYield = inv.principal * inv.monthlyYieldPercent / 100
-        const startParts = inv.startMonth.split('-').map(Number)
-        const invStartMonth = startParts[0] * 12 + startParts[1]
-        let months = 0
-        yearMonths.forEach((mk) => {
-          const [y, m] = mk.split('-').map(Number)
-          if (y * 12 + m >= invStartMonth && inv.isActive) months++
-        })
-        const annualYield = monthlyYield * months
-        if (annualYield > 0) {
-          const days = daysSinceStartMonth(inv.startMonth)
-          const { taxAmount } = netYieldAfterIR(annualYield, days, false)
-          taxableYields += annualYield
-          estimatedIR += taxAmount
-          taxableInvestmentDetails.push({
-            name: inv.name,
-            type: getInvestmentMeta(inv.investmentType).label,
-            yield: annualYield,
-            ir: taxAmount,
-          })
-        }
-      })
-
-    return {
-      decimo,
-      plr,
-      taxableYields,
-      estimatedIR,
-      taxableInvestmentDetails,
-      total: decimo + plr + taxableYields,
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files || files.length === 0) return
+    
+    setIsUploading(true)
+    try {
+      for (const file of Array.from(files)) {
+        const result = await uploadFile(file)
+        setUploadedFiles(prev => [...prev, result])
+      }
+    } catch (error) {
+      console.error('Erro ao fazer upload:', error)
+    } finally {
+      setIsUploading(false)
     }
-  }, [yearExtraordinary, investments, yearMonths])
-
-  // ── RENDIMENTOS ISENTOS E NÃO TRIBUTÁVEIS ─────────────────────
-
-  const exemptIncome = useMemo(() => {
-    const ferias = yearExtraordinary
-      .filter((e) => e.type === 'ferias')
-      .reduce((s, e) => s + e.grossAmount, 0)
-
-    const bonus = yearExtraordinary
-      .filter((e) => e.type === 'bonus' || e.type === 'outro')
-      .reduce((s, e) => s + e.grossAmount, 0)
-
-    let exemptYields = 0
-    const exemptInvestmentDetails: { name: string; type: string; yield: number }[] = []
-
-    investments
-      .filter((inv) => getInvestmentMeta(inv.investmentType).isTaxExempt)
-      .forEach((inv) => {
-        const monthlyYield = inv.principal * inv.monthlyYieldPercent / 100
-        const startParts = inv.startMonth.split('-').map(Number)
-        const invStartMonth = startParts[0] * 12 + startParts[1]
-        let months = 0
-        yearMonths.forEach((mk) => {
-          const [y, m] = mk.split('-').map(Number)
-          if (y * 12 + m >= invStartMonth && inv.isActive) months++
-        })
-        const annualYield = monthlyYield * months
-        if (annualYield > 0) {
-          exemptYields += annualYield
-          exemptInvestmentDetails.push({
-            name: inv.name,
-            type: getInvestmentMeta(inv.investmentType).label,
-            yield: annualYield,
-          })
-        }
-      })
-
-    return { ferias, bonus, exemptYields, exemptInvestmentDetails, total: ferias + bonus + exemptYields }
-  }, [yearExtraordinary, investments, yearMonths])
-
-  // ── BENS E DIREITOS ───────────────────────────────────────────
-
-  const assets = useMemo(() => {
-    return investments.map((inv) => ({
-      id: inv.id,
-      name: inv.name,
-      type: getInvestmentMeta(inv.investmentType).label,
-      principal: inv.principal,
-      isActive: inv.isActive,
-    }))
-  }, [investments])
-
-  const totalAssets = assets.reduce((s, a) => s + a.principal, 0)
-
-  // ── DEDUÇÕES (Dízimo + Oferta = Doações) ──────────────────────
-
-  const deductions = useMemo(() => {
-    const tithes = yearExtraordinary.reduce((s, e) => s + e.tithe, 0)
-    const offerings = yearExtraordinary.reduce((s, e) => s + e.offering, 0)
-    return { tithes, offerings, total: tithes + offerings }
-  }, [yearExtraordinary])
-
-  // ── TOTALS ────────────────────────────────────────────────────
-
-  const totalRendimentos = regularIncome + exclusiveIncome.total + exemptIncome.total
-  const totalDespesas = yearTransactions
-    .filter((t) => t.type === 'expense')
-    .reduce((s, t) => s + t.amount, 0)
-
-  // ── CSV EXPORT ────────────────────────────────────────────────
-
-  function exportCSV() {
-    const rows: string[][] = [
-      ['Relatório IRPF - Ano-base ' + selectedYear],
-      [],
-      ['CATEGORIA', 'DESCRIÇÃO', 'VALOR (R$)'],
-      [],
-      ['RENDIMENTOS TRIBUTÁVEIS'],
-      ['Salário/Renda regular', '', regularIncome.toFixed(2)],
-      ...incomeByMonth.map((m) => ['', `  ${m.month}`, m.total.toFixed(2)]),
-      [],
-      ['RENDIMENTOS TRIBUTAÇÃO EXCLUSIVA/DEFINITIVA'],
-      ['13° Salário', '', exclusiveIncome.decimo.toFixed(2)],
-      ['PLR', '', exclusiveIncome.plr.toFixed(2)],
-      ...exclusiveIncome.taxableInvestmentDetails.map((d) => [
-        `Rendimento ${d.type}`, d.name, d.yield.toFixed(2),
-      ]),
-      ['IR Retido (estimado)', '', exclusiveIncome.estimatedIR.toFixed(2)],
-      [],
-      ['RENDIMENTOS ISENTOS E NÃO TRIBUTÁVEIS'],
-      ['Férias', '', exemptIncome.ferias.toFixed(2)],
-      ['Bônus/Outros', '', exemptIncome.bonus.toFixed(2)],
-      ...exemptIncome.exemptInvestmentDetails.map((d) => [
-        `Rendimento ${d.type} (isento)`, d.name, d.yield.toFixed(2),
-      ]),
-      [],
-      ['BENS E DIREITOS'],
-      ...assets.map((a) => [a.type, a.name, a.principal.toFixed(2)]),
-      ['Total bens', '', totalAssets.toFixed(2)],
-      [],
-      ['PAGAMENTOS EFETUADOS (DEDUÇÕES)'],
-      ['Dízimo (doação)', '', deductions.tithes.toFixed(2)],
-      ['Oferta (doação)', '', deductions.offerings.toFixed(2)],
-      ['Total deduções', '', deductions.total.toFixed(2)],
-      [],
-      ['RESUMO'],
-      ['Total rendimentos', '', totalRendimentos.toFixed(2)],
-      ['Total despesas', '', totalDespesas.toFixed(2)],
-      ['IR estimado sobre investimentos', '', exclusiveIncome.estimatedIR.toFixed(2)],
-    ]
-
-    const csv = rows.map((r) => r.map((c) => `"${c}"`).join(',')).join('\n')
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `irpf-${selectedYear}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
   }
 
-  // ── PDF EXPORT (via print) ──────────────────────────────────
-
-  const prevExpanded = useRef<Set<string>>(new Set())
-
-  function exportPDF() {
-    // Expand all sections before printing
-    prevExpanded.current = new Set(expandedSections)
-    setExpandedSections(new Set(['tributaveis', 'exclusiva', 'isentos', 'bens', 'deducoes']))
-    setTimeout(() => {
-      window.print()
-      // Restore previous state after print dialog
-      setTimeout(() => setExpandedSections(prevExpanded.current), 300)
-    }, 100)
+  const handleRemoveFile = (fileId: string) => {
+    setUploadedFiles(prev => prev.filter(f => f.id !== fileId))
   }
-
-  // ── RENDER ────────────────────────────────────────────────────
-
-  const monthLabels = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
   return (
-    <div className="flex flex-col gap-6 max-w-2xl">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-2">
-          <FileText size={20} className="text-indigo-600" />
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Relatório IRPF</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-500 dark:text-gray-400">Ano-base:</label>
-          <select
-            className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900"
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
-          >
-            {Array.from({ length: 5 }, (_, i) => currentYear - 1 - i).map((y) => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-          <button
-            onClick={exportCSV}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors cursor-pointer"
-          >
-            <Download size={14} />
-            CSV
-          </button>
-          <button
-            onClick={exportPDF}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-700 text-white hover:bg-gray-800 transition-colors cursor-pointer print:hidden"
-          >
-            <Printer size={14} />
-            PDF
-          </button>
-        </div>
-      </div>
-
-      {/* Info banner */}
-      <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
-        <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
-        <div className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-          <p className="font-semibold mb-1">Este relatório é uma estimativa baseada nos dados do app.</p>
-          <p>Valores de rendimentos de investimentos são projeções calculadas. Para a declaração oficial do IRPF, utilize os informes de rendimentos fornecidos pelas instituições financeiras. Dízimos e ofertas são classificados como doações (dedutíveis até o limite legal).</p>
-        </div>
-      </div>
-
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: 'Rendimentos', value: totalRendimentos, color: 'text-emerald-600' },
-          { label: 'Despesas', value: totalDespesas, color: 'text-red-500' },
-          { label: 'Deduções', value: deductions.total, color: 'text-indigo-600' },
-          { label: 'IR estimado', value: exclusiveIncome.estimatedIR, color: 'text-amber-600' },
-        ].map(({ label, value, color }) => (
-          <div key={label} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-4">
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{label}</p>
-            <p className={`text-base font-bold ${color}`}>{fmt(value)}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Report sections */}
-      <div className="flex flex-col gap-3">
-        {/* 1. Rendimentos Tributáveis */}
-        <ReportSection
-          id="tributaveis"
-          title="Rendimentos Tributáveis Recebidos de PJ"
-          icon={<Building2 size={16} className="text-indigo-600" />}
-          total={regularIncome}
-          expanded={expandedSections.has('tributaveis')}
-          onToggle={() => toggleSection('tributaveis')}
-          badge="Ficha: Rend. Tributáveis"
-          badgeColor="bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400"
-        >
-          <div className="pt-3">
-            {incomeByMonth.length === 0 ? (
-              <p className="text-sm text-gray-400 dark:text-gray-500">Nenhum rendimento registrado em {selectedYear}.</p>
-            ) : (
-              <>
-                {incomeByMonth.map(({ month, total }) => {
-                  const [, m] = month.split('-').map(Number)
-                  return <LineItem key={month} label={monthLabels[m - 1]} value={total} />
-                })}
-                <div className="border-t border-gray-100 dark:border-gray-700 mt-2 pt-2">
-                  <LineItem label="Total anual" value={regularIncome} />
-                </div>
-              </>
-            )}
-            <div className="mt-3 flex items-start gap-2 text-xs text-gray-400 dark:text-gray-500">
-              <Info size={12} className="shrink-0 mt-0.5" />
-              <span>Inclui todos os lançamentos na seção "Entradas" (exceto rendimentos de investimentos).</span>
+    <div className="flex flex-col gap-6 min-h-full">
+      <div className="glass-panel-lg p-6 border border-white/40 dark:border-white/10">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+              <Sparkles size={28} className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Assistente de Imposto de Renda</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Análise automática dos seus dados</p>
             </div>
           </div>
-        </ReportSection>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 glass-card px-4 py-2">
+              <Calendar size={16} className="text-indigo-500" />
+              <label className="text-sm text-gray-600 dark:text-gray-400">Ano-base:</label>
+              <select className="bg-transparent border-0 text-sm font-semibold text-gray-800 dark:text-gray-200 outline-none cursor-pointer" value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))}>
+                {Array.from({ length: 5 }, (_, i) => currentYear - 1 - i).map((y) => (<option key={y} value={y}>{y}</option>))}
+              </select>
+            </div>
+          </div>
+        </div>
 
-        {/* 2. Tributação Exclusiva */}
-        <ReportSection
-          id="exclusiva"
-          title="Rendimentos c/ Tributação Exclusiva"
-          icon={<Landmark size={16} className="text-amber-600" />}
-          total={exclusiveIncome.total}
-          expanded={expandedSections.has('exclusiva')}
-          onToggle={() => toggleSection('exclusiva')}
-          badge="Ficha: Rend. Exclusivos"
-          badgeColor="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-        >
-          <div className="pt-3">
-            {exclusiveIncome.decimo > 0 && (
-              <LineItem label="13° Salário" value={exclusiveIncome.decimo} sub="Tributação exclusiva na fonte" />
+        <div className="flex items-center gap-2 mt-5 p-1 bg-indigo-50/50 dark:bg-indigo-900/30 rounded-xl w-fit">
+          {[
+            { id: 'dashboard' as const, label: 'Análise', icon: Sparkles },
+            { id: 'details' as const, label: 'Detalhes', icon: FileText },
+            { id: 'checklist' as const, label: 'Checklist', icon: ListChecks },
+            { id: 'banks' as const, label: 'Bancos', icon: Building2 },
+          ].map((tab) => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-600 dark:text-gray-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50'}`}>
+              <tab.icon size={14} /> {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {activeTab === 'dashboard' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <GlassCard className="bg-gradient-to-r from-emerald-50/50 to-green-50/50 dark:from-emerald-900/20 dark:to-green-900/20 border-emerald-200/50 dark:border-emerald-700/50">
+              <div className="flex items-center gap-4 mb-4">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${analysis.isMandatory ? 'bg-red-500' : 'bg-emerald-500'}`}>
+                  {analysis.isMandatory ? <AlertTriangle size={24} className="text-white" /> : <CheckCircle size={24} className="text-white" />}
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">
+                    {analysis.isMandatory ? '⚠️ Obrigado a Declarar' : 'Não Obligado a Declarar'}
+                  </h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {analysis.isMandatory
+                      ? 'Com base nos seus dados, você deve apresentar a DIRPF'
+                      : 'Sua renda está abaixo do limite obrigatório'}
+                  </p>
+                </div>
+              </div>
+              {analysis.reasons.length > 0 && (
+                <div className="space-y-2">
+                  {analysis.reasons.map((r, i) => (
+                    <div key={i} className="flex items-center gap-2 p-3 rounded-lg bg-red-50/50 dark:bg-red-900/20 border border-red-200/30">
+                      <XCircle size={16} className="text-red-500" />
+                      <span className="text-sm text-red-700 dark:text-red-400">{r.description}</span>
+                      {r.value && <span className="ml-auto text-sm font-semibold text-red-600">{fmt(r.value)}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </GlassCard>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <GlassCard className="relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/10 rounded-full -mr-8 -mt-8" />
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp size={16} className="text-emerald-500" />
+                  <span className="text-xs text-gray-500 uppercase">Receitas</span>
+                </div>
+                <p className="text-xl font-bold text-emerald-600">{fmt(analysis.income.total)}</p>
+                <p className="text-xs text-gray-400 mt-1">mapeadas automaticamente</p>
+              </GlassCard>
+
+              <GlassCard className="relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-16 h-16 bg-pink-500/10 rounded-full -mr-8 -mt-8" />
+                <div className="flex items-center gap-2 mb-2">
+                  <Heart size={16} className="text-pink-500" />
+                  <span className="text-xs text-gray-500 uppercase">Deduções</span>
+                </div>
+                <p className="text-xl font-bold text-pink-500">{fmt(analysis.deductions.total)}</p>
+                <p className="text-xs text-gray-400 mt-1">encontradas automaticamente</p>
+              </GlassCard>
+
+              <GlassCard className="relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-500/10 rounded-full -mr-8 -mt-8" />
+                <div className="flex items-center gap-2 mb-2">
+                  <Briefcase size={16} className="text-indigo-500" />
+                  <span className="text-xs text-gray-500 uppercase">Patrimônio</span>
+                </div>
+                <p className="text-xl font-bold text-indigo-600">{fmt(analysis.assets.total)}</p>
+                <p className="text-xs text-gray-400 mt-1">em investimentos</p>
+              </GlassCard>
+
+              <GlassCard className="relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-16 h-16 bg-amber-500/10 rounded-full -mr-8 -mt-8" />
+                <div className="flex items-center gap-2 mb-2">
+                  <Target size={16} className="text-amber-500" />
+                  <span className="text-xs text-gray-500 uppercase">Completude</span>
+                </div>
+                <p className="text-xl font-bold text-amber-600">{analysis.completeness.score}%</p>
+                <p className="text-xs text-gray-400 mt-1">da declaração preenchida</p>
+              </GlassCard>
+            </div>
+
+            {analysis.alerts.length > 0 && (
+              <GlassCard>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
+                  <Bell size={16} className="text-amber-500" />
+                  Alertas e Sugestões
+                </h3>
+                <div className="space-y-3">
+                  {analysis.alerts.map((alert, i) => (
+                    <div key={i} className={`p-4 rounded-xl border ${
+                      alert.type === 'success' ? 'bg-emerald-50/50 dark:bg-emerald-900/20 border-emerald-200/30' :
+                      alert.type === 'warning' ? 'bg-amber-50/50 dark:bg-amber-900/20 border-amber-200/30' :
+                      'bg-red-50/50 dark:bg-red-900/20 border-red-200/30'
+                    }`}>
+                      <div className="flex items-start gap-3">
+                        {alert.type === 'success' && <CheckCircle size={18} className="text-emerald-500 shrink-0" />}
+                        {alert.type === 'warning' && <AlertTriangle size={18} className="text-amber-500 shrink-0" />}
+                        {alert.type === 'error' && <XCircle size={18} className="text-red-500 shrink-0" />}
+                        <div>
+                          <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{alert.title}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{alert.description}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </GlassCard>
             )}
-            {exclusiveIncome.plr > 0 && (
-              <LineItem label="PLR" value={exclusiveIncome.plr} sub="Tributação exclusiva na fonte" />
-            )}
-            {exclusiveIncome.taxableInvestmentDetails.length > 0 && (
-              <>
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-3 mb-1">Rendimentos de Investimentos (tributáveis)</p>
-                {exclusiveIncome.taxableInvestmentDetails.map((d) => (
-                  <div key={d.name} className="flex items-center justify-between py-1.5 text-sm">
+
+            <GlassCard>
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Sugestões Automáticas</h3>
+              <div className="space-y-2">
+                {analysis.completeness.suggestions.map((s, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-indigo-50/50 dark:bg-indigo-900/20 border border-indigo-200/30">
+                    <Zap size={16} className="text-indigo-500" />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">{s}</span>
+                  </div>
+                ))}
+              </div>
+            </GlassCard>
+          </div>
+
+          <div className="space-y-4">
+            <GlassCard className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-blue-900/20 dark:to-indigo-900/20">
+              <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 mb-3">Simulação de IR</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600 dark:text-gray-400">Renda tributável</span>
+                  <span className="font-semibold text-gray-800 dark:text-gray-200">{fmt(analysis.income.regular)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600 dark:text-gray-400">Deduções</span>
+                  <span className="font-semibold text-gray-800 dark:text-gray-200">- {fmt(Math.min(analysis.deductions.total, analysis.income.regular * 0.1))}</span>
+                </div>
+                <div className="border-t border-blue-200/50 pt-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Base de cálculo</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-200">{fmt(Math.max(0, analysis.income.regular - Math.min(analysis.deductions.total, analysis.income.regular * 0.1)))}</span>
+                  </div>
+                  <div className="flex justify-between text-sm mt-2">
+                    <span className="text-gray-600 dark:text-gray-400">Alíquota</span>
+                    <span className="font-semibold text-indigo-600">{aliquot}%</span>
+                  </div>
+                  <div className="flex justify-between text-sm mt-2 pt-2 border-t border-blue-200/50">
+                    <span className="font-semibold text-gray-700 dark:text-gray-300">IR Provável</span>
+                    <span className="text-lg font-bold text-blue-600">{fmt(calculatedTax)}</span>
+                  </div>
+                </div>
+              </div>
+            </GlassCard>
+
+            <GlassCard>
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Mapeamento Automático</h3>
+              <div className="space-y-3">
+                <div className="p-3 rounded-lg bg-indigo-50/50 dark:bg-indigo-900/20">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Building2 size={14} className="text-indigo-500" />
+                    <span className="text-xs font-medium text-indigo-600">Rendimentos Tributáveis</span>
+                  </div>
+                  <p className="text-lg font-bold text-indigo-600">{fmt(analysis.income.regular)}</p>
+                  <p className="text-xs text-gray-400">Entradas do app</p>
+                </div>
+                <div className="p-3 rounded-lg bg-amber-50/50 dark:bg-amber-900/20">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Landmark size={14} className="text-amber-500" />
+                    <span className="text-xs font-medium text-amber-600">Tributação Exclusiva</span>
+                  </div>
+                  <p className="text-lg font-bold text-amber-600">{fmt(analysis.income.exclusive)}</p>
+                  <p className="text-xs text-gray-400">13°, PLR, investimentos</p>
+                </div>
+                <div className="p-3 rounded-lg bg-emerald-50/50 dark:bg-emerald-900/20">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Shield size={14} className="text-emerald-500" />
+                    <span className="text-xs font-medium text-emerald-600">Rendimentos Isentos</span>
+                  </div>
+                  <p className="text-lg font-bold text-emerald-600">{fmt(analysis.income.exempt)}</p>
+                  <p className="text-xs text-gray-400">Férias, isentos</p>
+                </div>
+              </div>
+            </GlassCard>
+
+            <GlassCard>
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Deduções Detectadas</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center p-2 rounded-lg bg-pink-50/50 dark:bg-pink-900/20">
+                  <div className="flex items-center gap-2">
+                    <Heart size={14} className="text-pink-500" />
+                    <span className="text-sm text-gray-600">Dízimos</span>
+                  </div>
+                  <span className="font-semibold text-pink-500">{fmt(analysis.deductions.tithes)}</span>
+                </div>
+                <div className="flex justify-between items-center p-2 rounded-lg bg-red-50/50 dark:bg-red-900/20">
+                  <div className="flex items-center gap-2">
+                    <Stethoscope size={14} className="text-red-500" />
+                    <span className="text-sm text-gray-600">Saúde</span>
+                  </div>
+                  <span className="font-semibold text-red-500">{fmt(analysis.deductions.health)}</span>
+                </div>
+                <div className="flex justify-between items-center p-2 rounded-lg bg-blue-50/50 dark:bg-blue-900/20">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap size={14} className="text-blue-500" />
+                    <span className="text-sm text-gray-600">Educação</span>
+                  </div>
+                  <span className="font-semibold text-blue-500">{fmt(analysis.deductions.education)}</span>
+                </div>
+              </div>
+            </GlassCard>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'details' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <GlassCard>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Investimentos Tributáveis</h3>
+            {analysis.investments.taxable.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-4">Nenhum investimento tributável</p>
+            ) : (
+              <div className="space-y-2">
+                {analysis.investments.taxable.map((inv, i) => (
+                  <div key={i} className="flex justify-between p-3 rounded-lg bg-amber-50/50 dark:bg-amber-900/20 border border-amber-200/30">
                     <div>
-                      <span className="text-gray-700 dark:text-gray-300">{d.name}</span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">{d.type}</span>
+                      <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{inv.name}</p>
+                      <p className="text-xs text-gray-400">{inv.type}</p>
                     </div>
                     <div className="text-right">
-                      <span className="font-medium text-gray-800 dark:text-gray-200">{fmt(d.yield)}</span>
-                      <span className="text-xs text-red-400 ml-2">IR: {fmt(d.ir)}</span>
+                      <p className="text-sm font-semibold text-amber-600">{fmt(inv.value)}</p>
+                      <p className="text-xs text-amber-500">rendimento</p>
                     </div>
                   </div>
                 ))}
-              </>
-            )}
-            {exclusiveIncome.total === 0 && (
-              <p className="text-sm text-gray-400 dark:text-gray-500">Nenhum rendimento de tributação exclusiva.</p>
-            )}
-            {exclusiveIncome.estimatedIR > 0 && (
-              <div className="border-t border-gray-100 dark:border-gray-700 mt-2 pt-2">
-                <div className="flex items-center justify-between py-1.5 text-sm">
-                  <span className="text-red-500 font-medium">IR retido estimado (investimentos)</span>
-                  <span className="font-bold text-red-500">{fmt(exclusiveIncome.estimatedIR)}</span>
-                </div>
               </div>
             )}
-          </div>
-        </ReportSection>
+          </GlassCard>
 
-        {/* 3. Rendimentos Isentos */}
-        <ReportSection
-          id="isentos"
-          title="Rendimentos Isentos e Não Tributáveis"
-          icon={<ShieldCheck size={16} className="text-emerald-600" />}
-          total={exemptIncome.total}
-          expanded={expandedSections.has('isentos')}
-          onToggle={() => toggleSection('isentos')}
-          badge="Ficha: Rend. Isentos"
-          badgeColor="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-        >
-          <div className="pt-3">
-            {exemptIncome.ferias > 0 && (
-              <LineItem label="Férias" value={exemptIncome.ferias} sub="Abono pecuniário" />
-            )}
-            {exemptIncome.bonus > 0 && (
-              <LineItem label="Bônus / Outros" value={exemptIncome.bonus} />
-            )}
-            {exemptIncome.exemptInvestmentDetails.length > 0 && (
-              <>
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-3 mb-1">Rendimentos de Investimentos (isentos)</p>
-                {exemptIncome.exemptInvestmentDetails.map((d) => (
-                  <div key={d.name} className="flex items-center justify-between py-1.5 text-sm">
-                    <div>
-                      <span className="text-gray-700 dark:text-gray-300">{d.name}</span>
-                      <span className="text-xs text-emerald-500 ml-2">{d.type} — Isento IR</span>
-                    </div>
-                    <span className="font-medium text-gray-800 dark:text-gray-200">{fmt(d.yield)}</span>
-                  </div>
-                ))}
-              </>
-            )}
-            {exemptIncome.total === 0 && (
-              <p className="text-sm text-gray-400 dark:text-gray-500">Nenhum rendimento isento registrado.</p>
-            )}
-          </div>
-        </ReportSection>
-
-        {/* 4. Bens e Direitos */}
-        <ReportSection
-          id="bens"
-          title="Bens e Direitos"
-          icon={<Briefcase size={16} className="text-indigo-600" />}
-          total={totalAssets}
-          expanded={expandedSections.has('bens')}
-          onToggle={() => toggleSection('bens')}
-          badge="Ficha: Bens e Direitos"
-          badgeColor="bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400"
-        >
-          <div className="pt-3">
-            {assets.length === 0 ? (
-              <p className="text-sm text-gray-400 dark:text-gray-500">Nenhum investimento cadastrado.</p>
+          <GlassCard>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Investimentos Isentos</h3>
+            {analysis.investments.exempt.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-4">Nenhum investimento isento</p>
             ) : (
-              <>
-                {assets.map((a) => (
-                  <div key={a.id} className="flex items-center justify-between py-1.5 text-sm">
+              <div className="space-y-2">
+                {analysis.investments.exempt.map((inv, i) => (
+                  <div key={i} className="flex justify-between p-3 rounded-lg bg-emerald-50/50 dark:bg-emerald-900/20 border border-emerald-200/30">
                     <div>
-                      <span className="text-gray-700 dark:text-gray-300">{a.name}</span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">{a.type}</span>
-                      {!a.isActive && <span className="text-xs text-gray-400 ml-2">(inativo)</span>}
+                      <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{inv.name}</p>
+                      <p className="text-xs text-gray-400">{inv.type}</p>
                     </div>
-                    <span className="font-medium text-gray-800 dark:text-gray-200">{fmt(a.principal)}</span>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-emerald-600">{fmt(inv.value)}</p>
+                      <p className="text-xs text-emerald-500">rendimento</p>
+                    </div>
                   </div>
                 ))}
-                <div className="border-t border-gray-100 dark:border-gray-700 mt-2 pt-2">
-                  <LineItem label="Total em 31/12" value={totalAssets} />
-                </div>
-              </>
-            )}
-            <div className="mt-3 flex items-start gap-2 text-xs text-gray-400 dark:text-gray-500">
-              <Info size={12} className="shrink-0 mt-0.5" />
-              <span>Declare o saldo em 31/12/{selectedYear}. Use os informes das instituições para valores exatos.</span>
-            </div>
-          </div>
-        </ReportSection>
-
-        {/* 5. Deduções */}
-        <ReportSection
-          id="deducoes"
-          title="Pagamentos Efetuados (Deduções)"
-          icon={<Heart size={16} className="text-pink-500" />}
-          total={deductions.total}
-          expanded={expandedSections.has('deducoes')}
-          onToggle={() => toggleSection('deducoes')}
-          badge="Ficha: Pagamentos"
-          badgeColor="bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400"
-        >
-          <div className="pt-3">
-            {deductions.tithes > 0 && (
-              <LineItem label="Dízimo" value={deductions.tithes} sub="Doação — dedutível" />
-            )}
-            {deductions.offerings > 0 && (
-              <LineItem label="Oferta" value={deductions.offerings} sub="Doação — dedutível" />
-            )}
-            {deductions.total === 0 && (
-              <p className="text-sm text-gray-400 dark:text-gray-500">Nenhuma doação registrada.</p>
-            )}
-            {deductions.total > 0 && (
-              <div className="mt-3 flex items-start gap-2 text-xs text-gray-400 dark:text-gray-500">
-                <Info size={12} className="shrink-0 mt-0.5" />
-                <span>Doações a entidades religiosas são dedutíveis. Guarde os recibos da igreja/instituição.</span>
               </div>
             )}
-          </div>
-        </ReportSection>
-      </div>
-
-      {/* Footer summary */}
-      <div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-xl border border-indigo-100 dark:border-indigo-800 p-5">
-        <h3 className="text-sm font-semibold text-indigo-800 dark:text-indigo-300 mb-3">Resumo do Ano-base {selectedYear}</h3>
-        <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-          <span className="text-indigo-700 dark:text-indigo-300">Renda tributável</span>
-          <span className="text-right font-semibold text-indigo-800 dark:text-indigo-200">{fmt(regularIncome)}</span>
-
-          <span className="text-indigo-700 dark:text-indigo-300">Renda trib. exclusiva</span>
-          <span className="text-right font-semibold text-indigo-800 dark:text-indigo-200">{fmt(exclusiveIncome.total)}</span>
-
-          <span className="text-indigo-700 dark:text-indigo-300">Renda isenta</span>
-          <span className="text-right font-semibold text-indigo-800 dark:text-indigo-200">{fmt(exemptIncome.total)}</span>
-
-          <span className="text-indigo-700 dark:text-indigo-300">Total rendimentos</span>
-          <span className="text-right font-bold text-indigo-800 dark:text-indigo-200">{fmt(totalRendimentos)}</span>
-
-          <span className="text-indigo-700 dark:text-indigo-300">Total despesas</span>
-          <span className="text-right font-semibold text-red-500">{fmt(totalDespesas)}</span>
-
-          <span className="text-indigo-700 dark:text-indigo-300">Deduções (doações)</span>
-          <span className="text-right font-semibold text-pink-600">{fmt(deductions.total)}</span>
-
-          <span className="text-indigo-700 dark:text-indigo-300">Patrimônio (bens)</span>
-          <span className="text-right font-semibold text-indigo-800 dark:text-indigo-200">{fmt(totalAssets)}</span>
-
-          <span className="text-indigo-700 dark:text-indigo-300">IR estimado (invest.)</span>
-          <span className="text-right font-semibold text-amber-600">{fmt(exclusiveIncome.estimatedIR)}</span>
+          </GlassCard>
         </div>
-      </div>
+      )}
+
+      {activeTab === 'checklist' && (
+        <div className="space-y-6">
+          <GlassCard>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Checklist de Documentos</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Seus dados já foram mapeados automaticamente!</p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold text-indigo-600">{progressPercent}%</p>
+                <p className="text-xs text-gray-400">{checklistProgress.size}/{checklistItems.length}</p>
+              </div>
+            </div>
+            <div className="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full">
+              <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all" style={{ width: `${progressPercent}%` }} />
+            </div>
+          </GlassCard>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Object.entries(checklistByCategory).map(([category, items]) => (
+              <GlassCard key={category}>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 capitalize flex items-center gap-2">
+                  {category === 'rendimentos' && <TrendingUp size={16} className="text-indigo-500" />}
+                  {category === 'investimentos' && <Briefcase size={16} className="text-emerald-500" />}
+                  {category === 'bens' && <Building2 size={16} className="text-purple-500" />}
+                  {category === 'deducoes' && <Heart size={16} className="text-pink-500" />}
+                  {category === 'familia' && <Users size={16} className="text-amber-500" />}
+                  {category}
+                </h3>
+                <div className="space-y-2">
+                  {items.map((item) => {
+                    const checked = checklistProgress.has(item.id)
+                    return (
+                      <div key={item.id} onClick={() => toggleChecklist(item.id)} className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all ${checked ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-gray-50/50 dark:bg-gray-800/50 hover:bg-gray-100'}`}>
+                        <div className={`w-5 h-5 rounded-md flex items-center justify-center ${checked ? 'bg-emerald-500 text-white' : 'border-2 border-gray-300'}`}>
+                          {checked && <CheckCircle size={12} />}
+                        </div>
+                        <span className={`text-sm ${checked ? 'text-emerald-700 line-through' : 'text-gray-600'}`}>{item.text}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </GlassCard>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'banks' && (
+        <div className="space-y-6">
+          <GlassCard className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-blue-900/20 dark:to-indigo-900/20">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                <Building2 size={20} className="text-blue-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Fontes de Dados</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Importe seus dados via Open Banking ou upload de PDFs</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 rounded-xl bg-indigo-50/50 dark:bg-indigo-900/20 border border-indigo-200/30">
+                <h4 className="font-semibold text-indigo-700 dark:text-indigo-300 mb-2">🔐 Open Banking</h4>
+                <p className="text-xs text-gray-600 dark:text-gray-400">Conecte diretamente sua conta bancária para importar automaticamente informes de rendimento.</p>
+                <p className="text-xs text-amber-600 mt-2">⚠️ Requer backend configurado</p>
+              </div>
+              <div className="p-4 rounded-xl bg-emerald-50/50 dark:bg-emerald-900/20 border border-emerald-200/30">
+                <h4 className="font-semibold text-emerald-700 dark:text-emerald-300 mb-2">📄 Upload de PDFs</h4>
+                <p className="text-xs text-gray-600 dark:text-gray-400">Envie seus informes de rendimento em PDF que we'll extrair os dados automaticamente.</p>
+              </div>
+            </div>
+          </GlassCard>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <GlassCard>
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
+                <Building2 size={16} className="text-indigo-500" />
+                Open Banking - Bancos Disponíveis
+              </h3>
+              <div className="space-y-2">
+                {AVAILABLE_BANKS.map((bank) => {
+                  const isConnected = connectedBanks.some(b => b.bankId === bank.id)
+                  return (
+                    <div key={bank.id} className={`flex items-center justify-between p-3 rounded-lg border ${isConnected ? 'bg-emerald-50/50 dark:bg-emerald-900/20 border-emerald-200/30' : 'bg-gray-50/50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-700'}`}>
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{bank.logo}</span>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{bank.name}</p>
+                          <p className="text-xs text-gray-400">Em breve</p>
+                        </div>
+                      </div>
+                      {isConnected ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-1 rounded-full">Conectado</span>
+                          <button onClick={() => handleDisconnectBank(connectedBanks.find(b => b.bankId === bank.id)?.id || '')} className="text-xs text-red-500 hover:underline">
+                            Desconectar
+                          </button>
+                        </div>
+                      ) : (
+                        <button 
+                          disabled={true} 
+                          className="text-xs px-3 py-1 rounded-lg font-medium bg-gray-200 text-gray-400 cursor-not-allowed"
+                        >
+                          Em breve
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200/30">
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  <strong>Em desenvolvimento:</strong> O Open Banking permitirá conexão automática com seu banco para importar Informe de Rendimento, saldos e investimentos. 
+                  <a href="https://openbanking-brasil.github.io/areadesenvolvedor/" target="_blank" rel="noopener" className="underline"> Mais informações</a>.
+                </p>
+              </div>
+            </GlassCard>
+
+            <GlassCard>
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
+                <FileText size={16} className="text-emerald-500" />
+                Upload de Informe de Rendimento
+              </h3>
+              
+              <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl p-6 text-center hover:border-indigo-400 transition-colors">
+                <input
+                  type="file"
+                  accept=".pdf"
+                  multiple
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  id="pdf-upload"
+                  disabled={isUploading}
+                />
+                <label htmlFor="pdf-upload" className="cursor-pointer">
+                  <FileText size={32} className="text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {isUploading ? 'Processando...' : 'Clique para selecionar ou arraste PDFs aqui'}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">Máximo 10MB por arquivo</p>
+                </label>
+              </div>
+
+              {uploadedFiles.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Arquivos processados</h4>
+                  {uploadedFiles.map((file) => (
+                    <div key={file.id} className={`flex items-center justify-between p-3 rounded-lg border ${file.status === 'success' ? 'bg-emerald-50/50 dark:bg-emerald-900/20 border-emerald-200/30' : file.status === 'error' ? 'bg-red-50/50 dark:bg-red-900/20 border-red-200/30' : 'bg-amber-50/50 dark:bg-amber-900/20 border-amber-200/30'}`}>
+                      <div className="flex items-center gap-3 flex-1">
+                        <FileText size={16} className={file.status === 'success' ? 'text-emerald-500' : file.status === 'error' ? 'text-red-500' : 'text-amber-500'} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{file.name}</p>
+                          {file.status === 'success' && file.parsedData && (
+                            <p className="text-xs text-gray-500">R$ {file.parsedData.totalIncome.toLocaleString('pt-BR')} • {file.parsedData.confidence}% confiança</p>
+                          )}
+                          {file.status === 'error' && (
+                            <p className="text-xs text-red-500">{file.errorMessage}</p>
+                          )}
+                          {file.status === 'processing' && (
+                            <p className="text-xs text-amber-500">Processando...</p>
+                          )}
+                        </div>
+                      </div>
+                      <button onClick={() => handleRemoveFile(file.id)} className="text-gray-400 hover:text-red-500">
+                        <XCircle size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </GlassCard>
+          </div>
+
+          <GlassCard>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Dados Extraídos de PDFs</h3>
+            {uploadedFiles.filter(f => f.status === 'success' && f.parsedData).length === 0 ? (
+              <div className="text-center py-6">
+                <FileText size={32} className="text-gray-300 mx-auto mb-2" />
+                <p className="text-sm text-gray-400">Nenhum documento processado ainda</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {uploadedFiles.filter(f => f.status === 'success' && f.parsedData).map((file) => (
+                  <div key={file.id} className="p-4 rounded-xl bg-indigo-50/50 dark:bg-indigo-900/20 border border-indigo-200/30">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <p className="font-semibold text-gray-800 dark:text-gray-200">{file.parsedData?.sourceBank} - {file.parsedData?.year}</p>
+                        {file.parsedData?.employeeName && (
+                          <p className="text-xs text-gray-500">{file.parsedData.employeeName}</p>
+                        )}
+                      </div>
+                      <span className="text-xs bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 px-2 py-1 rounded-full">
+                        {file.parsedData?.confidence}% confiança
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                      <div>
+                        <p className="text-gray-500 text-xs">Renda Total</p>
+                        <p className="font-semibold text-gray-800">{fmt(file.parsedData?.totalIncome || 0)}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 text-xs">Tributável</p>
+                        <p className="font-semibold text-amber-600">{fmt(file.parsedData?.taxableIncome || 0)}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 text-xs">Isenta</p>
+                        <p className="font-semibold text-emerald-600">{fmt(file.parsedData?.exemptIncome || 0)}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 text-xs">IR Retido</p>
+                        <p className="font-semibold text-red-500">{fmt(file.parsedData?.taxWithheld || 0)}</p>
+                      </div>
+                    </div>
+                    {file.parsedData?.incomeItems && file.parsedData.incomeItems.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-indigo-200/30">
+                        <p className="text-xs text-gray-500 mb-2">Itens identificados:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {file.parsedData.incomeItems.map((item, i) => (
+                            <span key={i} className="text-xs bg-white dark:bg-gray-800 px-2 py-1 rounded">
+                              {item.type.replace('_', ' ')}: {fmt(item.value)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </GlassCard>
+        </div>
+      )}
     </div>
   )
 }

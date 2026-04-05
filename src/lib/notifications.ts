@@ -134,3 +134,51 @@ export async function removePushSubscription(userId: string): Promise<void> {
     console.error('[push] Unsubscribe error:', err)
   }
 }
+
+/** Show notification for IRPF mandatory declaration */
+export function showIRMandatoryAlert(isMandatory: boolean, reasons: string[]) {
+  if (getNotificationPermission() !== 'granted') return
+
+  if (isMandatory) {
+    const title = '⚠️ Obrigado a Declarar IRPF'
+    const body = `Com base nos seus dados, você deve fazer a declaração de Imposto de Renda. ${reasons.length} motivo(s) detectado(s).`
+
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then((reg) => {
+        reg.showNotification(title, {
+          body,
+          icon: '/icon-192.svg',
+          badge: '/icon-192.svg',
+          tag: 'ir-mandatory',
+          data: { type: 'ir-mandatory', reasons },
+        })
+      })
+    } else {
+      new Notification(title, { body, icon: '/icon-192.svg', tag: 'ir-mandatory' })
+    }
+  }
+}
+
+/** Show notification for IR deadlines */
+export function showIRDeadlineAlert(daysRemaining: number) {
+  if (getNotificationPermission() !== 'granted') return
+
+  const title = '📅 Prazo do IRPF se aproxima'
+  const body = daysRemaining > 0
+    ? `Faltam ${daysRemaining} dias para o prazo final da declaração (31/05).`
+    : 'O prazo para declaração do IRPF encerrou!'
+
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.ready.then((reg) => {
+      reg.showNotification(title, {
+        body,
+        icon: '/icon-192.svg',
+        badge: '/icon-192.svg',
+        tag: 'ir-deadline',
+        data: { type: 'ir-deadline', daysRemaining },
+      })
+    })
+  } else {
+    new Notification(title, { body, icon: '/icon-192.svg', tag: 'ir-deadline' })
+  }
+}

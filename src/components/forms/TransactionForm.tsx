@@ -1,11 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { useFinanceStore } from '../../store/useFinanceStore'
 import { Transaction, SectionType } from '../../types/transaction'
 import { Category, CATEGORY_META } from '../../types/category'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
-import { getCurrentMonthKey } from '../../constants/months'
 import { useSectionConfig } from '../../hooks/useSectionConfig'
 
 interface TransactionFormProps {
@@ -16,8 +15,6 @@ interface TransactionFormProps {
   onCancel?: () => void
   showSaveAndNew?: boolean
 }
-
-const INCOME_TYPES = ['Pagamento', 'Férias', 'PLR', 'Bônus', '13°', 'Outro']
 
 export function TransactionForm({
   initial,
@@ -38,10 +35,16 @@ export function TransactionForm({
 
   const monthKey = defaultMonthKey ?? currentMonthKey
 
+  const initialSection = initial?.section ?? defaultSection ?? 'gastos_diarios'
+  const initialCategory = useMemo(() => {
+    if (initial?.category) return initial.category
+    return sectionCategories[initialSection]?.[0] ?? Category.ALIMENTACAO
+  }, [initial?.category, sectionCategories, initialSection])
+  
   const [description, setDescription] = useState(initial?.description ?? '')
   const [amount, setAmount] = useState(initial?.amount ? String(initial.amount) : '')
-  const [section, setSection] = useState<SectionType>(initial?.section ?? defaultSection ?? 'gastos_diarios')
-  const [category, setCategory] = useState<Category>(initial?.category ?? Category.ALIMENTACAO)
+  const [section, setSection] = useState<SectionType>(initialSection)
+  const [category, setCategory] = useState<Category>(initialCategory)
   const [date, setDate] = useState(initial?.date ?? `${monthKey}-01`)
   const [note, setNote] = useState(initial?.note ?? '')
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -54,28 +57,6 @@ export function TransactionForm({
   const isCardSection = cardSectionIds.includes(section)
   const isExpenseSection = section !== 'entradas' && section !== 'extraordinario'
   const amountRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    amountRef.current?.focus()
-  }, [])
-
-  useEffect(() => {
-    if (!isCardSection) setIsInstallment(false)
-    if (!isExpenseSection) setIsRecurring(false)
-    // Reset category if current one is not available in the new section
-    const available = sectionCategories[section] ?? Object.values(Category)
-    if (!available.includes(category)) {
-      setCategory(available[0])
-    }
-  }, [section, isCardSection, isExpenseSection, sectionCategories, category])
-
-  useEffect(() => {
-    if (description.length >= 2) {
-      setSuggestions(getDescriptionSuggestions(description))
-    } else {
-      setSuggestions([])
-    }
-  }, [description, getDescriptionSuggestions])
 
   const availableCategories = sectionCategories[section] ?? Object.values(Category)
 
@@ -172,6 +153,17 @@ export function TransactionForm({
       setRecurringEndMonth('')
       amountRef.current?.focus()
     } else {
+      const defaultSectionValue = defaultSection ?? 'gastos_diarios'
+      const defaultCategoryValue = sectionCategories[defaultSectionValue]?.[0] ?? Category.ALIMENTACAO
+      setDescription('')
+      setAmount('')
+      setSection(defaultSectionValue)
+      setCategory(defaultCategoryValue)
+      setNote('')
+      setIsInstallment(false)
+      setInstallmentCount('2')
+      setIsRecurring(false)
+      setRecurringEndMonth('')
       onSave?.()
     }
   }
@@ -208,7 +200,7 @@ export function TransactionForm({
         label="Valor"
         type="number"
         step="0.01"
-        min="0.01"
+        min="0"
         prefix="R$"
         placeholder="0,00"
         value={amount}
@@ -222,7 +214,15 @@ export function TransactionForm({
           label="Descrição"
           placeholder="Ex: Mercado, Conta de Luz..."
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
+          onChange={(e) => {
+            const val = e.target.value
+            setDescription(val)
+            if (val.length >= 2) {
+              setSuggestions(getDescriptionSuggestions(val))
+            } else {
+              setSuggestions([])
+            }
+          }}
           onFocus={() => setShowSuggestions(true)}
           onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
           error={errors.description}
