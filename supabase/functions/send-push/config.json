@@ -1,0 +1,12 @@
+{
+  "id": "send-push",
+  "name": "send-push",
+  "version": "1.0.0",
+  "description": "Send push notifications to all subscribers",
+  "type": "docker",
+  "dockerfile": "Dockerfile",
+  "build": {
+    "context": ".",
+    "dockerfile": "Dockerfile"
+  }
+}
