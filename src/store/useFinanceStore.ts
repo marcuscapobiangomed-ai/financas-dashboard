@@ -114,6 +114,8 @@ interface FinanceStore {
   setSyncStatus: (status: 'idle' | 'syncing' | 'error' | 'offline') => void
   pushToSyncQueue: (action: SyncActionDescriptor) => void
   processSyncQueue: () => Promise<void>
+  isQueueProcessing: boolean
+  setQueueProcessing: (b: boolean) => void
 
   // Transaction actions
   addTransaction: (t: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => void
@@ -247,9 +249,11 @@ export const useFinanceStore = create<FinanceStore>()(
       ratesFetching: false,
       syncStatus: 'idle',
       syncQueue: [],
+      isQueueProcessing: false,
 
       setSyncError: (error) => set({ syncError: error }),
       setSyncStatus: (status) => set({ syncStatus: status }),
+      setQueueProcessing: (b) => set({ isQueueProcessing: b }),
       
       applyRealtimeUpdate: (table, eventType, newRow, oldRow) => {
         set((s) => {
@@ -291,12 +295,14 @@ export const useFinanceStore = create<FinanceStore>()(
       },
       pushToSyncQueue: (action) => set((s) => ({ syncQueue: [...s.syncQueue, action] })),
       processSyncQueue: async () => {
-        const { syncQueue, setSyncStatus } = get()
-        if (syncQueue.length === 0 || !navigator.onLine) return
+        const { syncQueue, setSyncStatus, isQueueProcessing, setQueueProcessing } = get()
+        if (syncQueue.length === 0 || !navigator.onLine || isQueueProcessing) return
         
+        setQueueProcessing(true)
         setSyncStatus('syncing')
         const newQueue = [...syncQueue]
         let hasError = false
+        let isToxic = false
         
         for (let i = 0; i < syncQueue.length; i++) {
           const item = syncQueue[i]
@@ -306,13 +312,28 @@ export const useFinanceStore = create<FinanceStore>()(
             newQueue.shift() // remove completed
           } catch (err: any) {
              console.error('[sync queue]', err)
-             hasError = true
-             break // halt queue processing on first error
+             if (err instanceof TypeError && (err.message === 'Failed to fetch' || err.message.includes('fetch'))) {
+               // Normal offline behavior
+               hasError = true
+               break // halt queue processing on network error
+             } else {
+               // Non-network error (e.g. 400 Bad Request) - TOXIC payload
+               newQueue.shift() // drop it so it doesn't block forever
+               isToxic = true
+             }
           }
         }
         
         set({ syncQueue: newQueue })
-        setSyncStatus(hasError ? 'error' : (newQueue.length > 0 ? 'offline' : 'idle'))
+        setQueueProcessing(false)
+        
+        if (isToxic) {
+           get().setSyncError('Erro em processamento de fundo. Os saldos foram revertidos e atualizados.')
+           const uid = getUserId()
+           if (uid) db.fetchAllUserData(uid).then(data => get().loadFromSupabase(data))
+        }
+        
+        setSyncStatus(hasError ? 'offline' : (isToxic ? 'error' : (newQueue.length > 0 ? 'offline' : 'idle')))
       },
 
   fetchLatestRates: async () => {

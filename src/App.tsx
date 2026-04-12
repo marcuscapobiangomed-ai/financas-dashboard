@@ -61,6 +61,12 @@ function AppShell() {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode)
+    
+    const handleOnline = () => {
+       useFinanceStore.getState().processSyncQueue()
+    }
+    window.addEventListener('online', handleOnline)
+    return () => window.removeEventListener('online', handleOnline)
   }, [darkMode])
 
   return (
