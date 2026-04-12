@@ -8,6 +8,7 @@ import { useBudgetAlerts } from '../../hooks/useBudgetAlerts'
 import { useFinanceStore } from '../../store/useFinanceStore'
 import { useAuthStore } from '../../store/useAuthStore'
 import { MonthSelector } from './MonthSelector'
+import { SyncIndicator } from './SyncIndicator'
 
 const bottomNavItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', exact: true },
@@ -50,7 +51,10 @@ export function TopBar() {
           <PiggyBank size={20} className="text-indigo-600" />
           <span className="font-bold text-gray-900 dark:text-gray-100 text-sm">Finanças</span>
         </div>
-        <MonthSelector />
+        <div className="flex items-center gap-2">
+          <SyncIndicator />
+          <MonthSelector />
+        </div>
       </header>
 
       {/* Mobile drawer overlay */}

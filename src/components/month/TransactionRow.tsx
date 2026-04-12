@@ -97,13 +97,12 @@ export function TransactionRow({ transaction: t, disabled }: TransactionRowProps
               {t.isRecurring && (
                 <span className="text-xs bg-indigo-100/70 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full">recorrente</span>
               )}
-                {t.installmentTotal && (
-                  <span className="text-xs bg-amber-100/70 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
-                    {t.installmentCurrent}/{t.installmentTotal}x
-                  </span>
-                )}
-              </div>
-            )}
+              {t.installmentTotal && (
+                <span className="text-xs bg-amber-100/70 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
+                  {t.installmentCurrent}/{t.installmentTotal}x
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </td>

@@ -1,19 +1,14 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
-import { fetchAllUserData } from '../lib/supabaseData'
 import { useFinanceStore } from '../store/useFinanceStore'
 import { useAuthStore } from '../store/useAuthStore'
 
-const DEBOUNCE_MS = 3000 // Don't reload more than once every 3s
-
 /**
  * Subscribes to Supabase Realtime changes on finance tables.
- * When changes are detected (from another device), reloads all data.
+ * When changes are detected, applies them directly to the Zustand store.
  */
 export function useRealtimeSync() {
   const user = useAuthStore((s) => s.user)
-  const loadFromSupabase = useFinanceStore((s) => s.loadFromSupabase)
-  const lastReloadRef = useRef(0)
 
   useEffect(() => {
     if (!isSupabaseConfigured || !user?.id) return
@@ -26,21 +21,7 @@ export function useRealtimeSync() {
       'user_settings',
     ]
 
-    function handleChange() {
-      if (!user?.id) return
-      const now = Date.now()
-      if (now - lastReloadRef.current < DEBOUNCE_MS) return
-      lastReloadRef.current = now
-
-      fetchAllUserData(user.id).then((data) => {
-        if (data) loadFromSupabase(data)
-      }).catch((err) => {
-        console.error('[realtime] Failed to reload data:', err)
-      })
-    }
-
-    const channel = supabase
-      .channel('finance-sync')
+    const channel = supabase.channel('finance-sync')
 
     tables.forEach((table) => {
       channel.on(
@@ -49,11 +30,17 @@ export function useRealtimeSync() {
           event: '*',
           schema: 'public',
           table,
-          filter: table === 'user_settings'
-            ? `user_id=eq.${user.id}`
-            : `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${user.id}`,
         },
-        handleChange
+        (payload) => {
+          if (!user?.id) return
+          useFinanceStore.getState().applyRealtimeUpdate(
+            payload.table,
+            payload.eventType,
+            payload.new,
+            payload.old
+          )
+        }
       )
     })
 
@@ -62,5 +49,5 @@ export function useRealtimeSync() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [user, loadFromSupabase])
+  }, [user])
 }

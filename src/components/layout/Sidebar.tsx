@@ -7,6 +7,7 @@ import { useBudgetAlerts } from '../../hooks/useBudgetAlerts'
 import { useFinanceStore } from '../../store/useFinanceStore'
 import { useAuthStore } from '../../store/useAuthStore'
 import { MonthSelector } from './MonthSelector'
+import { SyncIndicator } from './SyncIndicator'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', exact: true },
@@ -26,9 +27,12 @@ export function Sidebar() {
 
   return (
     <aside className="hidden md:flex flex-col w-60 min-h-screen bg-white/60 dark:bg-gray-900/40 backdrop-blur-xl border-r border-gray-100/50 dark:border-white/5 px-3 py-4">
-      <div className="flex items-center gap-2 px-3 mb-6">
-        <PiggyBank size={24} className="text-indigo-600" />
-        <span className="font-bold text-gray-900 dark:text-gray-100 text-base">Finanças</span>
+      <div className="flex items-center justify-between px-3 mb-6">
+        <div className="flex items-center gap-2">
+          <PiggyBank size={24} className="text-indigo-600" />
+          <span className="font-bold text-gray-900 dark:text-gray-100 text-base">Finanças</span>
+        </div>
+        <SyncIndicator />
       </div>
 
       <div className="px-3 mb-4">

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import { Transaction, RecurringTemplate, ExtraordinaryEntry } from '../types/transaction'
 import { AppSettings, MonthSettings } from '../types/budget'
 import { Investment } from '../types/investment'
@@ -27,22 +28,71 @@ import {
   type StoreSnapshot,
 } from '../lib/supabaseData'
 
+import { useAuthStore } from './useAuthStore'
+
 function getUserId(): string | null {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { useAuthStore } = require('./useAuthStore')
     return useAuthStore.getState().user?.id ?? null
   } catch {
     return null
   }
 }
 
-/** Fire-and-forget sync with error feedback */
-function syncRemote(fn: () => Promise<void>) {
-  fn().catch((err) => {
-    console.error('[sync]', err)
-    const msg = err?.message ?? 'Erro ao sincronizar com o servidor'
-    useFinanceStore.getState().setSyncError(msg)
+import * as db from '../lib/supabaseData'
+
+export type SyncActionDescriptor = {
+  id: string;
+  action: string;
+  args: any[];
+}
+
+/** Robust sync execution with offline queueing and optimistic error rollback */
+function syncRemote(actionOrFn: keyof typeof db | (() => Promise<void>), ...args: any[]) {
+  const store = useFinanceStore.getState()
+  
+  if (typeof actionOrFn === 'function') {
+    if (!navigator.onLine) {
+       store.setSyncError('Você está offline. Operações em lote (importação) precisam de internet.')
+       return
+    }
+    store.setSyncStatus('syncing')
+    actionOrFn().then(() => store.setSyncStatus('idle')).catch(err => {
+      console.error('[sync function]', err)
+      store.setSyncStatus('error')
+      store.setSyncError(err?.message ?? 'Erro crítico na sincronização em lote')
+    })
+    return
+  }
+
+  const actionName = actionOrFn;
+  if (!navigator.onLine) {
+    store.setSyncStatus('offline')
+    store.pushToSyncQueue({ id: generateId(), action: actionName, args })
+    return
+  }
+
+  store.setSyncStatus('syncing')
+  const method = (db as any)[actionName]
+  
+  method(...args).then(() => {
+    const queueSize = useFinanceStore.getState().syncQueue.length
+    store.setSyncStatus(queueSize > 0 ? 'offline' : 'idle')
+    if (queueSize > 0) store.processSyncQueue()
+  }).catch((err: any) => {
+    console.error('[sync execution]', err)
+    if (err instanceof TypeError && (err.message === 'Failed to fetch' || err.message.includes('fetch'))) {
+      store.setSyncStatus('offline')
+      store.pushToSyncQueue({ id: generateId(), action: actionName, args })
+    } else {
+      store.setSyncStatus('error')
+      store.setSyncError(err?.message ?? 'Erro crÃtico ao sincronizar com o banco')
+      
+      // Rollback: Re-fetch correct state from Supabase
+      const uid = getUserId()
+      if (uid) {
+        db.fetchAllUserData(uid).then(data => store.loadFromSupabase(data))
+      }
+    }
   })
 }
 
@@ -57,6 +107,13 @@ interface FinanceStore {
 
   // UI state
   currentMonthKey: string
+  syncStatus: 'idle' | 'syncing' | 'error' | 'offline'
+  syncQueue: SyncActionDescriptor[]
+  
+  // Controls
+  setSyncStatus: (status: 'idle' | 'syncing' | 'error' | 'offline') => void
+  pushToSyncQueue: (action: SyncActionDescriptor) => void
+  processSyncQueue: () => Promise<void>
 
   // Transaction actions
   addTransaction: (t: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => void
@@ -112,6 +169,7 @@ interface FinanceStore {
   // Supabase sync
   loadFromSupabase: (data: StoreSnapshot) => void
   resetStore: () => void
+  applyRealtimeUpdate: (table: string, eventType: string, newRow: any, oldRow: any) => void
 
   // BCB rates
   fetchLatestRates: () => Promise<{ cdi?: number; ipca?: number; selic?: number } | null>
@@ -175,18 +233,87 @@ function checkBudgetAlert(state: FinanceStore, monthKey: string, section: string
   }
 }
 
-export const useFinanceStore = create<FinanceStore>()((set, get) => ({
-  transactions: [],
-  recurringTemplates: [],
-  extraordinaryEntries: [],
-  investments: [],
-  monthSettings: {},
-  appSettings: DEFAULT_APP_SETTINGS,
-  currentMonthKey: getCurrentMonthKey(),
-  syncError: null,
-  ratesFetching: false,
+export const useFinanceStore = create<FinanceStore>()(
+  persist(
+    (set, get) => ({
+      transactions: [],
+      recurringTemplates: [],
+      extraordinaryEntries: [],
+      investments: [],
+      monthSettings: {},
+      appSettings: DEFAULT_APP_SETTINGS,
+      currentMonthKey: getCurrentMonthKey(),
+      syncError: null,
+      ratesFetching: false,
+      syncStatus: 'idle',
+      syncQueue: [],
 
-  setSyncError: (error) => set({ syncError: error }),
+      setSyncError: (error) => set({ syncError: error }),
+      setSyncStatus: (status) => set({ syncStatus: status }),
+      
+      applyRealtimeUpdate: (table, eventType, newRow, oldRow) => {
+        set((s) => {
+          if (table === 'transactions') {
+            if (eventType === 'DELETE') return { transactions: s.transactions.filter(t => t.id !== oldRow.id) }
+            const camel = db.toCamel<Transaction>(newRow)
+            const exists = s.transactions.some(t => t.id === camel.id)
+            return { transactions: exists ? s.transactions.map(t => t.id === camel.id ? camel : t) : [...s.transactions, camel] }
+          }
+          if (table === 'recurring_templates') {
+            if (eventType === 'DELETE') return { recurringTemplates: s.recurringTemplates.filter(t => t.id !== oldRow.id) }
+            const camel = db.toCamel<RecurringTemplate>(newRow)
+            const exists = s.recurringTemplates.some(t => t.id === camel.id)
+            return { recurringTemplates: exists ? s.recurringTemplates.map(t => t.id === camel.id ? camel : t) : [...s.recurringTemplates, camel] }
+          }
+          if (table === 'extraordinary_entries') {
+            if (eventType === 'DELETE') return { extraordinaryEntries: s.extraordinaryEntries.filter(t => t.id !== oldRow.id) }
+            const camel = db.toCamel<ExtraordinaryEntry>(newRow)
+            const exists = s.extraordinaryEntries.some(t => t.id === camel.id)
+            return { extraordinaryEntries: exists ? s.extraordinaryEntries.map(t => t.id === camel.id ? camel : t) : [...s.extraordinaryEntries, camel] }
+          }
+          if (table === 'investments') {
+            if (eventType === 'DELETE') return { investments: s.investments.filter(t => t.id !== oldRow.id) }
+            const camel = db.toCamel<Investment>(newRow)
+            const exists = s.investments.some(t => t.id === camel.id)
+            return { investments: exists ? s.investments.map(t => t.id === camel.id ? camel : t) : [...s.investments, camel] }
+          }
+          if (table === 'month_settings') {
+            if (eventType === 'DELETE') return s // month_settings usually aren't deleted
+            const camel = db.toCamel<MonthSettings>(newRow)
+            return { monthSettings: { ...s.monthSettings, [camel.monthKey]: camel } }
+          }
+          if (table === 'user_settings') {
+            const camel = db.toCamel<AppSettings>(newRow)
+            return { appSettings: { ...s.appSettings, ...camel } }
+          }
+          return s
+        })
+      },
+      pushToSyncQueue: (action) => set((s) => ({ syncQueue: [...s.syncQueue, action] })),
+      processSyncQueue: async () => {
+        const { syncQueue, setSyncStatus } = get()
+        if (syncQueue.length === 0 || !navigator.onLine) return
+        
+        setSyncStatus('syncing')
+        const newQueue = [...syncQueue]
+        let hasError = false
+        
+        for (let i = 0; i < syncQueue.length; i++) {
+          const item = syncQueue[i]
+          try {
+            const method = (db as any)[item.action]
+            if (method) await method(...item.args)
+            newQueue.shift() // remove completed
+          } catch (err: any) {
+             console.error('[sync queue]', err)
+             hasError = true
+             break // halt queue processing on first error
+          }
+        }
+        
+        set({ syncQueue: newQueue })
+        setSyncStatus(hasError ? 'error' : (newQueue.length > 0 ? 'offline' : 'idle'))
+      },
 
   fetchLatestRates: async () => {
     set({ ratesFetching: true })
@@ -241,7 +368,7 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
     const newT: Transaction = { ...t, id: generateId(), createdAt: now(), updatedAt: now() }
     set((s) => ({ transactions: [...s.transactions, newT] }))
     const uid = getUserId()
-    if (uid) syncRemote(() => upsertTransaction(uid, newT))
+    if (uid) syncRemote('upsertTransaction', uid, newT)
     // Check budget alerts after state update
     if (newT.type === 'expense') {
       Promise.resolve().then(() => checkBudgetAlert(get(), newT.monthKey, newT.section))
@@ -258,7 +385,7 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
     }))
     set((s) => ({ transactions: [...s.transactions, ...newTs] }))
     const uid = getUserId()
-    if (uid) syncRemote(() => bulkUpsertTransactions(uid, newTs))
+    if (uid) syncRemote('bulkUpsertTransactions', uid, newTs)
   },
 
   addInstallmentTransactions: (base, installmentTotal, closingDay) => {
@@ -296,7 +423,7 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
 
     set((s) => ({ transactions: [...s.transactions, ...transactions] }))
     const uid = getUserId()
-    if (uid) syncRemote(() => bulkUpsertTransactions(uid, transactions))
+    if (uid) syncRemote('bulkUpsertTransactions', uid, transactions)
   },
 
   updateTransaction: (id, updates) => {
@@ -308,13 +435,13 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
     const uid = getUserId()
     if (uid) {
       const updated = get().transactions.find((t) => t.id === id)
-      if (updated) syncRemote(() => upsertTransaction(uid, updated))
+      if (updated) syncRemote('upsertTransaction', uid, updated)
     }
   },
 
   deleteTransaction: (id) => {
     set((s) => ({ transactions: s.transactions.filter((t) => t.id !== id) }))
-    syncRemote(() => deleteTransactionRemote(id))
+    syncRemote('deleteTransactionRemote', id)
   },
 
   getTransactionsForMonth: (monthKey) => {
@@ -327,7 +454,7 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
     const entry: ExtraordinaryEntry = { ...e, id: generateId() }
     set((s) => ({ extraordinaryEntries: [...s.extraordinaryEntries, entry] }))
     const uid = getUserId()
-    if (uid) syncRemote(() => upsertExtraordinaryEntry(uid, entry))
+    if (uid) syncRemote('upsertExtraordinaryEntry', uid, entry)
   },
 
   updateExtraordinary: (id, updates) => {
@@ -339,13 +466,13 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
     const uid = getUserId()
     if (uid) {
       const updated = get().extraordinaryEntries.find((e) => e.id === id)
-      if (updated) syncRemote(() => upsertExtraordinaryEntry(uid, updated))
+      if (updated) syncRemote('upsertExtraordinaryEntry', uid, updated)
     }
   },
 
   deleteExtraordinary: (id) => {
     set((s) => ({ extraordinaryEntries: s.extraordinaryEntries.filter((e) => e.id !== id) }))
-    syncRemote(() => deleteExtraordinaryEntryRemote(id))
+    syncRemote('deleteExtraordinaryEntryRemote', id)
   },
 
   getExtraordinaryForMonth: (monthKey) => {
@@ -358,7 +485,7 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
     const template: RecurringTemplate = { ...t, id: generateId() }
     set((s) => ({ recurringTemplates: [...s.recurringTemplates, template] }))
     const uid = getUserId()
-    if (uid) syncRemote(() => upsertRecurringTemplate(uid, template))
+    if (uid) syncRemote('upsertRecurringTemplate', uid, template)
     return template.id
   },
 
@@ -371,13 +498,13 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
     const uid = getUserId()
     if (uid) {
       const updated = get().recurringTemplates.find((t) => t.id === id)
-      if (updated) syncRemote(() => upsertRecurringTemplate(uid, updated))
+      if (updated) syncRemote('upsertRecurringTemplate', uid, updated)
     }
   },
 
   deleteRecurringTemplate: (id) => {
     set((s) => ({ recurringTemplates: s.recurringTemplates.filter((t) => t.id !== id) }))
-    syncRemote(() => deleteRecurringTemplateRemote(id))
+    syncRemote('deleteRecurringTemplateRemote', id)
   },
 
   applyRecurringToMonth: (monthKey) => {
@@ -419,7 +546,7 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
     if (toAdd.length > 0) {
       set((s) => ({ transactions: [...s.transactions, ...toAdd] }))
       const uid = getUserId()
-      if (uid) syncRemote(() => bulkUpsertTransactions(uid, toAdd))
+      if (uid) syncRemote('bulkUpsertTransactions', uid, toAdd)
     }
     return toAdd.length
   },
@@ -437,7 +564,7 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
     const newInv: Investment = { ...inv, id: generateId(), monthlyYieldPercent: resolved }
     set((s) => ({ investments: [...s.investments, newInv] }))
     const uid = getUserId()
-    if (uid) syncRemote(() => upsertInvestment(uid, newInv))
+    if (uid) syncRemote('upsertInvestment', uid, newInv)
   },
 
   updateInvestment: (id, updates) => {
@@ -458,13 +585,13 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
     const uid = getUserId()
     if (uid) {
       const updated = get().investments.find((inv) => inv.id === id)
-      if (updated) syncRemote(() => upsertInvestment(uid, updated))
+      if (updated) syncRemote('upsertInvestment', uid, updated)
     }
   },
 
   deleteInvestment: (id) => {
     set((s) => ({ investments: s.investments.filter((inv) => inv.id !== id) }))
-    syncRemote(() => deleteInvestmentRemote(id))
+    syncRemote('deleteInvestmentRemote', id)
   },
 
   applyInvestmentYieldsToMonth: (monthKey) => {
@@ -499,7 +626,7 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
     if (toAdd.length > 0) {
       set((s) => ({ transactions: [...s.transactions, ...toAdd] }))
       const uid = getUserId()
-      if (uid) syncRemote(() => bulkUpsertTransactions(uid, toAdd))
+      if (uid) syncRemote('bulkUpsertTransactions', uid, toAdd)
     }
     return toAdd.length
   },
@@ -518,7 +645,7 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
       monthSettings: { ...s.monthSettings, [monthKey]: updated },
     }))
     const uid = getUserId()
-    if (uid) syncRemote(() => upsertMonthSettingsRemote(uid, monthKey, updated))
+    if (uid) syncRemote('upsertMonthSettings', uid, monthKey, updated)
   },
 
   toggleMonthClosed: (monthKey) => {
@@ -552,7 +679,7 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
     if (toAdd.length > 0) {
       set((s) => ({ transactions: [...s.transactions, ...toAdd] }))
       const uid = getUserId()
-      if (uid) syncRemote(() => bulkUpsertTransactions(uid, toAdd))
+      if (uid) syncRemote('bulkUpsertTransactions', uid, toAdd)
     }
   },
 
@@ -560,7 +687,7 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
     const newSettings = { ...get().appSettings, ...updates }
     set({ appSettings: newSettings })
     const uid = getUserId()
-    if (uid) syncRemote(() => upsertUserSettings(uid, newSettings))
+    if (uid) syncRemote('upsertUserSettings', uid, newSettings)
 
     // Recalculate CDI-based investments when rates change
     if (updates.cdiRateAnnual !== undefined || updates.ipcaRateAnnual !== undefined) {
@@ -580,7 +707,7 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
       if (uid) {
         recalculated
           .filter((inv) => (inv.investmentType ?? 'manual') !== 'manual')
-          .forEach((inv) => syncRemote(() => upsertInvestment(uid, inv)))
+          .forEach((inv) => syncRemote('upsertInvestment', uid, inv))
       }
     }
   },
@@ -697,9 +824,9 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
     const uid = getUserId()
     if (uid) {
       const migratedTxs = updatedTxs.filter((t) => t.monthKey === toMonthKey)
-      syncRemote(() => bulkUpdateTransactions(uid, migratedTxs))
+      syncRemote('bulkUpdateTransactions', uid, migratedTxs)
       const migratedExtras = updatedExtras.filter((e) => e.monthKey === toMonthKey)
-      syncRemote(() => bulkUpdateExtraordinaryEntries(uid, migratedExtras))
+      syncRemote('bulkUpdateExtraordinaryEntries', uid, migratedExtras)
     }
 
     return txToMigrate.length + extraToMigrate.length
@@ -716,7 +843,7 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
       currentMonthKey: getCurrentMonthKey(),
     })
     const uid = getUserId()
-    if (uid) syncRemote(() => deleteAllUserData(uid))
+    if (uid) syncRemote('deleteAllUserData', uid)
   },
 
   getDescriptionSuggestions: (query, limit = 8) => {
@@ -733,4 +860,8 @@ export const useFinanceStore = create<FinanceStore>()((set, get) => ({
     }
     return results
   },
-}))
+}), {
+  name: 'financas-offline-queue',
+  partialize: (state) => ({ syncQueue: state.syncQueue })
+})
+)
