@@ -185,6 +185,8 @@ export async function fetchUserSettings(userId: string): Promise<AppSettings> {
     cdiRateAnnual: Number(data.cdi_rate_annual ?? 14.15),
     ipcaRateAnnual: Number(data.ipca_rate_annual ?? 5.0),
     notificationsEnabled: data.notifications_enabled ?? false,
+    hasSeenTutorial: data.has_seen_tutorial ?? false,
+    ratesLastUpdated: data.rates_last_updated ?? undefined,
   }
 }
 
@@ -202,6 +204,8 @@ export async function upsertUserSettings(userId: string, settings: AppSettings):
     cdi_rate_annual: settings.cdiRateAnnual,
     ipca_rate_annual: settings.ipcaRateAnnual,
     notifications_enabled: settings.notificationsEnabled ?? false,
+    has_seen_tutorial: settings.hasSeenTutorial ?? false,
+    rates_last_updated: settings.ratesLastUpdated ?? null,
   }
   const { error } = await supabase.from('user_settings').upsert(row, { onConflict: 'user_id' })
   if (error) { console.error('upsertUserSettings error:', error); throw error }
