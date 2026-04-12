@@ -53,6 +53,8 @@ function MigrationBanner() {
   )
 }
 
+import { TutorialModal } from './components/tutorial/TutorialModal'
+
 function AppShell() {
   const darkMode = useFinanceStore((s) => s.appSettings.darkMode)
   const location = useLocation()
@@ -94,6 +96,7 @@ function AppShell() {
       </div>
       <QuickAddFAB />
       <SyncToast />
+      <TutorialModal />
     </div>
   )
 }

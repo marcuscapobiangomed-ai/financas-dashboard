@@ -65,8 +65,26 @@ export function Settings() {
   }
 
   function handleCardBillingChange(id: string, field: 'closingDay' | 'dueDay', value: string) {
-    const num = Math.min(28, Math.max(1, parseInt(value) || 1))
+    let num: any = value;
+    if (value !== '') {
+      num = parseInt(value, 10);
+      if (isNaN(num)) num = '';
+      if (typeof num === 'number' && num > 28) num = 28;
+    }
     const updated = cardSections.map((c) => c.id === id ? { ...c, [field]: num } : c)
+    updateAppSettings({ cardSections: updated })
+  }
+
+  function handleCardBillingBlur(id: string, field: 'closingDay' | 'dueDay') {
+    const updated = cardSections.map((c) => {
+      if (c.id === id) {
+        let val = Number(c[field]);
+        if (isNaN(val) || val < 1) val = 1;
+        if (val > 28) val = 28;
+        return { ...c, [field]: val };
+      }
+      return c;
+    })
     updateAppSettings({ cardSections: updated })
   }
 
@@ -279,8 +297,9 @@ export function Settings() {
                     min="1"
                     max="28"
                     className="w-full border border-gray-200 dark:border-gray-600 bg-white/60 dark:bg-white/5 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
-                    value={card.closingDay ?? 10}
+                    value={card.closingDay === ('' as any) ? '' : (card.closingDay ?? 10)}
                     onChange={(e) => handleCardBillingChange(card.id, 'closingDay', e.target.value)}
+                    onBlur={() => handleCardBillingBlur(card.id, 'closingDay')}
                   />
                 </div>
                 <div>
@@ -293,8 +312,9 @@ export function Settings() {
                     min="1"
                     max="28"
                     className="w-full border border-gray-200 dark:border-gray-600 bg-white/60 dark:bg-white/5 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
-                    value={card.dueDay ?? 20}
+                    value={card.dueDay === ('' as any) ? '' : (card.dueDay ?? 20)}
                     onChange={(e) => handleCardBillingChange(card.id, 'dueDay', e.target.value)}
+                    onBlur={() => handleCardBillingBlur(card.id, 'dueDay')}
                   />
                 </div>
               </div>
@@ -468,6 +488,18 @@ export function Settings() {
             <span className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform shadow-md ${
               appSettings.darkMode ? 'translate-x-7' : 'translate-x-1'
             }`} />
+          </button>
+        </div>
+        <div className="flex items-center justify-between p-4 mt-4 bg-white/60 dark:bg-white/5 border border-gray-200/50 dark:border-white/10 rounded-xl">
+          <div>
+            <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">Tutorial Inicial</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Rever as dicas de como usar o aplicativo</p>
+          </div>
+          <button
+            onClick={() => updateAppSettings({ hasSeenTutorial: false })}
+            className="px-4 py-2 bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-200 dark:hover:bg-indigo-500/30 rounded-xl text-sm font-medium transition-colors cursor-pointer"
+          >
+            Refazer
           </button>
         </div>
       </div>

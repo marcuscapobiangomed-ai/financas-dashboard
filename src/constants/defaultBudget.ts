@@ -25,4 +25,5 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   initialBalance: 0,
   cdiRateAnnual: 14.15,
   ipcaRateAnnual: 5.0,
+  hasSeenTutorial: false,
 }

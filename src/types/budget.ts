@@ -46,4 +46,5 @@ export interface AppSettings {
   ipcaRateAnnual: number  // taxa IPCA anual, ex: 5.0
   ratesLastUpdated?: string  // ISO date of last BCB rate fetch
   notificationsEnabled?: boolean  // budget alert notifications
+  hasSeenTutorial?: boolean // whether the user has completed the onboarding tutorial
 }
