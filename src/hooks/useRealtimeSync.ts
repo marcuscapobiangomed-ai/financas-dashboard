@@ -44,7 +44,12 @@ export function useRealtimeSync() {
       )
     })
 
-    channel.subscribe()
+    channel.subscribe((status) => {
+      if (status === 'CHANNEL_ERROR') {
+        console.warn('Realtime subscription failed. Database tables might not have Realtime enabled.')
+        supabase.removeChannel(channel)
+      }
+    })
 
     return () => {
       supabase.removeChannel(channel)
