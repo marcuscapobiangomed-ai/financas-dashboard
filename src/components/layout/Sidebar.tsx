@@ -26,7 +26,7 @@ export function Sidebar() {
   const signOut = useAuthStore((s) => s.signOut)
 
   return (
-    <aside className="hidden md:flex flex-col w-60 min-h-screen bg-white/60 dark:bg-gray-900/40 backdrop-blur-xl border-r border-gray-100/50 dark:border-white/5 px-3 py-4">
+    <aside className="hidden md:flex flex-col w-60 h-screen sticky top-0 bg-white/60 dark:bg-gray-900/40 backdrop-blur-xl border-r border-gray-100/50 dark:border-white/5 px-3 py-4">
       <div className="flex items-center justify-between px-3 mb-6">
         <div className="flex items-center gap-2">
           <PiggyBank size={24} className="text-indigo-600" />
@@ -39,7 +39,7 @@ export function Sidebar() {
         <MonthSelector />
       </div>
 
-      <nav className="flex flex-col gap-0.5 flex-1">
+      <nav className="flex flex-col gap-0.5 flex-1 overflow-y-auto min-h-0 pr-1 -mr-1">
         {navItems.map(({ to, icon: Icon, label, exact }) => (
           <NavLink
             key={to}
