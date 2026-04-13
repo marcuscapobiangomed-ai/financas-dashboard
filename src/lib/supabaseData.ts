@@ -161,7 +161,7 @@ export async function fetchUserSettings(userId: string): Promise<AppSettings> {
     .from('user_settings')
     .select('*')
     .eq('user_id', userId)
-    .single()
+    .maybeSingle()
   if (error || !data) return DEFAULT_APP_SETTINGS
 
   // Ensure backward compatibility: add closingDay/dueDay defaults to cards that don't have them
