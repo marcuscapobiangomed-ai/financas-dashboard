@@ -1,8 +1,10 @@
 import { create } from 'zustand'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
-import { fetchAllUserData } from '../lib/supabaseData'
+import { fetchAllUserData, upsertUserSettings } from '../lib/supabaseData'
 import { useFinanceStore } from './useFinanceStore'
 import type { User, Session } from '@supabase/supabase-js'
+import type { AppSettings } from '../types/budget'
+import { DEFAULT_APP_SETTINGS } from '../constants/defaultBudget'
 
 const LOCAL_STORAGE_KEY = 'financas-dashboard-store'
 
@@ -68,7 +70,7 @@ interface AuthStore {
 
   initialize: () => Promise<void>
   signIn: (email: string, password: string) => Promise<{ error?: string }>
-  signUp: (email: string, password: string) => Promise<{ error?: string }>
+  signUp: (email: string, password: string, initialSettings?: Partial<AppSettings>) => Promise<{ error?: string }>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<{ error?: string }>
   updatePassword: (newPassword: string) => Promise<{ error?: string }>
@@ -154,7 +156,7 @@ export const useAuthStore = create<AuthStore>()((set) => ({
     return {}
   },
 
-  signUp: async (email, password) => {
+  signUp: async (email, password, initialSettings) => {
     set({ error: null })
     const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) {
@@ -164,6 +166,17 @@ export const useAuthStore = create<AuthStore>()((set) => ({
     // If email confirmation is required, user will be null until confirmed
     if (data.user && data.session) {
       set({ user: data.user, session: data.session })
+      
+      // Initialize settings if user is logged in immediately
+      if (initialSettings) {
+        const fullSettings: AppSettings = {
+          ...DEFAULT_APP_SETTINGS,
+          ...initialSettings,
+          hasSeenTutorial: true // Always skip tutorial for new users
+        }
+        await upsertUserSettings(data.user.id, fullSettings)
+      }
+
       const storeData = await fetchAllUserData(data.user.id)
       const supabaseIsEmpty = storeData.transactions.length === 0
 
