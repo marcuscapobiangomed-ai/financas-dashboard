@@ -139,10 +139,13 @@ CREATE TABLE user_settings (
   default_savings_goal_percent numeric(5,2) NOT NULL DEFAULT 20,
   dark_mode boolean NOT NULL DEFAULT false,
   alert_threshold_percent numeric(5,2) NOT NULL DEFAULT 80,
-  card_sections jsonb NOT NULL DEFAULT '[{"id":"cartao_x","label":"Cartao X"},{"id":"cartao_y","label":"Cartao Y"}]',
+  card_sections jsonb NOT NULL DEFAULT '[{"id":"cartao_x","label":"Cartao X","closingDay":10,"dueDay":20},{"id":"cartao_y","label":"Cartao Y","closingDay":10,"dueDay":20}]',
   initial_balance numeric(12,2) NOT NULL DEFAULT 0,
   cdi_rate_annual numeric(8,4) NOT NULL DEFAULT 14.15,
-  ipca_rate_annual numeric(8,4) NOT NULL DEFAULT 5.0
+  ipca_rate_annual numeric(8,4) NOT NULL DEFAULT 5.0,
+  notifications_enabled boolean NOT NULL DEFAULT false,
+  has_seen_tutorial boolean NOT NULL DEFAULT false,
+  rates_last_updated timestamptz
 );
 
 ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;

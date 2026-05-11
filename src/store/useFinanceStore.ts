@@ -39,6 +39,7 @@ function getUserId(): string | null {
 }
 
 import * as db from '../lib/supabaseData'
+import { parseUserSettingsRow } from '../lib/supabaseData'
 
 export type SyncActionDescriptor = {
   id: string;
@@ -46,8 +47,15 @@ export type SyncActionDescriptor = {
   args: any[];
 }
 
+/** Flag to suppress sync-back when applying realtime updates from Supabase.
+ *  Prevents the infinite loop: local change → Supabase → realtime event → store update → sync → Supabase... */
+let _realtimeOrigin = false
+
 /** Robust sync execution with offline queueing and optimistic error rollback */
 function syncRemote(actionOrFn: keyof typeof db | (() => Promise<void>), ...args: any[]) {
+  // Suppress sync when applying data that already came from Supabase via Realtime
+  if (_realtimeOrigin) return
+
   const store = useFinanceStore.getState()
   
   if (typeof actionOrFn === 'function') {
@@ -85,7 +93,7 @@ function syncRemote(actionOrFn: keyof typeof db | (() => Promise<void>), ...args
       store.pushToSyncQueue({ id: generateId(), action: actionName, args })
     } else {
       store.setSyncStatus('error')
-      store.setSyncError(err?.message ?? 'Erro crÃtico ao sincronizar com o banco')
+      store.setSyncError(err?.message ?? 'Erro crítico ao sincronizar com o banco')
       
       // Rollback: Re-fetch correct state from Supabase
       const uid = getUserId()
@@ -256,42 +264,51 @@ export const useFinanceStore = create<FinanceStore>()(
       setQueueProcessing: (b) => set({ isQueueProcessing: b }),
       
       applyRealtimeUpdate: (table, eventType, newRow, oldRow) => {
-        set((s) => {
-          if (table === 'transactions') {
-            if (eventType === 'DELETE') return { transactions: s.transactions.filter(t => t.id !== oldRow.id) }
-            const camel = db.toCamel<Transaction>(newRow)
-            const exists = s.transactions.some(t => t.id === camel.id)
-            return { transactions: exists ? s.transactions.map(t => t.id === camel.id ? camel : t) : [...s.transactions, camel] }
-          }
-          if (table === 'recurring_templates') {
-            if (eventType === 'DELETE') return { recurringTemplates: s.recurringTemplates.filter(t => t.id !== oldRow.id) }
-            const camel = db.toCamel<RecurringTemplate>(newRow)
-            const exists = s.recurringTemplates.some(t => t.id === camel.id)
-            return { recurringTemplates: exists ? s.recurringTemplates.map(t => t.id === camel.id ? camel : t) : [...s.recurringTemplates, camel] }
-          }
-          if (table === 'extraordinary_entries') {
-            if (eventType === 'DELETE') return { extraordinaryEntries: s.extraordinaryEntries.filter(t => t.id !== oldRow.id) }
-            const camel = db.toCamel<ExtraordinaryEntry>(newRow)
-            const exists = s.extraordinaryEntries.some(t => t.id === camel.id)
-            return { extraordinaryEntries: exists ? s.extraordinaryEntries.map(t => t.id === camel.id ? camel : t) : [...s.extraordinaryEntries, camel] }
-          }
-          if (table === 'investments') {
-            if (eventType === 'DELETE') return { investments: s.investments.filter(t => t.id !== oldRow.id) }
-            const camel = db.toCamel<Investment>(newRow)
-            const exists = s.investments.some(t => t.id === camel.id)
-            return { investments: exists ? s.investments.map(t => t.id === camel.id ? camel : t) : [...s.investments, camel] }
-          }
-          if (table === 'month_settings') {
-            if (eventType === 'DELETE') return s // month_settings usually aren't deleted
-            const camel = db.toCamel<MonthSettings>(newRow)
-            return { monthSettings: { ...s.monthSettings, [camel.monthKey]: camel } }
-          }
-          if (table === 'user_settings') {
-            const camel = db.toCamel<AppSettings>(newRow)
-            return { appSettings: { ...s.appSettings, ...camel } }
-          }
-          return s
-        })
+        // Use _realtimeOrigin flag to prevent any store action triggered by this
+        // update from syncing back to Supabase (which would cause an infinite loop)
+        _realtimeOrigin = true
+        try {
+          set((s) => {
+            if (table === 'transactions') {
+              if (eventType === 'DELETE') return { transactions: s.transactions.filter(t => t.id !== oldRow.id) }
+              const camel = db.toCamel<Transaction>(newRow)
+              const exists = s.transactions.some(t => t.id === camel.id)
+              return { transactions: exists ? s.transactions.map(t => t.id === camel.id ? camel : t) : [...s.transactions, camel] }
+            }
+            if (table === 'recurring_templates') {
+              if (eventType === 'DELETE') return { recurringTemplates: s.recurringTemplates.filter(t => t.id !== oldRow.id) }
+              const camel = db.toCamel<RecurringTemplate>(newRow)
+              const exists = s.recurringTemplates.some(t => t.id === camel.id)
+              return { recurringTemplates: exists ? s.recurringTemplates.map(t => t.id === camel.id ? camel : t) : [...s.recurringTemplates, camel] }
+            }
+            if (table === 'extraordinary_entries') {
+              if (eventType === 'DELETE') return { extraordinaryEntries: s.extraordinaryEntries.filter(t => t.id !== oldRow.id) }
+              const camel = db.toCamel<ExtraordinaryEntry>(newRow)
+              const exists = s.extraordinaryEntries.some(t => t.id === camel.id)
+              return { extraordinaryEntries: exists ? s.extraordinaryEntries.map(t => t.id === camel.id ? camel : t) : [...s.extraordinaryEntries, camel] }
+            }
+            if (table === 'investments') {
+              if (eventType === 'DELETE') return { investments: s.investments.filter(t => t.id !== oldRow.id) }
+              const camel = db.toCamel<Investment>(newRow)
+              const exists = s.investments.some(t => t.id === camel.id)
+              return { investments: exists ? s.investments.map(t => t.id === camel.id ? camel : t) : [...s.investments, camel] }
+            }
+            if (table === 'month_settings') {
+              if (eventType === 'DELETE') return s // month_settings usually aren't deleted
+              const camel = db.toCamel<MonthSettings>(newRow)
+              return { monthSettings: { ...s.monthSettings, [camel.monthKey]: camel } }
+            }
+            if (table === 'user_settings') {
+              // Use the same parser as fetchUserSettings to handle numeric conversions
+              // and backward-compat logic (e.g. closingDay/dueDay on cards)
+              const parsed = parseUserSettingsRow(newRow as Record<string, unknown>)
+              return { appSettings: parsed }
+            }
+            return s
+          })
+        } finally {
+          _realtimeOrigin = false
+        }
       },
       pushToSyncQueue: (action) => set((s) => ({ syncQueue: [...s.syncQueue, action] })),
       processSyncQueue: async () => {
@@ -462,7 +479,8 @@ export const useFinanceStore = create<FinanceStore>()(
 
   deleteTransaction: (id) => {
     set((s) => ({ transactions: s.transactions.filter((t) => t.id !== id) }))
-    syncRemote('deleteTransactionRemote', id)
+    const uid = getUserId()
+    if (uid) syncRemote('deleteTransactionRemote', id)
   },
 
   getTransactionsForMonth: (monthKey) => {
@@ -493,7 +511,8 @@ export const useFinanceStore = create<FinanceStore>()(
 
   deleteExtraordinary: (id) => {
     set((s) => ({ extraordinaryEntries: s.extraordinaryEntries.filter((e) => e.id !== id) }))
-    syncRemote('deleteExtraordinaryEntryRemote', id)
+    const uid = getUserId()
+    if (uid) syncRemote('deleteExtraordinaryEntryRemote', id)
   },
 
   getExtraordinaryForMonth: (monthKey) => {
@@ -525,7 +544,8 @@ export const useFinanceStore = create<FinanceStore>()(
 
   deleteRecurringTemplate: (id) => {
     set((s) => ({ recurringTemplates: s.recurringTemplates.filter((t) => t.id !== id) }))
-    syncRemote('deleteRecurringTemplateRemote', id)
+    const uid = getUserId()
+    if (uid) syncRemote('deleteRecurringTemplateRemote', id)
   },
 
   applyRecurringToMonth: (monthKey) => {
@@ -612,7 +632,8 @@ export const useFinanceStore = create<FinanceStore>()(
 
   deleteInvestment: (id) => {
     set((s) => ({ investments: s.investments.filter((inv) => inv.id !== id) }))
-    syncRemote('deleteInvestmentRemote', id)
+    const uid = getUserId()
+    if (uid) syncRemote('deleteInvestmentRemote', id)
   },
 
   applyInvestmentYieldsToMonth: (monthKey) => {

@@ -18,6 +18,7 @@ export function useRealtimeSync() {
       'recurring_templates',
       'extraordinary_entries',
       'investments',
+      'month_settings',
       'user_settings',
     ]
 

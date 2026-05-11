@@ -156,14 +156,9 @@ export async function upsertMonthSettings(userId: string, monthKey: string, sett
 
 // ── User Settings (AppSettings) ────────────────────────────────────────────
 
-export async function fetchUserSettings(userId: string): Promise<AppSettings> {
-  const { data, error } = await supabase
-    .from('user_settings')
-    .select('*')
-    .eq('user_id', userId)
-    .maybeSingle()
-  if (error || !data) return DEFAULT_APP_SETTINGS
-
+/** Parse a raw Postgres row into a typed AppSettings object.
+ *  Reused by fetchUserSettings and the realtime update handler. */
+export function parseUserSettingsRow(data: Record<string, unknown>): AppSettings {
   // Ensure backward compatibility: add closingDay/dueDay defaults to cards that don't have them
   const rawCards = data.card_sections ?? DEFAULT_APP_SETTINGS.cardSections
   const cardSections = (rawCards as Array<Record<string, unknown>>).map((c) => ({
@@ -186,8 +181,19 @@ export async function fetchUserSettings(userId: string): Promise<AppSettings> {
     ipcaRateAnnual: Number(data.ipca_rate_annual ?? 5.0),
     notificationsEnabled: data.notifications_enabled ?? false,
     hasSeenTutorial: data.has_seen_tutorial ?? false,
-    ratesLastUpdated: data.rates_last_updated ?? undefined,
+    ratesLastUpdated: (data.rates_last_updated as string) ?? undefined,
   }
+}
+
+export async function fetchUserSettings(userId: string): Promise<AppSettings> {
+  const { data, error } = await supabase
+    .from('user_settings')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error || !data) return DEFAULT_APP_SETTINGS
+
+  return parseUserSettingsRow(data as Record<string, unknown>)
 }
 
 export async function upsertUserSettings(userId: string, settings: AppSettings): Promise<void> {
