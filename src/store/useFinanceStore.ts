@@ -10,6 +10,7 @@ import { fetchBCBRates } from '../lib/bcbApi'
 import { showBudgetAlert, getNotificationPermission } from '../lib/notifications'
 import { getCurrentMonthKey } from '../constants/months'
 import { getBillingMonthKey } from '../utils/cardBilling'
+import { hasActiveSession } from '../lib/supabase'
 import {
   upsertTransaction,
   deleteTransactionRemote,
@@ -39,17 +40,38 @@ function getUserId(): string | null {
 }
 
 import * as db from '../lib/supabaseData'
-import { parseUserSettingsRow } from '../lib/supabaseData'
+import { parseUserSettingsRow, sanitizeMonthSettings, toModel } from '../lib/supabaseData'
+
+/** Max age in ms for a queued action. Items older than this are discarded. */
+const QUEUE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 
 export type SyncActionDescriptor = {
   id: string;
   action: string;
   args: any[];
+  createdAt: number; // Date.now() timestamp
 }
 
 /** Flag to suppress sync-back when applying realtime updates from Supabase.
  *  Prevents the infinite loop: local change → Supabase → realtime event → store update → sync → Supabase... */
 let _realtimeOrigin = false
+
+/** Check if an error is a network/offline error */
+function isNetworkError(err: unknown): boolean {
+  if (err instanceof TypeError) {
+    const msg = err.message
+    return msg === 'Failed to fetch' || msg.includes('fetch') || msg.includes('NetworkError')
+  }
+  return false
+}
+
+/** Check if an error is a session-expired error */
+function isSessionError(err: unknown): boolean {
+  if (err instanceof Error) {
+    return err.message.includes('Sessão expirada') || err.message.includes('JWT')
+  }
+  return false
+}
 
 /** Robust sync execution with offline queueing and optimistic error rollback */
 function syncRemote(actionOrFn: keyof typeof db | (() => Promise<void>), ...args: any[]) {
@@ -66,8 +88,13 @@ function syncRemote(actionOrFn: keyof typeof db | (() => Promise<void>), ...args
     store.setSyncStatus('syncing')
     actionOrFn().then(() => store.setSyncStatus('idle')).catch(err => {
       console.error('[sync function]', err)
-      store.setSyncStatus('error')
-      store.setSyncError(err?.message ?? 'Erro crítico na sincronização em lote')
+      if (isSessionError(err)) {
+        store.setSyncStatus('error')
+        store.setSyncError('Sessão expirada. Faça login novamente.')
+      } else {
+        store.setSyncStatus('error')
+        store.setSyncError(err?.message ?? 'Erro crítico na sincronização em lote')
+      }
     })
     return
   }
@@ -75,7 +102,7 @@ function syncRemote(actionOrFn: keyof typeof db | (() => Promise<void>), ...args
   const actionName = actionOrFn;
   if (!navigator.onLine) {
     store.setSyncStatus('offline')
-    store.pushToSyncQueue({ id: generateId(), action: actionName, args })
+    store.pushToSyncQueue({ id: generateId(), action: actionName, args, createdAt: Date.now() })
     return
   }
 
@@ -88,9 +115,12 @@ function syncRemote(actionOrFn: keyof typeof db | (() => Promise<void>), ...args
     if (queueSize > 0) store.processSyncQueue()
   }).catch((err: any) => {
     console.error('[sync execution]', err)
-    if (err instanceof TypeError && (err.message === 'Failed to fetch' || err.message.includes('fetch'))) {
+    if (isNetworkError(err)) {
       store.setSyncStatus('offline')
-      store.pushToSyncQueue({ id: generateId(), action: actionName, args })
+      store.pushToSyncQueue({ id: generateId(), action: actionName, args, createdAt: Date.now() })
+    } else if (isSessionError(err)) {
+      store.setSyncStatus('error')
+      store.setSyncError('Sessão expirada. Faça login novamente para sincronizar.')
     } else {
       store.setSyncStatus('error')
       store.setSyncError(err?.message ?? 'Erro crítico ao sincronizar com o banco')
@@ -98,7 +128,7 @@ function syncRemote(actionOrFn: keyof typeof db | (() => Promise<void>), ...args
       // Rollback: Re-fetch correct state from Supabase
       const uid = getUserId()
       if (uid) {
-        db.fetchAllUserData(uid).then(data => store.loadFromSupabase(data))
+        db.fetchAllUserData(uid).then(data => store.loadFromSupabase(data)).catch(() => {})
       }
     }
   })
@@ -271,31 +301,31 @@ export const useFinanceStore = create<FinanceStore>()(
           set((s) => {
             if (table === 'transactions') {
               if (eventType === 'DELETE') return { transactions: s.transactions.filter(t => t.id !== oldRow.id) }
-              const camel = db.toCamel<Transaction>(newRow)
+              const camel = toModel<Transaction>(newRow)
               const exists = s.transactions.some(t => t.id === camel.id)
               return { transactions: exists ? s.transactions.map(t => t.id === camel.id ? camel : t) : [...s.transactions, camel] }
             }
             if (table === 'recurring_templates') {
               if (eventType === 'DELETE') return { recurringTemplates: s.recurringTemplates.filter(t => t.id !== oldRow.id) }
-              const camel = db.toCamel<RecurringTemplate>(newRow)
+              const camel = toModel<RecurringTemplate>(newRow)
               const exists = s.recurringTemplates.some(t => t.id === camel.id)
               return { recurringTemplates: exists ? s.recurringTemplates.map(t => t.id === camel.id ? camel : t) : [...s.recurringTemplates, camel] }
             }
             if (table === 'extraordinary_entries') {
               if (eventType === 'DELETE') return { extraordinaryEntries: s.extraordinaryEntries.filter(t => t.id !== oldRow.id) }
-              const camel = db.toCamel<ExtraordinaryEntry>(newRow)
+              const camel = toModel<ExtraordinaryEntry>(newRow)
               const exists = s.extraordinaryEntries.some(t => t.id === camel.id)
               return { extraordinaryEntries: exists ? s.extraordinaryEntries.map(t => t.id === camel.id ? camel : t) : [...s.extraordinaryEntries, camel] }
             }
             if (table === 'investments') {
               if (eventType === 'DELETE') return { investments: s.investments.filter(t => t.id !== oldRow.id) }
-              const camel = db.toCamel<Investment>(newRow)
+              const camel = toModel<Investment>(newRow)
               const exists = s.investments.some(t => t.id === camel.id)
               return { investments: exists ? s.investments.map(t => t.id === camel.id ? camel : t) : [...s.investments, camel] }
             }
             if (table === 'month_settings') {
               if (eventType === 'DELETE') return s // month_settings usually aren't deleted
-              const camel = db.toCamel<MonthSettings>(newRow)
+              const camel = sanitizeMonthSettings(toModel<MonthSettings & { userId?: string }>(newRow))
               return { monthSettings: { ...s.monthSettings, [camel.monthKey]: camel } }
             }
             if (table === 'user_settings') {
@@ -314,43 +344,73 @@ export const useFinanceStore = create<FinanceStore>()(
       processSyncQueue: async () => {
         const { syncQueue, setSyncStatus, isQueueProcessing, setQueueProcessing } = get()
         if (syncQueue.length === 0 || !navigator.onLine || isQueueProcessing) return
+
+        // Check session before processing
+        const sessionOk = await hasActiveSession()
+        if (!sessionOk) {
+          setSyncStatus('error')
+          get().setSyncError('Sessão expirada. Faça login novamente.')
+          return
+        }
         
         setQueueProcessing(true)
         setSyncStatus('syncing')
-        const newQueue = [...syncQueue]
-        let hasError = false
-        let isToxic = false
         
-        for (let i = 0; i < syncQueue.length; i++) {
-          const item = syncQueue[i]
+        // Filter out expired items (older than TTL)
+        const validQueue = syncQueue.filter((item) => (Date.now() - (item.createdAt || 0)) < QUEUE_TTL_MS)
+        if (validQueue.length < syncQueue.length) {
+          console.warn(`[sync queue] Descartados ${syncQueue.length - validQueue.length} itens expirados da fila`)
+        }
+
+        const remaining: SyncActionDescriptor[] = []
+        let hasNetworkError = false
+        let hasToxicError = false
+        
+        for (const item of validQueue) {
+          if (hasNetworkError) {
+            // Keep the rest for next time
+            remaining.push(item)
+            continue
+          }
+
           try {
             const method = (db as any)[item.action]
-            if (method) await method(...item.args)
-            newQueue.shift() // remove completed
+            if (method) {
+              await method(...item.args)
+            }
+            // Success — item is NOT added to remaining (effectively removed)
           } catch (err: any) {
-             console.error('[sync queue]', err)
-             if (err instanceof TypeError && (err.message === 'Failed to fetch' || err.message.includes('fetch'))) {
-               // Normal offline behavior
-               hasError = true
-               break // halt queue processing on network error
-             } else {
-               // Non-network error (e.g. 400 Bad Request) - TOXIC payload
-               newQueue.shift() // drop it so it doesn't block forever
-               isToxic = true
-             }
+            console.error('[sync queue]', item.action, err)
+            if (isNetworkError(err)) {
+              // Network error — keep this and all following items
+              remaining.push(item)
+              hasNetworkError = true
+            } else if (isSessionError(err)) {
+              // Session expired — keep all remaining items for when user re-logs in
+              remaining.push(item)
+              hasNetworkError = true // stop processing
+            } else {
+              // Toxic payload (e.g. 400 Bad Request) — drop it
+              console.warn('[sync queue] Item tóxico descartado:', item.action, item.id)
+              hasToxicError = true
+            }
           }
         }
         
-        set({ syncQueue: newQueue })
+        set({ syncQueue: remaining })
         setQueueProcessing(false)
         
-        if (isToxic) {
-           get().setSyncError('Erro em processamento de fundo. Os saldos foram revertidos e atualizados.')
+        if (hasToxicError) {
+           get().setSyncError('Alguns itens falharam e foram descartados. Os dados foram atualizados.')
            const uid = getUserId()
-           if (uid) db.fetchAllUserData(uid).then(data => get().loadFromSupabase(data))
+           if (uid) db.fetchAllUserData(uid).then(data => get().loadFromSupabase(data)).catch(() => {})
         }
         
-        setSyncStatus(hasError ? 'offline' : (isToxic ? 'error' : (newQueue.length > 0 ? 'offline' : 'idle')))
+        setSyncStatus(
+          hasNetworkError ? 'offline' :
+          hasToxicError ? 'error' :
+          remaining.length > 0 ? 'offline' : 'idle'
+        )
       },
 
   fetchLatestRates: async () => {

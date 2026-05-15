@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { supabase, hasActiveSession } from './supabase'
 import type { Transaction, RecurringTemplate, ExtraordinaryEntry } from '../types/transaction'
 import type { AppSettings, MonthSettings } from '../types/budget'
 import type { Investment } from '../types/investment'
@@ -22,8 +22,45 @@ export function toCamel<T>(obj: Record<string, unknown>): T {
   return result as T
 }
 
+// ── Numeric field coercion ─────────────────────────────────────────────────
+
+/** Fields that come as string from Postgres numeric columns but must be number in JS */
+const NUMERIC_FIELDS = new Set([
+  'amount', 'grossAmount', 'tithePercent', 'offeringPercent',
+  'tithe', 'offering', 'netAmount', 'principal', 'monthlyYieldPercent',
+  'cdiPercent', 'ipcaPercent', 'shares', 'averagePrice',
+  'savingsGoal', 'installmentCurrent', 'installmentTotal',
+])
+
+/** Convert Postgres numeric-string fields to actual JS numbers */
+function coerceNumerics<T>(obj: Record<string, unknown>): T {
+  for (const key of Object.keys(obj)) {
+    if (NUMERIC_FIELDS.has(key) && obj[key] != null) {
+      obj[key] = Number(obj[key])
+    }
+  }
+  return obj as T
+}
+
+/** Convert a single raw Postgres row (snake_case + string numerics) into a typed model.
+ *  Use this in Realtime handlers where rows arrive one-at-a-time. */
+export function toModel<T>(row: Record<string, unknown>): T {
+  return coerceNumerics<T>(toCamel<Record<string, unknown>>(row))
+}
+
 function rowsToModels<T>(rows: Record<string, unknown>[]): T[] {
-  return rows.map((r) => toCamel<T>(r))
+  return rows.map((r) => toModel<T>(r))
+}
+
+// ── Session guard ──────────────────────────────────────────────────────────
+
+/** Ensure there's an active Supabase session before performing a write.
+ *  Throws a clear error if no session is found. */
+async function requireSession(): Promise<void> {
+  const active = await hasActiveSession()
+  if (!active) {
+    throw new Error('Sessão expirada. Faça login novamente para sincronizar.')
+  }
 }
 
 // ── Transactions ───────────────────────────────────────────────────────────
@@ -38,6 +75,7 @@ export async function fetchTransactions(userId: string): Promise<Transaction[]> 
 }
 
 export async function upsertTransaction(userId: string, t: Transaction): Promise<void> {
+  await requireSession()
   const row = { ...toSnake(t as unknown as Record<string, unknown>), user_id: userId }
   const { error } = await supabase.from('transactions').upsert(row, { onConflict: 'id' })
   if (error) { console.error('upsertTransaction error:', error); throw error }
@@ -45,12 +83,14 @@ export async function upsertTransaction(userId: string, t: Transaction): Promise
 
 export async function bulkUpsertTransactions(userId: string, txs: Transaction[]): Promise<void> {
   if (txs.length === 0) return
+  await requireSession()
   const rows = txs.map((t) => ({ ...toSnake(t as unknown as Record<string, unknown>), user_id: userId }))
   const { error } = await supabase.from('transactions').upsert(rows, { onConflict: 'id' })
   if (error) { console.error('bulkUpsertTransactions error:', error); throw error }
 }
 
 export async function deleteTransactionRemote(id: string): Promise<void> {
+  await requireSession()
   const { error } = await supabase.from('transactions').delete().eq('id', id)
   if (error) { console.error('deleteTransaction error:', error); throw error }
 }
@@ -67,12 +107,14 @@ export async function fetchRecurringTemplates(userId: string): Promise<Recurring
 }
 
 export async function upsertRecurringTemplate(userId: string, t: RecurringTemplate): Promise<void> {
+  await requireSession()
   const row = { ...toSnake(t as unknown as Record<string, unknown>), user_id: userId }
   const { error } = await supabase.from('recurring_templates').upsert(row, { onConflict: 'id' })
   if (error) { console.error('upsertRecurringTemplate error:', error); throw error }
 }
 
 export async function deleteRecurringTemplateRemote(id: string): Promise<void> {
+  await requireSession()
   const { error } = await supabase.from('recurring_templates').delete().eq('id', id)
   if (error) { console.error('deleteRecurringTemplate error:', error); throw error }
 }
@@ -89,12 +131,14 @@ export async function fetchExtraordinaryEntries(userId: string): Promise<Extraor
 }
 
 export async function upsertExtraordinaryEntry(userId: string, e: ExtraordinaryEntry): Promise<void> {
+  await requireSession()
   const row = { ...toSnake(e as unknown as Record<string, unknown>), user_id: userId }
   const { error } = await supabase.from('extraordinary_entries').upsert(row, { onConflict: 'id' })
   if (error) { console.error('upsertExtraordinaryEntry error:', error); throw error }
 }
 
 export async function deleteExtraordinaryEntryRemote(id: string): Promise<void> {
+  await requireSession()
   const { error } = await supabase.from('extraordinary_entries').delete().eq('id', id)
   if (error) { console.error('deleteExtraordinaryEntry error:', error); throw error }
 }
@@ -111,17 +155,27 @@ export async function fetchInvestments(userId: string): Promise<Investment[]> {
 }
 
 export async function upsertInvestment(userId: string, inv: Investment): Promise<void> {
+  await requireSession()
   const row = { ...toSnake(inv as unknown as Record<string, unknown>), user_id: userId }
   const { error } = await supabase.from('investments').upsert(row, { onConflict: 'id' })
   if (error) { console.error('upsertInvestment error:', error); throw error }
 }
 
 export async function deleteInvestmentRemote(id: string): Promise<void> {
+  await requireSession()
   const { error } = await supabase.from('investments').delete().eq('id', id)
   if (error) { console.error('deleteInvestment error:', error); throw error }
 }
 
 // ── Month Settings ─────────────────────────────────────────────────────────
+
+/** Remove userId / user_id from a MonthSettings object (they leak in from Realtime payloads). */
+export function sanitizeMonthSettings(ms: MonthSettings & { userId?: string; user_id?: string }): MonthSettings {
+  const clean = { ...ms }
+  delete (clean as any).userId
+  delete (clean as any).user_id
+  return clean
+}
 
 export async function fetchMonthSettings(userId: string): Promise<Record<string, MonthSettings>> {
   const { data, error } = await supabase
@@ -133,13 +187,13 @@ export async function fetchMonthSettings(userId: string): Promise<Record<string,
   const result: Record<string, MonthSettings> = {}
   for (const row of data ?? []) {
     const ms = toCamel<MonthSettings & { userId?: string }>(row)
-    delete ms.userId
-    result[ms.monthKey] = ms
+    result[ms.monthKey] = sanitizeMonthSettings(ms)
   }
   return result
 }
 
 export async function upsertMonthSettings(userId: string, monthKey: string, settings: MonthSettings): Promise<void> {
+  await requireSession()
   const row = {
     user_id: userId,
     month_key: monthKey,
@@ -197,6 +251,7 @@ export async function fetchUserSettings(userId: string): Promise<AppSettings> {
 }
 
 export async function upsertUserSettings(userId: string, settings: AppSettings): Promise<void> {
+  await requireSession()
   const row = {
     user_id: userId,
     default_section_limits: settings.defaultSectionLimits,
@@ -243,6 +298,7 @@ export async function fetchAllUserData(userId: string): Promise<StoreSnapshot> {
 }
 
 export async function deleteAllUserData(userId: string): Promise<void> {
+  await requireSession()
   await Promise.all([
     supabase.from('transactions').delete().eq('user_id', userId),
     supabase.from('recurring_templates').delete().eq('user_id', userId),
@@ -256,6 +312,7 @@ export async function deleteAllUserData(userId: string): Promise<void> {
 
 export async function bulkUpdateTransactions(userId: string, txs: Transaction[]): Promise<void> {
   if (txs.length === 0) return
+  await requireSession()
   const rows = txs.map((t) => ({ ...toSnake(t as unknown as Record<string, unknown>), user_id: userId }))
   const { error } = await supabase.from('transactions').upsert(rows, { onConflict: 'id' })
   if (error) { console.error('bulkUpdateTransactions error:', error); throw error }
@@ -263,6 +320,7 @@ export async function bulkUpdateTransactions(userId: string, txs: Transaction[])
 
 export async function bulkUpdateExtraordinaryEntries(userId: string, entries: ExtraordinaryEntry[]): Promise<void> {
   if (entries.length === 0) return
+  await requireSession()
   const rows = entries.map((e) => ({ ...toSnake(e as unknown as Record<string, unknown>), user_id: userId }))
   const { error } = await supabase.from('extraordinary_entries').upsert(rows, { onConflict: 'id' })
   if (error) { console.error('bulkUpdateExtraordinaryEntries error:', error); throw error }
