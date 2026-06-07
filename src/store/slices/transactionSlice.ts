@@ -1,0 +1,124 @@
+import { Transaction } from '../../types/transaction'
+import { getBillingMonthKey } from '../../utils/cardBilling'
+import {
+  generateId,
+  now,
+  getUserId,
+  syncRemote,
+  checkBudgetAlert,
+} from '../financeStoreHelpers'
+
+export interface TransactionSlice {
+  transactions: Transaction[]
+  addTransaction: (t: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => void
+  addTransactions: (ts: Transaction[]) => void
+  addInstallmentTransactions: (
+    base: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'installmentGroupId' | 'installmentCurrent' | 'monthKey'>,
+    installmentTotal: number,
+    closingDay?: number
+  ) => void
+  updateTransaction: (id: string, updates: Partial<Transaction>) => void
+  bulkUpdateTransactions: (ids: string[], updates: Partial<Transaction>) => void
+  deleteTransaction: (id: string) => void
+  getTransactionsForMonth: (monthKey: string) => Transaction[]
+}
+
+export const createTransactionSlice = (set: any, get: any): TransactionSlice => ({
+  transactions: [],
+
+  addTransaction: (t) => {
+    const newT: Transaction = { ...t, id: generateId(), createdAt: now(), updatedAt: now() }
+    set((s: any) => ({ transactions: [...s.transactions, newT] }))
+    const uid = getUserId()
+    if (uid) syncRemote('upsertTransaction', uid, newT)
+    if (newT.type === 'expense') {
+      Promise.resolve().then(() => checkBudgetAlert(get(), newT.monthKey, newT.section))
+    }
+  },
+
+  addTransactions: (ts) => {
+    const timeNow = now()
+    const newTs = ts.map((t) => ({
+      ...t,
+      id: t.id || generateId(),
+      createdAt: t.createdAt || timeNow,
+      updatedAt: timeNow,
+    }))
+    set((s: any) => ({ transactions: [...s.transactions, ...newTs] }))
+    const uid = getUserId()
+    if (uid) syncRemote('bulkUpsertTransactions', uid, newTs)
+  },
+
+  addInstallmentTransactions: (base, installmentTotal, closingDay) => {
+    const groupId = generateId()
+    const [startYear, startMonth, startDay] = base.date.split('-').map(Number)
+    const baseDescription = base.description
+
+    const transactions: Transaction[] = []
+    for (let i = 0; i < installmentTotal; i++) {
+      const d = new Date(startYear, startMonth - 1 + i, startDay || 1)
+      const instYear = d.getFullYear()
+      const instMonth = d.getMonth() + 1
+      const instDay = d.getDate()
+      const instDate = `${instYear}-${String(instMonth).padStart(2, '0')}-${String(instDay).padStart(2, '0')}`
+
+      const mk = closingDay != null
+        ? getBillingMonthKey(instDate, closingDay)
+        : `${instYear}-${String(instMonth).padStart(2, '0')}`
+
+      transactions.push({
+        ...base,
+        id: generateId(),
+        description: `${baseDescription} (${i + 1}/${installmentTotal})`,
+        monthKey: mk,
+        date: instDate,
+        installmentGroupId: groupId,
+        installmentCurrent: i + 1,
+        installmentTotal,
+        createdAt: now(),
+        updatedAt: now(),
+      })
+    }
+
+    set((s: any) => ({ transactions: [...s.transactions, ...transactions] }))
+    const uid = getUserId()
+    if (uid) syncRemote('bulkUpsertTransactions', uid, transactions)
+  },
+
+  updateTransaction: (id, updates) => {
+    set((s: any) => ({
+      transactions: s.transactions.map((t: any) =>
+        t.id === id ? { ...t, ...updates, updatedAt: now() } : t
+      ),
+    }))
+    const uid = getUserId()
+    if (uid) {
+      const updated = get().transactions.find((t: any) => t.id === id)
+      if (updated) syncRemote('upsertTransaction', uid, updated)
+    }
+  },
+
+  bulkUpdateTransactions: (ids, updates) => {
+    const idsSet = new Set(ids)
+    set((s: any) => ({
+      transactions: s.transactions.map((t: any) =>
+        idsSet.has(t.id) ? { ...t, ...updates, updatedAt: now() } : t
+      ),
+    }))
+    const uid = getUserId()
+    if (uid) {
+      const updated = get().transactions.filter((t: any) => idsSet.has(t.id))
+      if (updated.length > 0) syncRemote('bulkUpdateTransactions', uid, updated)
+    }
+  },
+
+  deleteTransaction: (id) => {
+    set((s: any) => ({ transactions: s.transactions.filter((t: any) => t.id !== id) }))
+    const uid = getUserId()
+    if (uid) syncRemote('deleteTransactionRemote', id)
+  },
+
+  getTransactionsForMonth: (monthKey) => {
+    return get().transactions.filter((t: any) => t.monthKey === monthKey)
+  },
+})

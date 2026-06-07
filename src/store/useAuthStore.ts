@@ -5,61 +5,10 @@ import { useFinanceStore } from './useFinanceStore'
 import type { User, Session } from '@supabase/supabase-js'
 import type { AppSettings } from '../types/budget'
 import { DEFAULT_APP_SETTINGS } from '../constants/defaultBudget'
+import { migrateLocalData, shouldMigrate } from '../utils/authMigration'
 
-const LOCAL_STORAGE_KEY = 'financas-dashboard-store'
-
-/** Try to read old zustand-persist data from localStorage */
-function getLocalStorageData() {
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY)
-    console.log('[migration] localStorage raw exists:', !!raw, raw ? `(${raw.length} chars)` : '')
-    if (!raw) return null
-    const parsed = JSON.parse(raw)
-    // zustand persist wraps state in { state: {...}, version: N }
-    const state = parsed?.state ?? parsed
-    console.log('[migration] parsed state keys:', Object.keys(state))
-    console.log('[migration] transactions count:', state.transactions?.length ?? 'none')
-    if (!state.transactions || !Array.isArray(state.transactions) || state.transactions.length === 0) {
-      return null
-    }
-    return state
-  } catch (e) {
-    console.error('[migration] Failed to parse localStorage:', e)
-    return null
-  }
-}
-
-/** Migrate localStorage data into the finance store and sync to Supabase */
-async function migrateLocalData() {
-  const local = getLocalStorageData()
-  if (!local) return false
-
-  const store = useFinanceStore.getState()
-  // Use the existing importData mechanism by converting to JSON
-  const json = JSON.stringify({
-    version: 2,
-    transactions: local.transactions ?? [],
-    recurringTemplates: local.recurringTemplates ?? [],
-    extraordinaryEntries: local.extraordinaryEntries ?? [],
-    investments: local.investments ?? [],
-    monthSettings: local.monthSettings ?? {},
-    appSettings: local.appSettings ?? undefined,
-  })
-  const ok = store.importData(json)
-  if (ok) {
-    // Mark migration as done so we don't re-import
-    localStorage.setItem(LOCAL_STORAGE_KEY + '-migrated', 'true')
-    console.log(`[migration] Migrated ${local.transactions.length} transactions from localStorage to Supabase`)
-  }
-  return ok
-}
-
-function shouldMigrate(): boolean {
-  const alreadyMigrated = localStorage.getItem(LOCAL_STORAGE_KEY + '-migrated') === 'true'
-  const hasData = getLocalStorageData() !== null
-  console.log('[migration] shouldMigrate check:', { alreadyMigrated, hasData })
-  return !alreadyMigrated && hasData
-}
+// Module-level subscription to prevent memory leaks from multiple initialize() calls
+let _authSubscription: { unsubscribe: () => void } | null = null
 
 interface AuthStore {
   user: User | null
@@ -95,11 +44,11 @@ export const useAuthStore = create<AuthStore>()((set) => ({
         // Load data from Supabase into finance store
         const data = await fetchAllUserData(session.user.id)
         const supabaseIsEmpty = data.transactions.length === 0
-        console.log('[migration] initialize: supabaseIsEmpty=', supabaseIsEmpty, 'txCount=', data.transactions.length)
+        if (import.meta.env.DEV) console.log('[migration] initialize: supabaseIsEmpty=', supabaseIsEmpty, 'txCount=', data.transactions.length)
 
         if (supabaseIsEmpty && shouldMigrate()) {
           const ok = await migrateLocalData()
-          console.log('[migration] initialize: migrateLocalData result=', ok)
+          if (import.meta.env.DEV) console.log('[migration] initialize: migrateLocalData result=', ok)
           if (ok) set({ migrated: true })
         } else {
           useFinanceStore.getState().loadFromSupabase(data)
@@ -109,8 +58,12 @@ export const useAuthStore = create<AuthStore>()((set) => ({
         set({ user: null, session: null, loading: false })
       }
 
+      if (_authSubscription) {
+        _authSubscription.unsubscribe()
+      }
+
       // Listen for auth changes (token refresh, logout from another tab, etc.)
-      supabase.auth.onAuthStateChange(async (event, session) => {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (event === 'SIGNED_OUT') {
           set({ user: null, session: null })
           useFinanceStore.getState().resetStore()
@@ -129,6 +82,7 @@ export const useAuthStore = create<AuthStore>()((set) => ({
           set({ user: session.user, session })
         }
       })
+      _authSubscription = subscription
     } catch {
       set({ loading: false })
     }

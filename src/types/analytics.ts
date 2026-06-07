@@ -19,6 +19,7 @@ export interface CategoryBreakdown {
   monthlyAvg: number
   trend: 'up' | 'down' | 'stable'
   trendPercent: number
+  delta: number
 }
 
 export interface SpendingInsight {

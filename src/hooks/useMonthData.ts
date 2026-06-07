@@ -1,7 +1,8 @@
-import { useMemo } from 'react'
+import { useMemo, useCallback } from 'react'
 import { useFinanceStore } from '../store/useFinanceStore'
 import { useSectionConfig } from './useSectionConfig'
 import type { SectionSummary } from '../types/budget'
+import { useShallow } from 'zustand/react/shallow'
 import {
   computeSectionSummary,
   computeIncome,
@@ -27,17 +28,19 @@ export interface MonthData {
 }
 
 export function useMonthData(monthKey: string): MonthData {
-  const transactions = useFinanceStore((s) => s.transactions)
-  const extraordinaryEntries = useFinanceStore((s) => s.extraordinaryEntries)
-  const monthSettings = useFinanceStore((s) => s.monthSettings)
+  const monthTransactions = useFinanceStore(
+    useShallow((s) => s.transactions.filter((t) => t.monthKey === monthKey))
+  )
+  const monthExtraordinary = useFinanceStore(
+    useShallow((s) => s.extraordinaryEntries.filter((e) => e.monthKey === monthKey))
+  )
+  const saved = useFinanceStore(
+    useShallow((s) => s.monthSettings[monthKey])
+  )
   const appSettings = useFinanceStore((s) => s.appSettings)
   const { sectionOrder, sectionLabels, expenseSections } = useSectionConfig()
 
   return useMemo(() => {
-    const monthTransactions = transactions.filter((t) => t.monthKey === monthKey)
-    const monthExtraordinary = extraordinaryEntries.filter((e) => e.monthKey === monthKey)
-
-    const saved = monthSettings[monthKey]
     const limits = saved?.sectionLimits ?? appSettings.defaultSectionLimits
     const isClosed = saved?.isClosed ?? false
 
@@ -72,5 +75,5 @@ export function useMonthData(monthKey: string): MonthData {
       extraordinaryIncome,
       totalIncomePlusExtraordinary: income + extraordinaryIncome,
     }
-  }, [transactions, extraordinaryEntries, monthKey, monthSettings, appSettings, sectionOrder, sectionLabels, expenseSections])
+  }, [monthTransactions, monthExtraordinary, monthKey, saved, appSettings, sectionOrder, sectionLabels, expenseSections])
 }

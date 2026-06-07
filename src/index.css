@@ -34,7 +34,7 @@ body {
 /* Print styles for PDF export */
 @media print {
   body { background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  aside, nav, header, .print\\:hidden, [class*="QuickAddFAB"], [class*="SyncToast"] { display: none !important; }
+  aside, nav, header, .print\:hidden, [class*="QuickAddFAB"], [class*="SyncToast"] { display: none !important; }
   main { padding: 0 !important; max-width: 100% !important; margin: 0 !important; }
   .dark * { color: #1f2937 !important; background: white !important; border-color: #e5e7eb !important; }
   @page { margin: 1.5cm; size: A4; }

@@ -13,36 +13,52 @@ const TABLES = [
   'user_settings',
 ] as const
 
-/** Maximum number of reconnect attempts before giving up. */
-const MAX_RETRIES = 8
-/** Base delay in ms for exponential backoff (doubles each attempt). */
+/** Max consecutive retries before entering "long pause" mode (doesn't give up permanently). */
+const MAX_FAST_RETRIES = 8
+/** Base delay in ms for exponential backoff (doubles each attempt, capped at 30s). */
 const BASE_DELAY_MS = 1_000
+/** After MAX_FAST_RETRIES failures, pause this long before trying again (5 min). */
+const LONG_PAUSE_MS = 5 * 60 * 1_000
 
 /**
  * Subscribes to Supabase Realtime changes on finance tables.
  * When changes are detected, applies them directly to the Zustand store.
  *
- * Includes exponential-backoff reconnection so that temporary network
- * interruptions don't permanently break Realtime.
+ * Reconnection strategy:
+ * - Fast retries: up to MAX_FAST_RETRIES attempts with exponential backoff (1s → 2s → ... → 128s)
+ * - After fast retries exhausted: waits LONG_PAUSE_MS (5 minutes) then resets and tries again
+ * - Never gives up permanently — recovers automatically when network returns
  */
 export function useRealtimeSync() {
   const user = useAuthStore((s) => s.user)
   const channelRef = useRef<RealtimeChannel | null>(null)
   const retryCountRef = useRef(0)
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const mountedRef = useRef(true)
 
   useEffect(() => {
+    mountedRef.current = true
     if (!isSupabaseConfigured || !user?.id) return
 
     /** Create and subscribe to the Realtime channel. */
-    function connect() {
-      // Clean up previous channel if it exists
+    async function connect() {
+      if (!mountedRef.current) return
+
+      // Clean up previous channel
       if (channelRef.current) {
-        supabase.removeChannel(channelRef.current)
+        const oldChannel = channelRef.current
         channelRef.current = null
+        try {
+          await supabase.removeChannel(oldChannel)
+        } catch (err) {
+          console.error('[Realtime] Failed to remove old channel:', err)
+        }
       }
 
-      const channel = supabase.channel('finance-sync')
+      if (!mountedRef.current) return
+      if (channelRef.current) return
+
+      const channel = supabase.channel(`finance-sync-${user!.id}`)
 
       TABLES.forEach((table) => {
         channel.on(
@@ -66,10 +82,11 @@ export function useRealtimeSync() {
       })
 
       channel.subscribe((status) => {
+        if (!mountedRef.current) return
+
         if (status === 'SUBSCRIBED') {
-          // Successfully connected — reset retry counter
           retryCountRef.current = 0
-          console.log('[Realtime] Conectado — escutando alterações em', TABLES.length, 'tabelas')
+          console.log('[Realtime] ✅ Conectado — escutando alterações em', TABLES.length, 'tabelas')
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.warn('[Realtime] Erro no canal:', status)
           supabase.removeChannel(channel)
@@ -83,35 +100,54 @@ export function useRealtimeSync() {
       channelRef.current = channel
     }
 
-    /** Schedule a reconnection with exponential backoff. */
+    /** Schedule a reconnection. Uses exponential backoff for fast retries,
+     *  then a long pause before resetting and starting over. */
     function scheduleRetry() {
-      if (retryCountRef.current >= MAX_RETRIES) {
-        console.error(
-          `[Realtime] Máximo de tentativas (${MAX_RETRIES}) atingido. ` +
-          'Realtime desativado até recarregar a página.'
+      if (!mountedRef.current) return
+
+      let delay: number
+
+      if (retryCountRef.current < MAX_FAST_RETRIES) {
+        // Exponential backoff capped at 30s
+        delay = Math.min(BASE_DELAY_MS * Math.pow(2, retryCountRef.current), 30_000)
+        retryCountRef.current++
+        console.warn(
+          `[Realtime] Reconectando em ${(delay / 1000).toFixed(1)}s ` +
+          `(tentativa ${retryCountRef.current}/${MAX_FAST_RETRIES})...`
         )
-        return
+      } else {
+        // Fast retries exhausted — long pause then reset counter
+        delay = LONG_PAUSE_MS
+        retryCountRef.current = 0
+        console.warn(
+          `[Realtime] Muitas falhas consecutivas. Aguardando ${LONG_PAUSE_MS / 60_000} minutos antes de tentar novamente...`
+        )
       }
-
-      const delay = BASE_DELAY_MS * Math.pow(2, retryCountRef.current)
-      retryCountRef.current++
-
-      console.log(
-        `[Realtime] Reconectando em ${(delay / 1000).toFixed(1)}s ` +
-        `(tentativa ${retryCountRef.current}/${MAX_RETRIES})...`
-      )
 
       retryTimerRef.current = setTimeout(() => {
         retryTimerRef.current = null
-        connect()
+        if (mountedRef.current) connect()
       }, delay)
     }
 
-    // Initial connection
+    // Initial connection — also reconnect when browser goes back online
+    const handleOnline = () => {
+      if (!mountedRef.current) return
+      console.log('[Realtime] Conexão restabelecida — reconectando...')
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current)
+        retryTimerRef.current = null
+      }
+      retryCountRef.current = 0
+      connect()
+    }
+
+    window.addEventListener('online', handleOnline)
     connect()
 
     return () => {
-      // Cleanup on unmount or user change
+      mountedRef.current = false
+      window.removeEventListener('online', handleOnline)
       if (retryTimerRef.current) {
         clearTimeout(retryTimerRef.current)
         retryTimerRef.current = null

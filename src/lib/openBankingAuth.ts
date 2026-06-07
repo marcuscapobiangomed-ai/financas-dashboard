@@ -1,4 +1,5 @@
 import { Bank, BankConnection } from './openBanking'
+import { generateCodeVerifier, generateState, generateCodeChallenge } from './openBankingAuthHelpers'
 
 const REDIRECT_URI = `${window.location.origin}/ir-report`
 
@@ -11,34 +12,6 @@ export interface OAuthFlowState {
 
 // Armazenar estado do fluxo OAuth em memória
 let currentOAuthFlow: OAuthFlowState | null = null
-
-// Gerar código verifier e challenge para PKCE
-function generateCodeVerifier(): string {
-  const array = new Uint8Array(32)
-  crypto.getRandomValues(array)
-  return btoa(String.fromCharCode(...array))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '')
-}
-
-// Gerar state aleatório
-function generateState(): string {
-  const array = new Uint8Array(16)
-  crypto.getRandomValues(array)
-  return Array.from(array, b => b.toString(16).padStart(2, '0')).join('')
-}
-
-// Criar hash SHA-256 do code verifier (para code challenge)
-async function generateCodeChallenge(verifier: string): Promise<string> {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(verifier)
-  const hash = await crypto.subtle.digest('SHA-256', data)
-  return btoa(String.fromCharCode(...new Uint8Array(hash)))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '')
-}
 
 // Iniciar fluxo OAuth com o banco
 export async function initiateOAuthFlow(bank: Bank): Promise<{ url: string; state: string }> {

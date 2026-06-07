@@ -62,13 +62,15 @@ function AppShell() {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode)
-    
+  }, [darkMode])
+
+  useEffect(() => {
     const handleOnline = () => {
        useFinanceStore.getState().processSyncQueue()
     }
     window.addEventListener('online', handleOnline)
     return () => window.removeEventListener('online', handleOnline)
-  }, [darkMode])
+  }, [])
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-indigo-50/50 via-white to-gray-50 dark:from-indigo-950/20 dark:via-gray-900 dark:to-gray-900">

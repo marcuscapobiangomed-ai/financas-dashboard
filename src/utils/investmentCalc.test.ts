@@ -66,8 +66,8 @@ describe('effectiveAnnualRateIPCA', () => {
 })
 
 describe('poupancaAnnualRate', () => {
-  it('returns 70% of Selic when Selic > 8.5%', () => {
-    expect(poupancaAnnualRate(14.15)).toBeCloseTo(9.905)
+  it('returns capped rate when Selic > 8.5%', () => {
+    expect(poupancaAnnualRate(14.15)).toBeCloseTo(6.1677, 4)
   })
 
   it('returns 70% of Selic when Selic <= 8.5%', () => {

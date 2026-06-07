@@ -15,7 +15,23 @@ export function useAnalytics(monthKey?: string) {
   const currentKey = monthKey ?? getCurrentMonthKey()
 
   return useMemo(() => {
-    const monthTxs = transactions.filter((t) => t.monthKey === currentKey)
+    // Pre-group transactions by monthKey and by monthKey+category to avoid O(n^2) nested filtering
+    const txsByMonth = new Map<string, typeof transactions>()
+    const amountByMonthCategory = new Map<string, number>()
+
+    transactions.forEach((t) => {
+      let mList = txsByMonth.get(t.monthKey)
+      if (!mList) {
+        mList = []
+        txsByMonth.set(t.monthKey, mList)
+      }
+      mList.push(t)
+
+      const mcKey = `${t.monthKey}::${t.category}`
+      amountByMonthCategory.set(mcKey, (amountByMonthCategory.get(mcKey) ?? 0) + t.amount)
+    })
+
+    const monthTxs = txsByMonth.get(currentKey) ?? []
     const monthExtraordinary = extraordinaryEntries.filter((e) => e.monthKey === currentKey)
     const expenseTxs = monthTxs.filter((t) => expenseSections.includes(t.section))
 
@@ -32,18 +48,14 @@ export function useAnalytics(monthKey?: string) {
       .map(([category, total]) => {
         const meta = CATEGORY_META[category]
         const prevKey = prevMonthKey(currentKey)
-        const prevTotal = transactions
-          .filter((t) => t.monthKey === prevKey && t.category === category)
-          .reduce((s, t) => s + t.amount, 0)
+        const prevTotal = amountByMonthCategory.get(`${prevKey}::${category}`) ?? 0
         const delta = total - prevTotal
         const trendPercent = prevTotal > 0 ? (delta / prevTotal) * 100 : 0
         const trend: 'up' | 'down' | 'stable' = Math.abs(trendPercent) < 5 ? 'stable' : delta > 0 ? 'up' : 'down'
 
         // Real 12-month average for this category
         const last12Total = last12Keys.reduce((sum, k) => {
-          return sum + transactions
-            .filter((t) => t.monthKey === k && t.category === category)
-            .reduce((s, t) => s + t.amount, 0)
+          return sum + (amountByMonthCategory.get(`${k}::${category}`) ?? 0)
         }, 0)
         const monthlyAvg = last12Total / 12
 
@@ -55,6 +67,7 @@ export function useAnalytics(monthKey?: string) {
           monthlyAvg,
           trend,
           trendPercent,
+          delta,
         }
       })
       .sort((a, b) => b.total - a.total)
@@ -115,7 +128,7 @@ export function useAnalytics(monthKey?: string) {
         id: 'trend-up',
         type: 'warning',
         title: `${c.label} subiu ${c.trendPercent.toFixed(0)}%`,
-        description: `Comparado ao mês anterior, gastos com ${c.label} aumentaram ${formatCurrency(c.trendPercent !== -100 ? c.total * c.trendPercent / (100 + c.trendPercent) : c.total)}.`,
+        description: `Comparado ao mês anterior, gastos com ${c.label} aumentaram ${formatCurrency(c.delta)}.`,
         category: c.category,
       })
     }
@@ -123,19 +136,21 @@ export function useAnalytics(monthKey?: string) {
     // Projection: include extraordinary in historical income averages
     const last12Completed = getLast12MonthKeys(currentKey).slice(0, -1)
     const completedMonths = last12Completed.filter((k) => {
-      const txs = transactions.filter((t) => t.monthKey === k)
-      return txs.length > 0
+      const txs = txsByMonth.get(k)
+      return txs && txs.length > 0
     })
     const n = completedMonths.length
     let projection: ProjectionData | null = null
     if (n > 0) {
       const avgIncome = completedMonths.reduce((s, k) => {
-        const txs = transactions.filter((t) => t.monthKey === k)
+        const txs = txsByMonth.get(k) ?? []
         const extraOrdinary = extraordinaryEntries.filter((e) => e.monthKey === k)
         return s + computeIncome(txs) + extraOrdinary.reduce((sum, e) => sum + e.netAmount, 0)
       }, 0) / n
-      const avgExpenses = completedMonths.reduce((s, k) =>
-        s + computeTotalExpenses(transactions.filter((t) => t.monthKey === k), expenseSections), 0) / n
+      const avgExpenses = completedMonths.reduce((s, k) => {
+        const txs = txsByMonth.get(k) ?? []
+        return s + computeTotalExpenses(txs, expenseSections)
+      }, 0) / n
       const [, m] = currentKey.split('-').map(Number)
       const monthsRemaining = 12 - m
       const projectedYearIncome = avgIncome * (n + monthsRemaining)
