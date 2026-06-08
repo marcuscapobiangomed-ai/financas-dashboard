@@ -722,13 +722,16 @@ export function Import() {
     setLoadingStep('Salvando lançamentos no Supabase...')
 
     try {
-      const mapped = toImport.map((t) => ({
-        ...t,
-        id: crypto.randomUUID(),
-        monthKey: t.date.substring(0, 7),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }))
+      const mapped = toImport.map((t) => {
+        const { confidence, ...cleanT } = t as any
+        return {
+          ...cleanT,
+          id: crypto.randomUUID(),
+          monthKey: t.date.substring(0, 7),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      })
       addTransactions(mapped)
       setSuccess(true)
       setTimeout(() => {

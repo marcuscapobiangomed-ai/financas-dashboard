@@ -15,13 +15,17 @@ export async function fetchTransactions(userId: string): Promise<Transaction[]> 
 
 export async function upsertTransaction(userId: string, t: Transaction): Promise<void> {
   await requireSession()
-  const { error } = await supabase.from('transactions').upsert({ ...toSnake(t as any), user_id: userId }, { onConflict: 'id' })
+  const { confidence, ...cleanT } = t as any
+  const { error } = await supabase.from('transactions').upsert({ ...toSnake(cleanT), user_id: userId }, { onConflict: 'id' })
   if (error) throw error
 }
 
 export async function bulkUpsertTransactions(userId: string, txs: Transaction[]): Promise<void> {
   if (txs.length === 0) return; await requireSession()
-  const rows = txs.map((t) => ({ ...toSnake(t as any), user_id: userId }))
+  const rows = txs.map((t) => {
+    const { confidence, ...cleanT } = t as any
+    return { ...toSnake(cleanT), user_id: userId }
+  })
   const { error } = await supabase.from('transactions').upsert(rows, { onConflict: 'id' })
   if (error) throw error
 }
