@@ -237,13 +237,32 @@ export function Import() {
   const [tokensRemaining, setTokensRemaining] = useState<number>(0)
   const [resetSeconds, setResetSeconds] = useState<number>(0)
 
+  // Initialize countdown from localStorage on mount
   useEffect(() => {
-    if (resetSeconds <= 0) return
+    const expiryStr = localStorage.getItem('groq_rate_limit_expiry')
+    if (expiryStr) {
+      const expiry = parseInt(expiryStr, 10)
+      const remaining = Math.ceil((expiry - Date.now()) / 1000)
+      if (remaining > 0) {
+        setResetSeconds(remaining)
+      } else {
+        localStorage.removeItem('groq_rate_limit_expiry')
+      }
+    }
+  }, [])
+
+  // Timer countdown and localStorage sync
+  useEffect(() => {
+    if (resetSeconds <= 0) {
+      localStorage.removeItem('groq_rate_limit_expiry')
+      return
+    }
 
     const timer = setInterval(() => {
       setResetSeconds(prev => {
         if (prev <= 1) {
           clearInterval(timer)
+          localStorage.removeItem('groq_rate_limit_expiry')
           return 0
         }
         return prev - 1
@@ -252,6 +271,13 @@ export function Import() {
 
     return () => clearInterval(timer)
   }, [resetSeconds])
+
+  // Helper to trigger cooldown and save to localStorage
+  const triggerCooldown = (seconds: number) => {
+    if (seconds <= 0) return
+    setResetSeconds(seconds)
+    localStorage.setItem('groq_rate_limit_expiry', (Date.now() + seconds * 1000).toString())
+  }
 
   // AI parsed data
   const [extractedTxs, setExtractedTxs] = useState<ParsedTransaction[]>([])
@@ -457,7 +483,7 @@ export function Import() {
       setTokensSpent(accumSpent)
       if (lastLimit) setTokensLimit(lastLimit)
       if (lastRemaining) setTokensRemaining(lastRemaining)
-      if (lastReset) setResetSeconds(parseResetTokensToSeconds(lastReset))
+      if (lastReset) triggerCooldown(parseResetTokensToSeconds(lastReset))
       
       // Auto-select non-duplicate transactions
       const selectionMap: Record<number, boolean> = {}
@@ -479,13 +505,13 @@ export function Import() {
       if (err?.rateLimits) {
         if (err.rateLimits.limitTokens) setTokensLimit(parseInt(err.rateLimits.limitTokens) || 0)
         if (err.rateLimits.remainingTokens) setTokensRemaining(parseInt(err.rateLimits.remainingTokens) || 0)
-        if (err.rateLimits.resetTokens) setResetSeconds(parseResetTokensToSeconds(err.rateLimits.resetTokens))
+        if (err.rateLimits.resetTokens) triggerCooldown(parseResetTokensToSeconds(err.rateLimits.resetTokens))
       } else {
         const errorMsg = err?.message || ''
         const tryAgainMatch = errorMsg.match(/try again in (\d+(?:\.\d+)?)s/i)
         if (tryAgainMatch) {
           const seconds = Math.ceil(parseFloat(tryAgainMatch[1]))
-          setResetSeconds(seconds)
+          triggerCooldown(seconds)
         }
       }
     } finally {
