@@ -62,7 +62,25 @@ export async function extractTextFromPDF(file: File): Promise<string> {
     fullText += pageText + '\n'
   }
   
-  return fullText
+  return sanitizePDFText(fullText)
+}
+
+function sanitizePDFText(rawText: string): string {
+  return rawText
+    .split('\n')
+    .map(line => {
+      // Remove múltiplos espaços e tabulações dentro da linha
+      let cleanLine = line.replace(/[ \t]+/g, ' ').trim()
+      
+      // Remove referências a números de página comuns para economizar tokens
+      cleanLine = cleanLine.replace(/p[áa]gina\s*\d+(\s*(de|of)?\s*\d+)?/gi, '')
+      cleanLine = cleanLine.replace(/folha\s*\d+(\s*\/\s*\d+)?/gi, '')
+      
+      return cleanLine.trim()
+    })
+    // Remove linhas vazias
+    .filter(line => line.length > 0)
+    .join('\n')
 }
 
 // Analisar dados extraídos e sugerir integração com dados do app
