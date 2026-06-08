@@ -193,6 +193,126 @@ function applyAdaptiveLearning(
   };
 }
 
+function preMatchTransactions(
+  compressedText: string,
+  userHistory: any[]
+): { matched: ParsedTransaction[]; unmatchedCsv: string } {
+  const lines = compressedText.split('\n')
+  if (lines.length <= 1) return { matched: [], unmatchedCsv: '' }
+
+  const header = lines[0]
+  const dataLines = lines.slice(1).filter(l => l.trim().length > 0)
+
+  const history = [...userHistory]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 150)
+
+  const normalize = (str: string) => {
+    return str
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '')
+      .trim()
+  }
+
+  const historyMap = new Map<string, Array<{ category: string; section: string; type: string }>>()
+  history.forEach(tx => {
+    if (!tx.description) return
+    const norm = normalize(tx.description)
+    if (!norm) return
+    if (!historyMap.has(norm)) historyMap.set(norm, [])
+    historyMap.get(norm)!.push({
+      category: tx.category,
+      section: tx.section,
+      type: tx.type
+    })
+  })
+
+  const getMostFrequent = (choices: Array<{ category: string; section: string; type: string }>) => {
+    const counts: Record<string, { category: string; section: string; type: string; count: number }> = {}
+    let maxCount = 0
+    let best = choices[0]
+    choices.forEach(c => {
+      const key = `${c.category}|${c.section}|${c.type}`
+      if (!counts[key]) counts[key] = { ...c, count: 0 }
+      counts[key].count++
+      if (counts[key].count > maxCount) {
+        maxCount = counts[key].count
+        best = counts[key]
+      }
+    })
+    return best
+  }
+
+  const formatDateToYMD = (dateStr: string): string => {
+    const clean = dateStr.trim()
+    if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) return clean
+    
+    const dmyMatch = clean.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/)
+    if (dmyMatch) {
+      let day = dmyMatch[1].padStart(2, '0')
+      let month = dmyMatch[2].padStart(2, '0')
+      let year = dmyMatch[3]
+      if (year.length === 2) {
+        year = '20' + year
+      }
+      return `${year}-${month}-${day}`
+    }
+    return clean
+  }
+
+  const matched: ParsedTransaction[] = []
+  const unmatchedRows: string[] = []
+
+  dataLines.forEach(line => {
+    const matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',')
+    const cols = matches.map(c => c.replace(/^["']|["']$/g, '').trim())
+
+    if (cols.length < 3) return
+
+    const dateVal = cols[0]
+    const descVal = cols[1]
+    const amountVal = cols[2]
+
+    const cleanAmount = parseFloat(amountVal.replace(/[^\d.,-]/g, '').replace(',', '.')) || 0
+
+    const normDesc = normalize(descVal)
+    let matchChoices = historyMap.get(normDesc)
+
+    if (!matchChoices && normDesc.length >= 4) {
+      for (const [key, choices] of historyMap.entries()) {
+        if (key.length >= 4 && (normDesc.includes(key) || key.includes(normDesc))) {
+          matchChoices = choices
+          break
+        }
+      }
+    }
+
+    if (matchChoices && matchChoices.length > 0) {
+      const bestMatch = getMostFrequent(matchChoices)
+      matched.push({
+        date: formatDateToYMD(dateVal),
+        type: bestMatch.type as any,
+        section: bestMatch.section,
+        description: descVal,
+        amount: cleanAmount,
+        category: bestMatch.category as any,
+        confidence: 100
+      })
+    } else {
+      unmatchedRows.push(line)
+    }
+  })
+
+  const unmatchedCsv = unmatchedRows.length > 0 ? [header, ...unmatchedRows].join('\n') : ''
+
+  return {
+    matched,
+    unmatchedCsv
+  }
+}
+
 function parseResetTokensToSeconds(resetStr: string): number {
   if (!resetStr) return 0;
   let seconds = 0;
@@ -408,18 +528,30 @@ export function Import() {
       const isSheetOrCsv = file.name.endsWith('.csv') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls')
 
       if (isSheetOrCsv) {
-        setLoadingStep('Comprimindo dados do arquivo...')
+        setLoadingStep('Comprimindo e mapeando dados localmente...')
         const compressedText = cleanAndCompressCSV(text)
-        const lines = compressedText.split('\n')
-        const header = lines[0]
-        const dataLines = lines.slice(1).filter(l => l.trim().length > 0)
+        
+        // Mapeia transações locais conhecidas antes de enviar para a IA
+        const { matched, unmatchedCsv } = preMatchTransactions(compressedText, transactions)
+        
+        // Inicializa com as transações correspondidas localmente
+        rawTransactions.push(...matched)
 
-        if (dataLines.length > 35) {
-          const batchSize = 30
-          const totalBatches = Math.ceil(dataLines.length / batchSize)
+        if (unmatchedCsv) {
+          const lines = unmatchedCsv.split('\n')
+          const header = lines[0]
+          const unmatchedRows = lines.slice(1).filter(l => l.trim().length > 0)
+          
+          const batchSize = 15
+          const totalBatches = Math.ceil(unmatchedRows.length / batchSize)
           
           for (let b = 0; b < totalBatches; b++) {
-            const batchRows = dataLines.slice(b * batchSize, (b + 1) * batchSize)
+            if (b > 0) {
+              setLoadingStep(`Aguardando intervalo de segurança anti Rate-Limit (4s)...`)
+              await new Promise(resolve => setTimeout(resolve, 4000))
+            }
+            
+            const batchRows = unmatchedRows.slice(b * batchSize, (b + 1) * batchSize)
             const batchText = [header, ...batchRows].join('\n')
             
             setLoadingStep(`Analisando lote ${b + 1} de ${totalBatches} (${Math.round(((b + 1) / totalBatches) * 100)}%)...`)
@@ -444,20 +576,6 @@ export function Import() {
             
             rawTransactions.push(...(result.transactions || []))
             rawQuestions.push(...adjustedQuestions)
-          }
-        } else {
-          setLoadingStep('Enviando dados para análise da Inteligência Artificial...')
-          const result = await parseDocumentWithAI(geminiApiKey, compressedText, file.name, activeSections)
-          rawTransactions = result.transactions || []
-          rawQuestions = result.questions || []
-          
-          if (result.usage) {
-            accumSpent = result.usage.totalTokens
-          }
-          if (result.rateLimits) {
-            if (result.rateLimits.limitTokens) lastLimit = parseInt(result.rateLimits.limitTokens) || 0
-            if (result.rateLimits.remainingTokens) lastRemaining = parseInt(result.rateLimits.remainingTokens) || 0
-            if (result.rateLimits.resetTokens) lastReset = result.rateLimits.resetTokens
           }
         }
       } else {
