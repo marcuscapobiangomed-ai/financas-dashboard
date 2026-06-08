@@ -134,10 +134,6 @@ export function Import() {
   // AI Processing Trigger
   async function handleAnalyze() {
     if (!file) return
-    if (!geminiApiKey) {
-      setError('Por favor, configure sua API Key da Groq ou do Gemini antes de realizar a análise.')
-      return
-    }
 
     setLoading(true)
     setError(null)
@@ -303,23 +299,7 @@ export function Import() {
         </div>
       </div>
 
-      {/* No API Key warning banner */}
-      {!geminiApiKey && (
-        <div className="bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200/50 dark:border-purple-800/30 rounded-3xl p-5 flex gap-4 items-start animate-fade-in">
-          <AlertCircle className="text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" size={20} />
-          <div>
-            <h3 className="font-semibold text-sm text-purple-950 dark:text-purple-300">Chave de API da IA não configurada</h3>
-            <p className="text-xs text-purple-800/80 dark:text-purple-400/85 mt-1 leading-relaxed">
-              Você precisa configurar uma chave do Groq ou do Gemini para usar a importação inteligente por IA. 
-              Acesse as{' '}
-              <Link to="/settings" className="underline font-semibold text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white">
-                Configurações do App
-              </Link>{' '}
-              para cadastrar sua chave.
-            </p>
-          </div>
-        </div>
-      )}
+
 
       {/* Success banner */}
       {success && (
@@ -355,7 +335,7 @@ export function Import() {
               accept=".pdf,.xlsx,.xls,.csv"
               onChange={handleFileChange}
               className="hidden"
-              disabled={loading || !geminiApiKey}
+              disabled={loading}
             />
 
             <div className="p-4 bg-purple-500/10 dark:bg-purple-500/20 rounded-2xl border border-purple-500/20 text-purple-600 dark:text-purple-400 mb-4">
@@ -382,9 +362,7 @@ export function Import() {
               <div>
                 <label
                   htmlFor="file-upload"
-                  className={`text-sm font-semibold cursor-pointer text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 ${
-                    !geminiApiKey && 'pointer-events-none text-gray-400 dark:text-gray-600'
-                  }`}
+                  className="text-sm font-semibold cursor-pointer text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300"
                 >
                   Clique para selecionar
                 </label>
@@ -400,7 +378,7 @@ export function Import() {
           {file && (
             <button
               onClick={handleAnalyze}
-              disabled={loading || !geminiApiKey}
+              disabled={loading}
               className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 text-white rounded-2xl font-bold shadow-lg shadow-purple-500/20 transition-all duration-300 cursor-pointer disabled:cursor-not-allowed"
             >
               {loading ? (

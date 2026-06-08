@@ -1,4 +1,5 @@
 import { Category } from '../types/category'
+import { supabase } from './supabase'
 
 export interface ParsedTransaction {
   date: string
@@ -29,6 +30,33 @@ export async function parseDocumentWithAI(
   fileName: string,
   activeSections: Array<{ id: string; label: string }>
 ): Promise<GeminiParsingResult> {
+  // Se não há uma chave configurada localmente, chama a Supabase Edge Function (segura e com a chave padronizada oculta no servidor)
+  if (!apiKey) {
+    const categoriesList = Object.keys(Category).join(', ')
+    const { data, error } = await supabase.functions.invoke('parse-document', {
+      body: {
+        fileText,
+        fileName,
+        activeSections,
+        categories: categoriesList
+      }
+    })
+
+    if (error) {
+      console.error('Erro na Supabase Edge Function:', error)
+      throw new Error(`Erro ao invocar a IA no servidor: ${error.message || JSON.stringify(error)}`)
+    }
+
+    if (!data) {
+      throw new Error('O servidor de IA retornou uma resposta sem conteúdo.')
+    }
+
+    return {
+      transactions: data.transactions || [],
+      questions: data.questions || []
+    }
+  }
+
   if (apiKey.startsWith('gsk_')) {
     return parseDocumentWithGroq(apiKey, fileText, fileName, activeSections)
   }

@@ -1,0 +1,12 @@
+{
+  "id": "parse-document",
+  "name": "parse-document",
+  "version": "1.0.0",
+  "description": "Parse financial documents with AI Groq securely",
+  "type": "docker",
+  "dockerfile": "Dockerfile",
+  "build": {
+    "context": ".",
+    "dockerfile": "Dockerfile"
+  }
+}
