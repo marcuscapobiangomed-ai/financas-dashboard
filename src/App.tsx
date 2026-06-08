@@ -21,6 +21,7 @@ const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m
 const Recurring = lazy(() => import('./pages/Recurring').then((m) => ({ default: m.Recurring })))
 const Investments = lazy(() => import('./pages/Investments').then((m) => ({ default: m.Investments })))
 const IRReport = lazy(() => import('./pages/IRReport').then((m) => ({ default: m.IRReport })))
+const Import = lazy(() => import('./pages/Import').then((m) => ({ default: m.Import })))
 const Login = lazy(() => import('./pages/Login').then((m) => ({ default: m.Login })))
 const Register = lazy(() => import('./pages/Register').then((m) => ({ default: m.Register })))
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword').then((m) => ({ default: m.ForgotPassword })))
@@ -89,6 +90,7 @@ function AppShell() {
               <Route path="/recurring" element={<Recurring />} />
               <Route path="/investments" element={<Investments />} />
               <Route path="/ir-report" element={<IRReport />} />
+              <Route path="/import" element={<Import />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

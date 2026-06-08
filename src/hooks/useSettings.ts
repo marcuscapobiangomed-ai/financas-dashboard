@@ -17,7 +17,7 @@ export function useSettings() {
   const transactions = useFinanceStore((s) => s.transactions)
   const { sectionLabels } = useSectionConfig()
 
-  const [tab, setTab] = useState<'budget' | 'cards' | 'data'>('budget')
+  const [tab, setTab] = useState<'budget' | 'cards' | 'data' | 'ai'>('budget')
   const [importError, setImportError] = useState('')
   const [importSuccess, setImportSuccess] = useState(false)
   const [importMode, setImportMode] = useState<'replace' | 'merge'>('replace')

@@ -98,6 +98,7 @@ const AppSettingsSchema = z.object({
   ratesLastUpdated: z.string().optional(),
   notificationsEnabled: z.boolean().optional(),
   hasSeenTutorial: z.boolean().optional(),
+  geminiApiKey: z.string().optional(),
 })
 
 const MonthSettingsSchema = z.object({

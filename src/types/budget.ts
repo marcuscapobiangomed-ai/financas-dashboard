@@ -47,4 +47,5 @@ export interface AppSettings {
   ratesLastUpdated?: string  // ISO date of last BCB rate fetch
   notificationsEnabled?: boolean  // budget alert notifications
   hasSeenTutorial?: boolean // whether the user has completed the onboarding tutorial
+  geminiApiKey?: string // API Key to authenticate with the Gemini API
 }

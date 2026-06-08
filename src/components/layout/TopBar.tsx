@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   PiggyBank, LayoutDashboard, Calendar, BarChart2, Settings,
-  TrendingUp, LogOut, Menu, X, ArrowLeftRight, Zap, Repeat, FileText,
+  TrendingUp, LogOut, Menu, X, ArrowLeftRight, Zap, Repeat, FileText, Upload
 } from 'lucide-react'
 import { useBudgetAlerts } from '../../hooks/useBudgetAlerts'
 import { useFinanceStore } from '../../store/useFinanceStore'
@@ -27,6 +27,7 @@ const drawerNavItems = [
   { to: '/analytics', icon: BarChart2, label: 'Analytics' },
   { to: '/comparison', icon: ArrowLeftRight, label: 'Comparativo' },
   { to: '/ir-report', icon: FileText, label: 'Relatório IRPF' },
+  { to: '/import', icon: Upload, label: 'Importação IA' },
   { to: '/settings', icon: Settings, label: 'Configurações' },
 ]
 

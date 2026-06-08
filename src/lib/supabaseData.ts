@@ -128,6 +128,7 @@ export async function upsertUserSettings(userId: string, settings: AppSettings):
     initial_balance: settings.initialBalance, cdi_rate_annual: settings.cdiRateAnnual,
     ipca_rate_annual: settings.ipcaRateAnnual, notifications_enabled: settings.notificationsEnabled ?? false,
     has_seen_tutorial: settings.hasSeenTutorial ?? false, rates_last_updated: settings.ratesLastUpdated ?? null,
+    gemini_api_key: settings.geminiApiKey ?? null,
   }
   const { error } = await supabase.from('user_settings').upsert(row, { onConflict: 'user_id' })
   if (error) throw error

@@ -1,8 +1,9 @@
-import { Settings as SettingsIcon, Wallet, CreditCard, Database } from 'lucide-react'
+import { Settings as SettingsIcon, Wallet, CreditCard, Database, Sparkles } from 'lucide-react'
 import { useSettings } from '../hooks/useSettings'
 import { BudgetSettings } from '../components/settings/BudgetSettings'
 import { CardSettings } from '../components/settings/CardSettings'
 import { DataSettings } from '../components/settings/DataSettings'
+import { AISettings } from '../components/settings/AISettings'
 
 export function Settings() {
   const {
@@ -50,6 +51,7 @@ export function Settings() {
     { id: 'budget', label: 'Orçamento', icon: Wallet },
     { id: 'cards', label: 'Cartões', icon: CreditCard },
     { id: 'data', label: 'Dados', icon: Database },
+    { id: 'ai', label: 'Integração IA', icon: Sparkles },
   ] as const
 
   return (
@@ -132,6 +134,14 @@ export function Settings() {
           importSuccess={importSuccess}
           exportSuccess={exportSuccess}
           handleClearData={handleClearData}
+        />
+      )}
+
+      {/* AI Settings */}
+      {tab === 'ai' && (
+        <AISettings
+          appSettings={appSettings}
+          updateAppSettings={updateAppSettings}
         />
       )}
 

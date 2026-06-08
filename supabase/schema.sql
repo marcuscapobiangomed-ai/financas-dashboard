@@ -154,7 +154,8 @@ CREATE TABLE user_settings (
   ipca_rate_annual numeric(8,4) NOT NULL DEFAULT 5.0,
   notifications_enabled boolean NOT NULL DEFAULT false,
   has_seen_tutorial boolean NOT NULL DEFAULT false,
-  rates_last_updated timestamptz
+  rates_last_updated timestamptz,
+  gemini_api_key text
 );
 
 ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;

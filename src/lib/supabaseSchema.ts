@@ -90,5 +90,6 @@ export function parseUserSettingsRow(data: Record<string, unknown>): AppSettings
     notificationsEnabled: Boolean(data.notifications_enabled ?? false),
     hasSeenTutorial: Boolean(data.has_seen_tutorial ?? false),
     ratesLastUpdated: (data.rates_last_updated as string) ?? undefined,
+    geminiApiKey: (data.gemini_api_key as string) ?? undefined,
   }
 }
