@@ -31,7 +31,8 @@ Estrutura do JSON:
       "section": "id_da_secao",
       "description": "Descrição limpa (ex: substituir 'IFOOD *IFOOD RESTAURANTE' por 'iFood')",
       "amount": 12.34,
-      "category": "NOME_DA_CATEGORIA"
+      "category": "NOME_DA_CATEGORIA",
+      "confidence": 95
     }
   ],
   "questions": [
@@ -53,6 +54,7 @@ Regras para transações:
 4. Extraia o valor como um número real estritamente positivo (sempre positivo).
 5. Atribua uma categoria obrigatória. Escolha estritamente a categoria mais adequada destas opções: [${categories}].
 6. Atribua uma seção obrigatória ("section"). Escolha estritamente uma destas opções: [${activeSections.map((s: any) => s.id).join(', ')}]. Dica: compras de cartão de crédito devem ser mapeadas para o ID do cartão correspondente, despesas fixas para "despesas_fixas", dinheiro físico ou gastos gerais para "gastos_diarios", etc.
+7. Defina um campo "confidence" de 0 a 100 (inteiro), indicando o nível de certeza estimado sobre a categoria e seção atribuídas.
 
 Regras para dúvidas (questions):
 Se você tiver qualquer dúvida ou ambiguidade sobre uma transação específica (ex: estabelecimento desconhecido, PIX sem descrição, valor/categoria ambíguo), inclua-a no array "questions".

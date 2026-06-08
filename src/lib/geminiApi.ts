@@ -8,6 +8,7 @@ export interface ParsedTransaction {
   description: string
   amount: number
   category: Category
+  confidence?: number
 }
 
 export interface ParsingQuestion {
@@ -30,27 +31,29 @@ export async function parseDocumentWithAI(
   fileName: string,
   activeSections: Array<{ id: string; label: string }>
 ): Promise<GeminiParsingResult> {
-  // Se não há uma chave configurada localmente, chama a Supabase Edge Function (segura e com a chave padronizada oculta no servidor)
+  // Se não há uma chave configurada localmente, chama a API Serverless da Vercel (segura e com a chave padronizada oculta no servidor)
   if (!apiKey) {
     const categoriesList = Object.keys(Category).join(', ')
-    const { data, error } = await supabase.functions.invoke('parse-document', {
-      body: {
+    const response = await fetch('/api/parse-document', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
         fileText,
         fileName,
         activeSections,
         categories: categoriesList
-      }
+      })
     })
 
-    if (error) {
-      console.error('Erro na Supabase Edge Function:', error)
-      throw new Error(`Erro ao invocar a IA no servidor: ${error.message || JSON.stringify(error)}`)
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Erro na Vercel API Route:', errorText)
+      throw new Error(`Erro ao invocar a IA no servidor: ${response.status} ${response.statusText} - ${errorText}`)
     }
 
-    if (!data) {
-      throw new Error('O servidor de IA retornou uma resposta sem conteúdo.')
-    }
-
+    const data = await response.json()
     return {
       transactions: data.transactions || [],
       questions: data.questions || []
@@ -74,7 +77,7 @@ async function parseDocumentWithGroq(
   const systemInstruction = `Você é um assistente financeiro de inteligência artificial altamente preciso.
 Sua tarefa é analisar o texto de extratos bancários, faturas de cartão de crédito em PDF ou planilhas de gastos e extrair TODAS as transações financeiras encontradas de forma estruturada.
 
-Você deve retornar a resposta EXCLUSIVAMENTE como um objeto JSON válido contendo dois arrays: "transactions" e "questions".
+Você deve retornar a resposta EXCLUSIVamente como um objeto JSON válido contendo dois arrays: "transactions" e "questions".
 Estrutura do JSON:
 {
   "transactions": [
@@ -84,7 +87,8 @@ Estrutura do JSON:
       "section": "id_da_secao",
       "description": "Descrição limpa (ex: substituir 'IFOOD *IFOOD RESTAURANTE' por 'iFood')",
       "amount": 12.34,
-      "category": "NOME_DA_CATEGORIA"
+      "category": "NOME_DA_CATEGORIA",
+      "confidence": 95
     }
   ],
   "questions": [
@@ -106,6 +110,7 @@ Regras para transações:
 4. Extraia o valor como um número real estritamente positivo (sempre positivo).
 5. Atribua uma categoria obrigatória. Escolha estritamente a categoria mais adequada destas opções: [${categoriesList}].
 6. Atribua uma seção obrigatória ("section"). Escolha estritamente uma destas opções: [${activeSections.map(s => s.id).join(', ')}]. Dica: compras de cartão de crédito devem ser mapeadas para o ID do cartão correspondente, despesas fixas para "despesas_fixas", dinheiro físico ou gastos gerais para "gastos_diarios", etc.
+7. Defina o campo "confidence" de 0 a 100 (inteiro), representando a certeza estimada da IA sobre a classificação da categoria e seção.
 
 Regras para dúvidas (questions):
 Se você tiver qualquer dúvida ou ambiguidade sobre uma transação específica (ex: estabelecimento desconhecido, PIX sem descrição, valor/categoria ambíguo), inclua-a no array "questions".
@@ -180,6 +185,7 @@ Para cada transação extraída:
 4. Extraia o valor como um número real estritamente positivo (sempre positivo).
 5. Atribua uma categoria à transação obrigatoriamente. Escolha a categoria mais adequada a partir deste grupo fechado de opções permitidas: [${categoriesList}].
 6. Atribua uma seção de orçamento ("section") obrigatoriamente. Escolha uma das seções a partir deste grupo fechado de opções permitidas: [${activeSections.map(s => s.id).join(', ')}]. Dica: compras de cartão de crédito devem ser mapeadas para o ID do cartão correspondente, despesas fixas para "despesas_fixas", dinheiro físico ou gastos gerais do dia a dia para "gastos_diarios", etc.
+7. Defina o campo "confidence" de 0 a 100 (inteiro), representando a certeza estimada da IA sobre a classificação da categoria e seção.
 
 REDAÇÃO DE DÚVIDAS (questions):
 Se você tiver qualquer dúvida ou ambiguidade sobre uma transação específica (ex: estabelecimento com nome desconhecido, PIX sem descrição, valores indefinidos), você deve incluí-la no array "questions".
@@ -210,9 +216,10 @@ ${fileText}
             section: { type: 'string', description: `ID da seção do orçamento. Escolha estritamente um destes valores: ${activeSections.map(s => s.id).join(', ')}.` },
             description: { type: 'string', description: 'Nome limpo e amigável do estabelecimento ou descrição da transação.' },
             amount: { type: 'number', description: 'Valor positivo da transação.' },
-            category: { type: 'string', enum: Object.keys(Category), description: 'Categoria da transação.' }
+            category: { type: 'string', enum: Object.keys(Category), description: 'Categoria da transação.' },
+            confidence: { type: 'integer', description: 'Nível de certeza da classificação (0-100).' }
           },
-          required: ['date', 'type', 'section', 'description', 'amount', 'category']
+          required: ['date', 'type', 'section', 'description', 'amount', 'category', 'confidence']
         }
       },
       questions: {

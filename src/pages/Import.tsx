@@ -10,6 +10,188 @@ import { extractTextFromPDF } from '../lib/pdfParser'
 import { parseDocumentWithAI, ParsedTransaction, ParsingQuestion } from '../lib/geminiApi'
 import { Category, CATEGORY_META } from '../types/category'
 
+function cleanAndCompressCSV(rawCsv: string): string {
+  const lines = rawCsv.split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0);
+  
+  if (lines.length === 0) return '';
+  
+  const firstLine = lines[0];
+  const sep = firstLine.includes(';') ? ';' : ',';
+  
+  let dateIdx = -1;
+  let descIdx = -1;
+  let valIdx = -1;
+  
+  let headerRowIdx = -1;
+  const dateKeywords = ['data', 'date', 'dt'];
+  const descKeywords = ['desc', 'hist', 'detalhe', 'transa', 'nome', 'estabelecimento', 'mercado', 'merchant'];
+  const valKeywords = ['valor', 'amount', 'monto', 'val', 'preço', 'preco', 'total', 'quant', 'r$'];
+  
+  for (let i = 0; i < Math.min(lines.length, 5); i++) {
+    const cols = lines[i].split(sep).map(c => c.trim().toLowerCase());
+    let dIdx = cols.findIndex(c => dateKeywords.some(k => c.includes(k)));
+    let dsIdx = cols.findIndex(c => descKeywords.some(k => c.includes(k)));
+    let vIdx = cols.findIndex(c => valKeywords.some(k => c.includes(k)));
+    
+    if (dIdx !== -1 && dsIdx !== -1 && vIdx !== -1) {
+      dateIdx = dIdx;
+      descIdx = dsIdx;
+      valIdx = vIdx;
+      headerRowIdx = i;
+      break;
+    }
+  }
+  
+  if (dateIdx === -1 || descIdx === -1 || valIdx === -1) {
+    const sampleRow = lines.find(line => line.split(sep).length >= 3);
+    if (sampleRow) {
+      const cols = sampleRow.split(sep).map(c => c.trim());
+      const dateRegex = /\b\d{1,4}[/-]\d{1,2}[/-]\d{1,4}\b/;
+      const tempDateIdx = cols.findIndex(c => dateRegex.test(c));
+      
+      const valRegex = /[-+]?\s*R?\$\s*\d+([.,]\d+)?/;
+      const numberRegex = /^-?\d+([.,]\d+)?$/;
+      const tempValIdx = cols.findIndex(c => valRegex.test(c) || numberRegex.test(c.replace(/\s/g, '')));
+      
+      let tempDescIdx = -1;
+      let maxLen = 0;
+      for (let k = 0; k < cols.length; k++) {
+        if (k !== tempDateIdx && k !== tempValIdx) {
+          if (cols[k].length > maxLen) {
+            maxLen = cols[k].length;
+            tempDescIdx = k;
+          }
+        }
+      }
+      
+      if (tempDateIdx !== -1 && tempValIdx !== -1 && tempDescIdx !== -1) {
+        dateIdx = tempDateIdx;
+        descIdx = tempDescIdx;
+        valIdx = tempValIdx;
+      }
+    }
+  }
+  
+  if (dateIdx === -1 || descIdx === -1 || valIdx === -1) {
+    return lines.join('\n');
+  }
+  
+  const compressedLines: string[] = ['Data,Descricao,Valor'];
+  const startIdx = headerRowIdx !== -1 ? headerRowIdx + 1 : 0;
+  
+  for (let i = startIdx; i < lines.length; i++) {
+    const cols = lines[i].split(sep);
+    if (cols.length <= Math.max(dateIdx, descIdx, valIdx)) continue;
+    
+    const dateVal = cols[dateIdx].trim();
+    const descVal = cols[descIdx].trim().replace(/["']/g, '');
+    const amountVal = cols[valIdx].trim();
+    
+    if (!dateVal || !descVal || !amountVal) continue;
+    
+    compressedLines.push(`"${dateVal}","${descVal}","${amountVal}"`);
+  }
+  
+  return compressedLines.join('\n');
+}
+
+function applyAdaptiveLearning(
+  extracted: ParsedTransaction[],
+  userHistory: any[],
+  questions: ParsingQuestion[]
+): { transactions: ParsedTransaction[]; questions: ParsingQuestion[] } {
+  const history = [...userHistory]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 150);
+
+  const normalize = (str: string) => {
+    return str
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '')
+      .trim();
+  };
+
+  const historyMap = new Map<string, Array<{ category: string; section: string; type: string }>>();
+  
+  history.forEach(tx => {
+    if (!tx.description) return;
+    const norm = normalize(tx.description);
+    if (!norm) return;
+    
+    if (!historyMap.has(norm)) {
+      historyMap.set(norm, []);
+    }
+    historyMap.get(norm)!.push({
+      category: tx.category,
+      section: tx.section,
+      type: tx.type
+    });
+  });
+
+  const getMostFrequent = (choices: Array<{ category: string; section: string; type: string }>) => {
+    const counts: Record<string, { category: string; section: string; type: string; count: number }> = {};
+    let maxCount = 0;
+    let best = choices[0];
+    
+    choices.forEach(c => {
+      const key = `${c.category}|${c.section}|${c.type}`;
+      if (!counts[key]) {
+        counts[key] = { ...c, count: 0 };
+      }
+      counts[key].count++;
+      if (counts[key].count > maxCount) {
+        maxCount = counts[key].count;
+        best = counts[key];
+      }
+    });
+    
+    return best;
+  };
+
+  const resolvedIndices = new Set<number>();
+  
+  const updatedTransactions = extracted.map((tx, index) => {
+    const normDesc = normalize(tx.description);
+    if (!normDesc) return tx;
+    
+    let matchChoices = historyMap.get(normDesc);
+    
+    if (!matchChoices && normDesc.length >= 4) {
+      for (const [key, choices] of historyMap.entries()) {
+        if (key.length >= 4 && (normDesc.includes(key) || key.includes(normDesc))) {
+          matchChoices = choices;
+          break;
+        }
+      }
+    }
+    
+    if (matchChoices && matchChoices.length > 0) {
+      const bestMatch = getMostFrequent(matchChoices);
+      resolvedIndices.add(index);
+      return {
+        ...tx,
+        category: bestMatch.category as any,
+        section: bestMatch.section,
+        type: bestMatch.type as any,
+        confidence: 100
+      };
+    }
+    
+    return tx;
+  });
+
+  const filteredQuestions = questions.filter(q => !resolvedIndices.has(q.transactionIndex));
+
+  return {
+    transactions: updatedTransactions,
+    questions: filteredQuestions
+  };
+}
+
 export function Import() {
   const navigate = useNavigate()
   const appSettings = useFinanceStore((s) => s.appSettings)
@@ -145,21 +327,68 @@ export function Import() {
       setLoadingStep('Lendo arquivo selecionado...')
       const text = await extractText(file)
 
-      setLoadingStep('Enviando dados para análise da Inteligência Artificial...')
-      const result = await parseDocumentWithAI(geminiApiKey, text, file.name, activeSections)
+      let rawTransactions: ParsedTransaction[] = []
+      let rawQuestions: ParsingQuestion[] = []
 
-      setExtractedTxs(result.transactions)
+      const isSheetOrCsv = file.name.endsWith('.csv') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls')
+
+      if (isSheetOrCsv) {
+        setLoadingStep('Comprimindo dados do arquivo...')
+        const compressedText = cleanAndCompressCSV(text)
+        const lines = compressedText.split('\n')
+        const header = lines[0]
+        const dataLines = lines.slice(1).filter(l => l.trim().length > 0)
+
+        if (dataLines.length > 35) {
+          const batchSize = 30
+          const totalBatches = Math.ceil(dataLines.length / batchSize)
+          
+          for (let b = 0; b < totalBatches; b++) {
+            const batchRows = dataLines.slice(b * batchSize, (b + 1) * batchSize)
+            const batchText = [header, ...batchRows].join('\n')
+            
+            setLoadingStep(`Analisando lote ${b + 1} de ${totalBatches} (${Math.round(((b + 1) / totalBatches) * 100)}%)...`)
+            
+            const result = await parseDocumentWithAI(geminiApiKey, batchText, `${file.name} (Lote ${b + 1})`, activeSections)
+            
+            const txOffset = rawTransactions.length
+            
+            const adjustedQuestions = (result.questions || []).map(q => ({
+              ...q,
+              transactionIndex: q.transactionIndex + txOffset
+            }))
+            
+            rawTransactions.push(...(result.transactions || []))
+            rawQuestions.push(...adjustedQuestions)
+          }
+        } else {
+          setLoadingStep('Enviando dados para análise da Inteligência Artificial...')
+          const result = await parseDocumentWithAI(geminiApiKey, compressedText, file.name, activeSections)
+          rawTransactions = result.transactions || []
+          rawQuestions = result.questions || []
+        }
+      } else {
+        setLoadingStep('Enviando dados para análise da Inteligência Artificial...')
+        const result = await parseDocumentWithAI(geminiApiKey, text, file.name, activeSections)
+        rawTransactions = result.transactions || []
+        rawQuestions = result.questions || []
+      }
+
+      setLoadingStep('Aplicando aprendizado adaptativo local...')
+      const optimized = applyAdaptiveLearning(rawTransactions, transactions, rawQuestions)
+
+      setExtractedTxs(optimized.transactions)
       
       // Auto-select non-duplicate transactions
       const selectionMap: Record<number, boolean> = {}
-      result.transactions.forEach((tx, index) => {
+      optimized.transactions.forEach((tx, index) => {
         const isDuplicate = checkIsDuplicate(tx)
         selectionMap[index] = !isDuplicate
       })
       setSelectedTxs(selectionMap)
 
-      if (result.questions && result.questions.length > 0) {
-        setQuestions(result.questions)
+      if (optimized.questions && optimized.questions.length > 0) {
+        setQuestions(optimized.questions)
         setCurrentQuestionIndex(0)
         setShowQuestionsModal(true)
       }
@@ -272,16 +501,54 @@ export function Import() {
   }
 
   // Calculations for preview
-  const totals = useMemo(() => {
+  const stats = useMemo(() => {
     let income = 0
     let expense = 0
+    let duplicateCount = 0
+    let totalConfidence = 0
+    let confidenceCount = 0
+    const categoryTotals: Record<string, number> = {}
+
     extractedTxs.forEach((tx, index) => {
+      const isDup = checkIsDuplicate(tx)
+      if (isDup) {
+        duplicateCount++
+      }
+
       if (selectedTxs[index]) {
-        if (tx.type === 'income') income += tx.amount
-        else expense += tx.amount
+        if (tx.type === 'income') {
+          income += tx.amount
+        } else {
+          expense += tx.amount
+          categoryTotals[tx.category] = (categoryTotals[tx.category] || 0) + tx.amount
+        }
+
+        if (tx.confidence !== undefined) {
+          totalConfidence += tx.confidence
+          confidenceCount++
+        }
       }
     })
-    return { income, expense }
+
+    const netValue = income - expense
+    const avgConfidence = confidenceCount > 0 ? Math.round(totalConfidence / confidenceCount) : 100
+
+    const topCategories = Object.entries(categoryTotals)
+      .map(([cat, amount]) => ({
+        category: cat as Category,
+        amount
+      }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 3)
+
+    return {
+      income,
+      expense,
+      netValue,
+      duplicateCount,
+      avgConfidence,
+      topCategories
+    }
   }, [extractedTxs, selectedTxs])
 
   return (
@@ -416,28 +683,101 @@ export function Import() {
       {/* Verification / Preview Table Grid */}
       {!success && extractedTxs.length > 0 && (
         <div className="flex flex-col gap-6 animate-fade-in">
-          {/* Summary / Stats Card */}
-          <div className="bg-white/40 dark:bg-gray-800/40 backdrop-blur-xl border border-gray-200/50 dark:border-white/10 rounded-3xl p-6 shadow-xl flex flex-wrap gap-6 items-center justify-between">
-            <div className="flex flex-col gap-1">
-              <span className="text-xs text-gray-500">Documento Importado</span>
-              <span className="text-sm font-bold text-gray-800 dark:text-gray-200 flex items-center gap-1.5">
-                <FileText size={16} className="text-gray-400" />
-                {file?.name}
-              </span>
+          {/* Document Name Banner */}
+          <div className="flex items-center justify-between px-6 py-3 bg-white/30 dark:bg-gray-800/20 backdrop-blur-xl border border-gray-200/40 dark:border-white/5 rounded-2xl">
+            <span className="text-xs text-gray-500 flex items-center gap-1.5 font-medium">
+              <FileText size={14} className="text-gray-400" />
+              Arquivo: <strong className="text-gray-750 dark:text-gray-200">{file?.name}</strong>
+            </span>
+            <span className="text-[10px] text-gray-400 font-mono bg-gray-100 dark:bg-gray-800/60 px-2 py-0.5 rounded-md">
+              {extractedTxs.length} transações processadas
+            </span>
+          </div>
+
+          {/* Stats Dashboard Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Card 1: Saldo Final */}
+            <div className="bg-gradient-to-br from-white/60 to-white/40 dark:from-gray-800/60 dark:to-gray-800/40 backdrop-blur-xl border border-gray-200/50 dark:border-white/10 rounded-3xl p-5 shadow-lg flex flex-col justify-between min-h-[120px] transition-all hover:translate-y-[-2px] hover:shadow-xl duration-200">
+              <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Saldo a Importar</span>
+              <div className="mt-2">
+                <span className={`text-2xl font-extrabold ${stats.netValue >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                  R$ {stats.netValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                <div className="flex gap-2.5 text-[10px] text-gray-400 mt-1">
+                  <span>Rec: <strong className="text-green-600/80">R$ {stats.income.toLocaleString('pt-BR')}</strong></span>
+                  <span>Desp: <strong className="text-red-600/80">R$ {stats.expense.toLocaleString('pt-BR')}</strong></span>
+                </div>
+              </div>
             </div>
 
-            <div className="flex gap-6 items-center">
-              <div className="flex flex-col gap-0.5">
-                <span className="text-xs text-gray-500">Total Despesas Selecionadas</span>
-                <span className="text-base font-extrabold text-red-600">
-                  R$ {totals.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+            {/* Card 2: Controle de Duplicatas */}
+            <div className="bg-gradient-to-br from-white/60 to-white/40 dark:from-gray-800/60 dark:to-gray-800/40 backdrop-blur-xl border border-gray-200/50 dark:border-white/10 rounded-3xl p-5 shadow-lg flex flex-col justify-between min-h-[120px] transition-all hover:translate-y-[-2px] hover:shadow-xl duration-200">
+              <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Controle de Duplicatas</span>
+              <div className="mt-2 flex items-center justify-between">
+                <div>
+                  <span className="text-2xl font-extrabold text-gray-800 dark:text-gray-150">
+                    {stats.duplicateCount}
+                  </span>
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    Duplicadas auto-desmarcadas
+                  </p>
+                </div>
+                {stats.duplicateCount > 0 ? (
+                  <div className="px-2.5 py-1 bg-yellow-100 dark:bg-yellow-950/30 text-yellow-750 dark:text-yellow-400 text-[10px] font-bold rounded-full border border-yellow-250/20">
+                    Evitado
+                  </div>
+                ) : (
+                  <div className="px-2.5 py-1 bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400 text-[10px] font-bold rounded-full border border-green-250/20">
+                    Limpo
+                  </div>
+                )}
               </div>
-              <div className="flex flex-col gap-0.5">
-                <span className="text-xs text-gray-500">Total Receitas Selecionadas</span>
-                <span className="text-base font-extrabold text-green-600">
-                  R$ {totals.income.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+            </div>
+
+            {/* Card 3: Média de Confiança */}
+            <div className="bg-gradient-to-br from-white/60 to-white/40 dark:from-gray-800/60 dark:to-gray-800/40 backdrop-blur-xl border border-gray-200/50 dark:border-white/10 rounded-3xl p-5 shadow-lg flex flex-col justify-between min-h-[120px] transition-all hover:translate-y-[-2px] hover:shadow-xl duration-200">
+              <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Média de Confiança</span>
+              <div className="mt-2">
+                <div className="flex items-baseline gap-1.5">
+                  <span className={`text-2xl font-extrabold ${stats.avgConfidence >= 90 ? 'text-green-600 dark:text-green-400' : stats.avgConfidence >= 75 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {stats.avgConfidence}%
+                  </span>
+                  <span className="text-[10px] text-gray-400">segurança</span>
+                </div>
+                {/* Micro progress bar */}
+                <div className="w-full bg-gray-100 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden mt-2">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${stats.avgConfidence >= 90 ? 'bg-green-500' : stats.avgConfidence >= 75 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                    style={{ width: `${stats.avgConfidence}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Card 4: Distribuição de Gastos */}
+            <div className="bg-gradient-to-br from-white/60 to-white/40 dark:from-gray-800/60 dark:to-gray-800/40 backdrop-blur-xl border border-gray-200/50 dark:border-white/10 rounded-3xl p-5 shadow-lg flex flex-col justify-between min-h-[120px] transition-all hover:translate-y-[-2px] hover:shadow-xl duration-200">
+              <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Principais Categorias</span>
+              <div className="mt-2 flex flex-col gap-1">
+                {stats.topCategories.length > 0 ? (
+                  stats.topCategories.map((item, idx) => {
+                    const meta = CATEGORY_META[item.category]
+                    const label = meta?.label || item.category
+                    const color = meta?.color || '#a855f7'
+                    return (
+                      <div key={idx} className="flex items-center justify-between text-[10px]">
+                        <span className="text-gray-600 dark:text-gray-300 font-medium truncate max-w-[90px] flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                          {label}
+                        </span>
+                        <span className="text-gray-800 dark:text-gray-200 font-bold">
+                          R$ {item.amount.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+                        </span>
+                      </div>
+                    )
+                  })
+                ) : (
+                  <span className="text-[10px] text-gray-400 italic">Sem despesas</span>
+                )}
               </div>
             </div>
           </div>
@@ -511,9 +851,15 @@ export function Import() {
                               className="w-full bg-transparent border-0 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:bg-white dark:focus:bg-gray-800 rounded px-1.5 py-0.5 text-sm font-medium text-gray-850 dark:text-gray-200"
                             />
                             {isDuplicate && (
-                              <span className="text-[10px] text-yellow-600 dark:text-yellow-400 font-semibold flex items-center gap-1 ml-1.5">
+                              <span className="text-[10px] text-yellow-600 dark:text-yellow-400 font-semibold flex items-center gap-1 ml-1.5 mt-0.5">
                                 <AlertTriangle size={10} />
                                 Provável Duplicada (mesma data/valor)
+                              </span>
+                            )}
+                            {tx.confidence !== undefined && tx.confidence < 85 && (
+                              <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1 ml-1.5 mt-0.5">
+                                <AlertTriangle size={10} />
+                                Baixa Confiança ({tx.confidence}%)
                               </span>
                             )}
                           </div>
