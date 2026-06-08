@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import {
   Upload, FileText, Sparkles, Check, AlertCircle, AlertTriangle,
@@ -192,6 +192,27 @@ function applyAdaptiveLearning(
   };
 }
 
+function parseResetTokensToSeconds(resetStr: string): number {
+  if (!resetStr) return 0;
+  let seconds = 0;
+  const minutesMatch = resetStr.match(/(\d+)m/);
+  if (minutesMatch) {
+    seconds += parseInt(minutesMatch[1]) * 60;
+  }
+  const secondsMatch = resetStr.match(/(\d+(?:\.\d+)?)s/);
+  if (secondsMatch) {
+    const isMs = resetStr.includes('ms') && !resetStr.match(/\d+s/);
+    if (!isMs) {
+      seconds += parseFloat(secondsMatch[1]);
+    }
+  }
+  const msMatch = resetStr.match(/(\d+)ms/);
+  if (msMatch) {
+    seconds += parseInt(msMatch[1]) / 1000;
+  }
+  return Math.ceil(seconds);
+}
+
 export function Import() {
   const navigate = useNavigate()
   const appSettings = useFinanceStore((s) => s.appSettings)
@@ -208,6 +229,28 @@ export function Import() {
   const [loadingStep, setLoadingStep] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+
+  // Token tracking states
+  const [tokensSpent, setTokensSpent] = useState<number>(0)
+  const [tokensLimit, setTokensLimit] = useState<number>(0)
+  const [tokensRemaining, setTokensRemaining] = useState<number>(0)
+  const [resetSeconds, setResetSeconds] = useState<number>(0)
+
+  useEffect(() => {
+    if (resetSeconds <= 0) return
+
+    const timer = setInterval(() => {
+      setResetSeconds(prev => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [resetSeconds])
 
   // AI parsed data
   const [extractedTxs, setExtractedTxs] = useState<ParsedTransaction[]>([])
@@ -330,6 +373,11 @@ export function Import() {
       let rawTransactions: ParsedTransaction[] = []
       let rawQuestions: ParsingQuestion[] = []
 
+      let accumSpent = 0
+      let lastLimit = 0
+      let lastRemaining = 0
+      let lastReset = ''
+
       const isSheetOrCsv = file.name.endsWith('.csv') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls')
 
       if (isSheetOrCsv) {
@@ -351,6 +399,15 @@ export function Import() {
             
             const result = await parseDocumentWithAI(geminiApiKey, batchText, `${file.name} (Lote ${b + 1})`, activeSections)
             
+            if (result.usage) {
+              accumSpent += result.usage.totalTokens
+            }
+            if (result.rateLimits) {
+              if (result.rateLimits.limitTokens) lastLimit = parseInt(result.rateLimits.limitTokens) || 0
+              if (result.rateLimits.remainingTokens) lastRemaining = parseInt(result.rateLimits.remainingTokens) || 0
+              if (result.rateLimits.resetTokens) lastReset = result.rateLimits.resetTokens
+            }
+
             const txOffset = rawTransactions.length
             
             const adjustedQuestions = (result.questions || []).map(q => ({
@@ -366,18 +423,40 @@ export function Import() {
           const result = await parseDocumentWithAI(geminiApiKey, compressedText, file.name, activeSections)
           rawTransactions = result.transactions || []
           rawQuestions = result.questions || []
+          
+          if (result.usage) {
+            accumSpent = result.usage.totalTokens
+          }
+          if (result.rateLimits) {
+            if (result.rateLimits.limitTokens) lastLimit = parseInt(result.rateLimits.limitTokens) || 0
+            if (result.rateLimits.remainingTokens) lastRemaining = parseInt(result.rateLimits.remainingTokens) || 0
+            if (result.rateLimits.resetTokens) lastReset = result.rateLimits.resetTokens
+          }
         }
       } else {
         setLoadingStep('Enviando dados para análise da Inteligência Artificial...')
         const result = await parseDocumentWithAI(geminiApiKey, text, file.name, activeSections)
         rawTransactions = result.transactions || []
         rawQuestions = result.questions || []
+        
+        if (result.usage) {
+          accumSpent = result.usage.totalTokens
+        }
+        if (result.rateLimits) {
+          if (result.rateLimits.limitTokens) lastLimit = parseInt(result.rateLimits.limitTokens) || 0
+          if (result.rateLimits.remainingTokens) lastRemaining = parseInt(result.rateLimits.remainingTokens) || 0
+          if (result.rateLimits.resetTokens) lastReset = result.rateLimits.resetTokens
+        }
       }
 
       setLoadingStep('Aplicando aprendizado adaptativo local...')
       const optimized = applyAdaptiveLearning(rawTransactions, transactions, rawQuestions)
 
       setExtractedTxs(optimized.transactions)
+      setTokensSpent(accumSpent)
+      if (lastLimit) setTokensLimit(lastLimit)
+      if (lastRemaining) setTokensRemaining(lastRemaining)
+      if (lastReset) setResetSeconds(parseResetTokensToSeconds(lastReset))
       
       // Auto-select non-duplicate transactions
       const selectionMap: Record<number, boolean> = {}
@@ -563,6 +642,57 @@ export function Import() {
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Carregue faturas de cartão em PDF ou planilhas de gastos do Excel
           </p>
+        </div>
+      </div>
+
+      {/* Cotas e Estatísticas da IA */}
+      <div className="bg-white/40 dark:bg-gray-800/20 backdrop-blur-xl border border-gray-200/50 dark:border-white/10 rounded-3xl p-5 flex flex-wrap items-center justify-between gap-4 animate-fade-in">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+            <Sparkles size={20} />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-gray-850 dark:text-gray-100">Estatísticas da API de IA</h3>
+            <p className="text-xs text-gray-500">Acompanhamento de consumo e cotas de processamento</p>
+          </div>
+        </div>
+        
+        <div className="flex flex-wrap items-center gap-6">
+          {/* Tokens Gasto no Último Envio */}
+          <div className="flex flex-col">
+            <span className="text-[10px] text-gray-400 font-bold uppercase">Consumo na Sessão</span>
+            <span className="text-sm font-extrabold text-purple-600 dark:text-purple-400">
+              {tokensSpent.toLocaleString('pt-BR')} tokens
+            </span>
+          </div>
+
+          {/* Limite Restante */}
+          {tokensLimit > 0 && (
+            <div className="flex flex-col">
+              <span className="text-[10px] text-gray-400 font-bold uppercase">Tokens Disponíveis</span>
+              <span className="text-sm font-bold text-gray-700 dark:text-gray-250">
+                {tokensRemaining.toLocaleString('pt-BR')} / {tokensLimit.toLocaleString('pt-BR')}
+              </span>
+            </div>
+          )}
+
+          {/* Tempo para Reset */}
+          <div className="flex items-center">
+            {resetSeconds > 0 ? (
+              <span className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-950/20 border border-amber-200/40 text-amber-700 dark:text-amber-400 text-xs font-bold rounded-full animate-pulse">
+                <Loader2 size={12} className="animate-spin" />
+                Limite reinicia em: {resetSeconds}s
+              </span>
+            ) : tokensSpent > 0 ? (
+              <span className="px-3 py-1 bg-green-50 dark:bg-green-950/20 border border-green-200/40 text-green-700 dark:text-green-400 text-xs font-bold rounded-full">
+                ✓ Cotas Disponíveis
+              </span>
+            ) : (
+              <span className="px-3 py-1 bg-gray-50 dark:bg-gray-800 border border-gray-200/50 dark:border-white/5 text-gray-600 dark:text-gray-400 text-xs font-medium rounded-full">
+                Pronto para uso
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

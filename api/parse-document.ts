@@ -91,6 +91,16 @@ ${fileText}
 
     const parsedResult = JSON.parse(contentText)
     
+    const usage = responseData.usage ? {
+      promptTokens: responseData.usage.prompt_tokens,
+      completionTokens: responseData.usage.completion_tokens,
+      totalTokens: responseData.usage.total_tokens
+    } : undefined
+
+    const limitTokens = response.headers.get('x-ratelimit-limit-tokens')
+    const remainingTokens = response.headers.get('x-ratelimit-remaining-tokens')
+    const resetTokens = response.headers.get('x-ratelimit-reset-tokens')
+
     // Decompress the compact JSON response into standard format for the frontend
     const transactions = (parsedResult.t || []).map((x: any) => ({
       date: x.d,
@@ -111,7 +121,16 @@ ${fileText}
       options: x.o
     }))
 
-    return res.status(200).json({ transactions, questions })
+    return res.status(200).json({
+      transactions,
+      questions,
+      usage,
+      rateLimits: {
+        limitTokens,
+        remainingTokens,
+        resetTokens
+      }
+    })
   } catch (error) {
     return res.status(500).json({ error: error instanceof Error ? error.message : String(error) })
   }

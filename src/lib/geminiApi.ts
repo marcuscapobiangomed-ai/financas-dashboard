@@ -20,9 +20,23 @@ export interface ParsingQuestion {
   options: string[]
 }
 
+export interface TokenUsage {
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+}
+
+export interface RateLimitData {
+  limitTokens?: string | null
+  remainingTokens?: string | null
+  resetTokens?: string | null
+}
+
 export interface GeminiParsingResult {
   transactions: ParsedTransaction[]
   questions: ParsingQuestion[]
+  usage?: TokenUsage
+  rateLimits?: RateLimitData
 }
 
 export async function parseDocumentWithAI(
@@ -56,7 +70,9 @@ export async function parseDocumentWithAI(
     const data = await response.json()
     return {
       transactions: data.transactions || [],
-      questions: data.questions || []
+      questions: data.questions || [],
+      usage: data.usage,
+      rateLimits: data.rateLimits
     }
   }
 
@@ -154,11 +170,27 @@ ${fileText}
     throw new Error('O Groq retornou uma resposta sem conteúdo.')
   }
 
+  const usage = responseData.usage ? {
+    promptTokens: responseData.usage.prompt_tokens,
+    completionTokens: responseData.usage.completion_tokens,
+    totalTokens: responseData.usage.total_tokens
+  } : undefined
+
+  const limitTokens = response.headers.get('x-ratelimit-limit-tokens')
+  const remainingTokens = response.headers.get('x-ratelimit-remaining-tokens')
+  const resetTokens = response.headers.get('x-ratelimit-reset-tokens')
+
   try {
-    const parsedResult = JSON.parse(contentText) as GeminiParsingResult
+    const parsedResult = JSON.parse(contentText)
     return {
       transactions: parsedResult.transactions || [],
-      questions: parsedResult.questions || []
+      questions: parsedResult.questions || [],
+      usage,
+      rateLimits: {
+        limitTokens,
+        remainingTokens,
+        resetTokens
+      }
     }
   } catch (err) {
     console.error('Falha ao interpretar JSON retornado pelo Groq:', contentText)
@@ -288,11 +320,18 @@ ${fileText}
     throw new Error('O Gemini retornou uma resposta sem conteúdo.')
   }
 
+  const usage = responseData.usageMetadata ? {
+    promptTokens: responseData.usageMetadata.promptTokenCount,
+    completionTokens: responseData.usageMetadata.candidatesTokenCount,
+    totalTokens: responseData.usageMetadata.totalTokenCount
+  } : undefined
+
   try {
-    const parsedResult = JSON.parse(contentText) as GeminiParsingResult
+    const parsedResult = JSON.parse(contentText)
     return {
       transactions: parsedResult.transactions || [],
-      questions: parsedResult.questions || []
+      questions: parsedResult.questions || [],
+      usage
     }
   } catch (err) {
     console.error('Falha ao interpretar JSON retornado pelo Gemini:', contentText)
