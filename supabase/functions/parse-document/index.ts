@@ -161,9 +161,17 @@ Output JSON structure strictly:
         const geminiData = await geminiResponse.json()
         const contentText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
         if (contentText) {
-          return new Response(contentText, {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          })
+          try {
+            const parsed = JSON.parse(contentText)
+            parsed.provider = 'gemini'
+            return new Response(JSON.stringify(parsed), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+          } catch (e) {
+            return new Response(contentText, {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+          }
         }
       } else {
         console.warn(`Gemini Edge Function call failed with status ${geminiResponse.status}`)
@@ -234,9 +242,17 @@ Output JSON structure strictly:
       throw new Error(lastErrorMsg || 'Falha ao processar o documento em todos os modelos do Groq.')
     }
 
-    return new Response(contentText, {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+    try {
+      const parsed = JSON.parse(contentText)
+      parsed.provider = 'groq'
+      return new Response(JSON.stringify(parsed), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    } catch (e) {
+      return new Response(contentText, {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
   } catch (error) {
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),

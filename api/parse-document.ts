@@ -159,7 +159,8 @@ Output JSON structure strictly:
           return res.status(200).json({
             transactions: parsedResult.transactions || [],
             questions: parsedResult.questions || [],
-            usage
+            usage,
+            provider: 'gemini'
           })
         }
       } else {
@@ -282,6 +283,7 @@ Output JSON structure strictly:
       transactions,
       questions,
       usage,
+      provider: 'groq',
       rateLimits: {
         limitTokens,
         remainingTokens,

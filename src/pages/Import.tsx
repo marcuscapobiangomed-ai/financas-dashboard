@@ -341,7 +341,17 @@ export function Import() {
   const addTransactions = useFinanceStore((s) => s.addTransactions)
 
   // API Key (supports Groq and Gemini keys)
-  const geminiApiKey = appSettings.geminiApiKey || import.meta.env.VITE_GROQ_API_KEY || import.meta.env.VITE_GEMINI_API_KEY || ''
+  const geminiApiKey = appSettings.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_GROQ_API_KEY || ''
+
+  const [activeProvider, setActiveProvider] = useState<'Gemini' | 'Groq' | null>(null)
+
+  useEffect(() => {
+    if (geminiApiKey) {
+      setActiveProvider(geminiApiKey.startsWith('gsk_') ? 'Groq' : 'Gemini')
+    } else {
+      setActiveProvider('Gemini')
+    }
+  }, [geminiApiKey])
 
   // UI States
   const [file, setFile] = useState<File | null>(null)
@@ -542,7 +552,7 @@ export function Import() {
           const header = lines[0]
           const unmatchedRows = lines.slice(1).filter(l => l.trim().length > 0)
           
-          const isGroq = !geminiApiKey || geminiApiKey.startsWith('gsk_')
+          const isGroq = geminiApiKey.startsWith('gsk_')
           const batchSize = isGroq ? 15 : unmatchedRows.length
           const totalBatches = Math.ceil(unmatchedRows.length / batchSize)
           
@@ -563,6 +573,9 @@ export function Import() {
             
             const result = await parseDocumentWithAI(geminiApiKey, batchText, isGroq ? `${file.name} (Lote ${b + 1})` : file.name, activeSections)
             
+            if (result.provider) {
+              setActiveProvider(result.provider === 'gemini' ? 'Gemini' : 'Groq')
+            }
             if (result.usage) {
               accumSpent += result.usage.totalTokens
             }
@@ -589,6 +602,9 @@ export function Import() {
         rawTransactions = result.transactions || []
         rawQuestions = result.questions || []
         
+        if (result.provider) {
+          setActiveProvider(result.provider === 'gemini' ? 'Gemini' : 'Groq')
+        }
         if (result.usage) {
           accumSpent = result.usage.totalTokens
         }
@@ -824,6 +840,26 @@ export function Import() {
         </div>
         
         <div className="flex flex-wrap items-center gap-6">
+          {/* Provedor Ativo */}
+          <div className="flex flex-col">
+            <span className="text-[10px] text-gray-400 font-bold uppercase">Provedor Ativo</span>
+            {activeProvider === 'Gemini' ? (
+              <span id="ai-provider-badge" className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400 border border-green-500/20">
+                <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                Gemini (Recomendado)
+              </span>
+            ) : activeProvider === 'Groq' ? (
+              <span id="ai-provider-badge" className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400 border border-orange-500/20">
+                <span className="h-1.5 w-1.5 rounded-full bg-orange-500"></span>
+                Groq
+              </span>
+            ) : (
+              <span id="ai-provider-badge" className="text-sm font-bold text-gray-500">
+                Detectando...
+              </span>
+            )}
+          </div>
+
           {/* Tokens Gasto no Último Envio */}
           <div className="flex flex-col">
             <span className="text-[10px] text-gray-400 font-bold uppercase">Consumo na Sessão</span>

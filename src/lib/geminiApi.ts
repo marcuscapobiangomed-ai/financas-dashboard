@@ -37,6 +37,7 @@ export interface GeminiParsingResult {
   questions: ParsingQuestion[]
   usage?: TokenUsage
   rateLimits?: RateLimitData
+  provider?: 'gemini' | 'groq'
 }
 
 export async function parseDocumentWithAI(
@@ -81,7 +82,8 @@ export async function parseDocumentWithAI(
       transactions: data.transactions || [],
       questions: data.questions || [],
       usage: data.usage,
-      rateLimits: data.rateLimits
+      rateLimits: data.rateLimits,
+      provider: data.provider
     }
   }
 
@@ -246,7 +248,8 @@ ${fileText}
         limitTokens,
         remainingTokens,
         resetTokens
-      }
+      },
+      provider: 'groq'
     }
   } catch (err) {
     console.error('Falha ao interpretar JSON retornado pelo Groq:', contentText)
@@ -387,7 +390,8 @@ ${fileText}
     return {
       transactions: parsedResult.transactions || [],
       questions: parsedResult.questions || [],
-      usage
+      usage,
+      provider: 'gemini'
     }
   } catch (err) {
     console.error('Falha ao interpretar JSON retornado pelo Gemini:', contentText)
