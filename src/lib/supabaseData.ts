@@ -104,6 +104,9 @@ export async function upsertMonthSettings(userId: string, monthKey: string, sett
     user_id: userId, month_key: monthKey, is_closed: settings.isClosed, notes: settings.notes ?? null,
     section_limits: settings.sectionLimits, tithe_percent: settings.tithePercent,
     offering_percent: settings.offeringPercent, savings_goal: settings.savingsGoal ?? null,
+    highlights: settings.highlights ?? null, lessons: settings.lessons ?? null,
+    copied_from_months: settings.copiedFromMonths ?? null, closed_at: settings.closedAt ?? null,
+    opened_at: settings.openedAt ?? null, closed_by: settings.closedBy ?? null,
   }
   const { error } = await supabase.from('month_settings').upsert(row, { onConflict: 'user_id,month_key' })
   if (error) throw error

@@ -97,6 +97,9 @@ CREATE TABLE investments (
   investment_type text DEFAULT 'manual',
   cdi_percent numeric(8,4),
   ipca_percent numeric(8,4),
+  ticker text,
+  shares numeric(12,4),
+  average_price numeric(12,2),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -119,6 +122,12 @@ CREATE TABLE month_settings (
   tithe_percent numeric(5,2) NOT NULL DEFAULT 10,
   offering_percent numeric(5,2) NOT NULL DEFAULT 2,
   savings_goal numeric(12,2),
+  highlights text[],
+  lessons text,
+  copied_from_months text[],
+  closed_at timestamptz,
+  opened_at timestamptz,
+  closed_by text,
   PRIMARY KEY (user_id, month_key)
 );
 
