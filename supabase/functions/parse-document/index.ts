@@ -69,33 +69,66 @@ Conteúdo do Documento:
 ${fileText}
 `
 
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: systemInstruction },
-          { role: 'user', content: prompt }
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.1
-      })
-    })
+    const models = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768']
+    let response: any = null
+    let responseData: any = null
+    let contentText = ''
+    let lastErrorMsg = ''
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Erro na API do Groq: ${response.status} ${response.statusText} - ${errorText}`)
+    for (let i = 0; i < models.length; i++) {
+      const currentModel = models[i]
+      try {
+        response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: currentModel,
+            messages: [
+              { role: 'system', content: systemInstruction },
+              { role: 'user', content: prompt }
+            ],
+            response_format: { type: 'json_object' },
+            temperature: 0.1
+          })
+        })
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          let parsedJson: any = null
+          try {
+            parsedJson = JSON.parse(errorText)
+          } catch (e) {}
+
+          const cleanMsg = parsedJson?.error?.message || errorText
+          lastErrorMsg = `Erro no modelo ${currentModel}: ${cleanMsg}`
+          console.warn(`Groq model ${currentModel} failed in Edge Function with status ${response.status}. Msg: ${cleanMsg}`)
+
+          if (response.status === 401 || response.status === 403) {
+            break
+          }
+          continue
+        }
+
+        responseData = await response.json()
+        contentText = responseData.choices?.[0]?.message?.content || ''
+        if (!contentText) {
+          lastErrorMsg = `O modelo ${currentModel} retornou resposta vazia.`
+          continue
+        }
+
+        break
+      } catch (err: any) {
+        lastErrorMsg = `Exceção ao chamar ${currentModel}: ${err.message || err}`
+        console.warn(`Exception in Edge Function calling Groq model ${currentModel}:`, err)
+        continue
+      }
     }
 
-    const responseData = await response.json()
-    const contentText = responseData.choices?.[0]?.message?.content
-
-    if (!contentText) {
-      throw new Error('O Groq retornou uma resposta sem conteúdo.')
+    if (!responseData || !contentText) {
+      throw new Error(lastErrorMsg || 'Falha ao processar o documento em todos os modelos do Groq.')
     }
 
     return new Response(contentText, {
