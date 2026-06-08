@@ -69,6 +69,109 @@ Conteúdo do Documento:
 ${fileText}
 `
 
+    // Tenta primeiro o Google Gemini 2.5 Flash (mais estável e sem limites rígidos de TPM)
+    try {
+      const geminiApiKey = Deno.env.get('GEMINI_API_KEY')
+      if (!geminiApiKey) {
+        throw new Error('Gemini API key is not configured.')
+      }
+      
+      const geminiSystemInstruction = `You are a precise financial assistant. Extract ALL transactions from the text into JSON.
+Output JSON structure strictly:
+{
+  "transactions": [
+    {
+      "date": "YYYY-MM-DD",
+      "type": "income" | "expense",
+      "section": "section_id",
+      "description": "clean_description",
+      "amount": 12.34,
+      "category": "CATEGORY_NAME",
+      "confidence": 95
+    }
+  ],
+  "questions": [
+    {
+      "id": "short_id",
+      "transactionIndex": 0,
+      "transactionRaw": "raw_row_text",
+      "question": "Friendly question in Portuguese to clarify category/section",
+      "property": "category" | "section" | "type",
+      "options": ["opt1", "opt2"]
+    }
+  ]
+}`
+
+      const responseSchema = {
+        type: 'OBJECT',
+        properties: {
+          transactions: {
+            type: 'ARRAY',
+            items: {
+              type: 'OBJECT',
+              properties: {
+                date: { type: 'STRING' },
+                type: { type: 'STRING', enum: ['income', 'expense'] },
+                section: { type: 'STRING' },
+                description: { type: 'STRING' },
+                amount: { type: 'NUMBER' },
+                category: { type: 'STRING' },
+                confidence: { type: 'INTEGER' }
+              },
+              required: ['date', 'type', 'section', 'description', 'amount', 'category', 'confidence']
+            }
+          },
+          questions: {
+            type: 'ARRAY',
+            items: {
+              type: 'OBJECT',
+              properties: {
+                id: { type: 'STRING' },
+                transactionIndex: { type: 'INTEGER' },
+                transactionRaw: { type: 'STRING' },
+                question: { type: 'STRING' },
+                property: { type: 'STRING', enum: ['category', 'section', 'type'] },
+                options: { type: 'ARRAY', items: { type: 'STRING' } }
+              },
+              required: ['id', 'transactionIndex', 'transactionRaw', 'question', 'property', 'options']
+            }
+          }
+        },
+        required: ['transactions', 'questions']
+      }
+
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`
+      const geminiResponse = await fetch(geminiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          systemInstruction: { parts: [{ text: geminiSystemInstruction }] },
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema,
+            temperature: 0.1
+          }
+        })
+      })
+
+      if (geminiResponse.ok) {
+        const geminiData = await geminiResponse.json()
+        const contentText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
+        if (contentText) {
+          return new Response(contentText, {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          })
+        }
+      } else {
+        console.warn(`Gemini Edge Function call failed with status ${geminiResponse.status}`)
+      }
+    } catch (geminiErr: any) {
+      console.warn('Google Gemini Edge Function call failed, falling back to Groq...', geminiErr)
+    }
+
     const models = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'qwen/qwen3-32b']
     let response: any = null
     let responseData: any = null
