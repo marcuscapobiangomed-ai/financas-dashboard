@@ -140,44 +140,54 @@ Output JSON structure strictly:
         required: ['transactions', 'questions']
       }
 
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`
-      const geminiResponse = await fetch(geminiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          systemInstruction: { parts: [{ text: geminiSystemInstruction }] },
-          generationConfig: {
-            responseMimeType: 'application/json',
-            responseSchema,
-            temperature: 0.1
-          }
-        })
-      })
+      const geminiModels = ['gemini-2.5-flash', 'gemini-1.5-flash']
+      
+      for (const currentModel of geminiModels) {
+        try {
+          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${geminiApiKey}`
+          const geminiResponse = await fetch(geminiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              systemInstruction: { parts: [{ text: geminiSystemInstruction }] },
+              generationConfig: {
+                responseMimeType: 'application/json',
+                responseSchema,
+                temperature: 0.1
+              }
+            })
+          })
 
-      if (geminiResponse.ok) {
-        const geminiData = await geminiResponse.json()
-        const contentText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
-        if (contentText) {
-          try {
-            const parsed = JSON.parse(contentText)
-            parsed.provider = 'gemini'
-            return new Response(JSON.stringify(parsed), {
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            })
-          } catch (e) {
-            return new Response(contentText, {
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            })
+          if (geminiResponse.ok) {
+            const geminiData = await geminiResponse.json()
+            const contentText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
+            if (contentText) {
+              try {
+                const parsed = JSON.parse(contentText)
+                parsed.provider = 'gemini'
+                return new Response(JSON.stringify(parsed), {
+                  headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                })
+              } catch (e) {
+                return new Response(contentText, {
+                  headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                })
+              }
+            }
+          } else {
+            const errText = await geminiResponse.text()
+            console.warn(`Gemini Edge Function model ${currentModel} failed with status ${geminiResponse.status}: ${errText}`)
           }
+        } catch (err: any) {
+          console.warn(`Exception in Edge Function calling Gemini model ${currentModel}:`, err)
         }
-      } else {
-        console.warn(`Gemini Edge Function call failed with status ${geminiResponse.status}`)
       }
     } catch (geminiErr: any) {
       console.warn('Google Gemini Edge Function call failed, falling back to Groq...', geminiErr)
+    }
     }
 
     const models = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'qwen/qwen3-32b']

@@ -356,64 +356,75 @@ ${fileText}
     required: ['transactions', 'questions']
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`
+  const models = ['gemini-2.5-flash', 'gemini-1.5-flash']
+  let lastErrorMsg = ''
 
-  const requestBody = {
-    contents: [
-      {
-        parts: [
-          { text: prompt }
-        ]
+  for (let i = 0; i < models.length; i++) {
+    const currentModel = models[i]
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${apiKey}`
+      const requestBody = {
+        contents: [
+          {
+            parts: [
+              { text: prompt }
+            ]
+          }
+        ],
+        systemInstruction: {
+          parts: [
+            { text: systemInstruction }
+          ]
+        },
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: responseSchema,
+          temperature: 0.1
+        }
       }
-    ],
-    systemInstruction: {
-      parts: [
-        { text: systemInstruction }
-      ]
-    },
-    generationConfig: {
-      responseMimeType: 'application/json',
-      responseSchema: responseSchema,
-      temperature: 0.1 // Baixa temperatura para resultados consistentes
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        lastErrorMsg = `Erro no modelo ${currentModel}: ${response.status} ${response.statusText} - ${errorText}`
+        console.warn(`Gemini local model ${currentModel} failed with status ${response.status}. Msg: ${errorText}`)
+        continue
+      }
+
+      const responseData = await response.json()
+      const contentText = responseData.candidates?.[0]?.content?.parts?.[0]?.text
+
+      if (!contentText) {
+        lastErrorMsg = `O Gemini (${currentModel}) retornou uma resposta sem conteúdo.`
+        continue
+      }
+
+      const usage = responseData.usageMetadata ? {
+        promptTokens: responseData.usageMetadata.promptTokenCount,
+        completionTokens: responseData.usageMetadata.candidatesTokenCount,
+        totalTokens: responseData.usageMetadata.totalTokenCount
+      } : undefined
+
+      const parsedResult = JSON.parse(contentText)
+      return {
+        transactions: parsedResult.transactions || [],
+        questions: parsedResult.questions || [],
+        usage,
+        provider: 'gemini'
+      }
+    } catch (err: any) {
+      lastErrorMsg = `Exceção ao chamar Gemini (${currentModel}): ${err.message || err}`
+      console.warn(`Exception calling Gemini local model ${currentModel}:`, err)
+      continue
     }
   }
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(requestBody)
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Erro na API do Gemini: ${response.status} ${response.statusText} - ${errorText}`)
-  }
-
-  const responseData = await response.json()
-  const contentText = responseData.candidates?.[0]?.content?.parts?.[0]?.text
-
-  if (!contentText) {
-    throw new Error('O Gemini retornou uma resposta sem conteúdo.')
-  }
-
-  const usage = responseData.usageMetadata ? {
-    promptTokens: responseData.usageMetadata.promptTokenCount,
-    completionTokens: responseData.usageMetadata.candidatesTokenCount,
-    totalTokens: responseData.usageMetadata.totalTokenCount
-  } : undefined
-
-  try {
-    const parsedResult = JSON.parse(contentText)
-    return {
-      transactions: parsedResult.transactions || [],
-      questions: parsedResult.questions || [],
-      usage,
-      provider: 'gemini'
-    }
-  } catch (err) {
-    console.error('Falha ao interpretar JSON retornado pelo Gemini:', contentText)
-    throw new Error('O formato retornado pelo Gemini não é um JSON válido.')
-  }
+  throw new Error(lastErrorMsg || 'Falha ao processar o documento em todos os modelos do Gemini.')
 }

@@ -57,7 +57,7 @@ Conteúdo do Documento:
 ${fileText}
 `
 
-    // Tenta primeiro o Google Gemini 2.5 Flash (mais estável e sem limites rígidos de TPM)
+    // Tenta primeiro o Google Gemini (2.5-flash depois 1.5-flash) (mais estável e sem limites rígidos de TPM)
     try {
       const geminiApiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY
       if (!geminiApiKey) {
@@ -128,43 +128,52 @@ Output JSON structure strictly:
         required: ['transactions', 'questions']
       }
 
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`
-      const geminiResponse = await fetch(geminiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          systemInstruction: { parts: [{ text: geminiSystemInstruction }] },
-          generationConfig: {
-            responseMimeType: 'application/json',
-            responseSchema,
-            temperature: 0.1
-          }
-        })
-      })
-
-      if (geminiResponse.ok) {
-        const geminiData = await geminiResponse.json()
-        const contentText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
-        if (contentText) {
-          const parsedResult = JSON.parse(contentText)
-          const usage = geminiData.usageMetadata ? {
-            promptTokens: geminiData.usageMetadata.promptTokenCount,
-            completionTokens: geminiData.usageMetadata.candidatesTokenCount,
-            totalTokens: geminiData.usageMetadata.totalTokenCount
-          } : undefined
-
-          return res.status(200).json({
-            transactions: parsedResult.transactions || [],
-            questions: parsedResult.questions || [],
-            usage,
-            provider: 'gemini'
+      const geminiModels = ['gemini-2.5-flash', 'gemini-1.5-flash']
+      
+      for (const currentModel of geminiModels) {
+        try {
+          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${geminiApiKey}`
+          const geminiResponse = await fetch(geminiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              systemInstruction: { parts: [{ text: geminiSystemInstruction }] },
+              generationConfig: {
+                responseMimeType: 'application/json',
+                responseSchema,
+                temperature: 0.1
+              }
+            })
           })
+
+          if (geminiResponse.ok) {
+            const geminiData = await geminiResponse.json()
+            const contentText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
+            if (contentText) {
+              const parsedResult = JSON.parse(contentText)
+              const usage = geminiData.usageMetadata ? {
+                promptTokens: geminiData.usageMetadata.promptTokenCount,
+                completionTokens: geminiData.usageMetadata.candidatesTokenCount,
+                totalTokens: geminiData.usageMetadata.totalTokenCount
+              } : undefined
+
+              return res.status(200).json({
+                transactions: parsedResult.transactions || [],
+                questions: parsedResult.questions || [],
+                usage,
+                provider: 'gemini'
+              })
+            }
+          } else {
+            const errText = await geminiResponse.text()
+            console.warn(`Gemini server-side model ${currentModel} failed with status ${geminiResponse.status}: ${errText}`)
+          }
+        } catch (err: any) {
+          console.warn(`Exception calling Gemini server-side model ${currentModel}:`, err)
         }
-      } else {
-        console.warn(`Gemini server-side call failed with status ${geminiResponse.status}`)
       }
     } catch (geminiErr: any) {
       console.warn('Google Gemini server-side call failed, falling back to Groq...', geminiErr)
