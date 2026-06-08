@@ -40,6 +40,50 @@ export interface GeminiParsingResult {
   provider?: 'gemini' | 'groq'
 }
 
+async function callServersideParse(
+  fileText: string,
+  fileName: string,
+  activeSections: Array<{ id: string; label: string }>
+): Promise<GeminiParsingResult> {
+  const categoriesList = Object.keys(Category).join(', ')
+  const response = await fetch('/api/parse-document', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      fileText,
+      fileName,
+      activeSections,
+      categories: categoriesList
+    })
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('Erro na Vercel API Route:', errorText)
+    
+    let parsedError: any = {}
+    try {
+      parsedError = JSON.parse(errorText)
+    } catch (e) {}
+
+    const errorObj = new Error(parsedError.error || `Erro ao invocar a IA no servidor: ${response.status}`) as any
+    errorObj.status = response.status
+    errorObj.rateLimits = parsedError.rateLimits
+    throw errorObj
+  }
+
+  const data = await response.json()
+  return {
+    transactions: data.transactions || [],
+    questions: data.questions || [],
+    usage: data.usage,
+    rateLimits: data.rateLimits,
+    provider: data.provider
+  }
+}
+
 export async function parseDocumentWithAI(
   apiKey: string,
   fileText: string,
@@ -48,49 +92,24 @@ export async function parseDocumentWithAI(
 ): Promise<GeminiParsingResult> {
   // Se não há uma chave configurada localmente, chama a API Serverless da Vercel (segura e com a chave padronizada oculta no servidor)
   if (!apiKey) {
-    const categoriesList = Object.keys(Category).join(', ')
-    const response = await fetch('/api/parse-document', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        fileText,
-        fileName,
-        activeSections,
-        categories: categoriesList
-      })
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Erro na Vercel API Route:', errorText)
-      
-      let parsedError: any = {}
-      try {
-        parsedError = JSON.parse(errorText)
-      } catch (e) {}
-
-      const errorObj = new Error(parsedError.error || `Erro ao invocar a IA no servidor: ${response.status}`) as any
-      errorObj.status = response.status
-      errorObj.rateLimits = parsedError.rateLimits
-      throw errorObj
-    }
-
-    const data = await response.json()
-    return {
-      transactions: data.transactions || [],
-      questions: data.questions || [],
-      usage: data.usage,
-      rateLimits: data.rateLimits,
-      provider: data.provider
-    }
+    return callServersideParse(fileText, fileName, activeSections)
   }
 
   if (apiKey.startsWith('gsk_')) {
-    return parseDocumentWithGroq(apiKey, fileText, fileName, activeSections)
+    try {
+      return await parseDocumentWithGroq(apiKey, fileText, fileName, activeSections)
+    } catch (groqErr) {
+      console.warn('Groq client-side call failed, trying server-side route as fallback...', groqErr)
+      return callServersideParse(fileText, fileName, activeSections)
+    }
   }
-  return parseDocumentWithGemini(apiKey, fileText, fileName, activeSections)
+
+  try {
+    return await parseDocumentWithGemini(apiKey, fileText, fileName, activeSections)
+  } catch (geminiErr) {
+    console.warn('Gemini client-side call failed, trying server-side route as fallback...', geminiErr)
+    return callServersideParse(fileText, fileName, activeSections)
+  }
 }
 
 async function parseDocumentWithGroq(
