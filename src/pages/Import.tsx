@@ -2,7 +2,8 @@ import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import {
   Upload, FileText, Sparkles, Check, AlertCircle, AlertTriangle,
-  Loader2, Trash2, Edit2, CheckCircle2, ChevronRight, HelpCircle
+  Loader2, Trash2, Edit2, CheckCircle2, ChevronRight, HelpCircle,
+  Clock
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { useFinanceStore } from '../store/useFinanceStore'
@@ -676,21 +677,34 @@ export function Import() {
             </div>
           )}
 
-          {/* Tempo para Reset */}
+          {/* Relógio / Próxima Importação */}
           <div className="flex items-center">
             {resetSeconds > 0 ? (
-              <span className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-950/20 border border-amber-200/40 text-amber-700 dark:text-amber-400 text-xs font-bold rounded-full animate-pulse">
-                <Loader2 size={12} className="animate-spin" />
-                Limite reinicia em: {resetSeconds}s
-              </span>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 dark:bg-red-500/20 border border-red-500/20 text-red-600 dark:text-red-400 rounded-2xl animate-pulse">
+                <Clock size={16} className="text-red-500 animate-spin-slow" style={{ animationDuration: '4s' }} />
+                <div className="flex flex-col">
+                  <span className="text-[9px] uppercase font-bold text-red-500">Próxima Importação</span>
+                  <span className="text-xs font-extrabold font-mono leading-none">
+                    {Math.floor(resetSeconds / 60).toString().padStart(2, '0')}:{(resetSeconds % 60).toString().padStart(2, '0')}
+                  </span>
+                </div>
+              </div>
             ) : tokensSpent > 0 ? (
-              <span className="px-3 py-1 bg-green-50 dark:bg-green-950/20 border border-green-200/40 text-green-700 dark:text-green-400 text-xs font-bold rounded-full">
-                ✓ Cotas Disponíveis
-              </span>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 dark:bg-green-500/20 border border-green-500/20 text-green-600 dark:text-green-400 rounded-2xl">
+                <Clock size={16} className="text-green-500" />
+                <div className="flex flex-col">
+                  <span className="text-[9px] uppercase font-bold text-green-500">Próxima Importação</span>
+                  <span className="text-xs font-extrabold leading-none">Liberada</span>
+                </div>
+              </div>
             ) : (
-              <span className="px-3 py-1 bg-gray-50 dark:bg-gray-800 border border-gray-200/50 dark:border-white/5 text-gray-600 dark:text-gray-400 text-xs font-medium rounded-full">
-                Pronto para uso
-              </span>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-200/50 dark:border-white/5 text-gray-600 dark:text-gray-400 rounded-2xl">
+                <Clock size={16} className="text-gray-400" />
+                <div className="flex flex-col">
+                  <span className="text-[9px] uppercase font-bold text-gray-400">Próxima Importação</span>
+                  <span className="text-xs font-semibold leading-none">Pronto para uso</span>
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -775,13 +789,18 @@ export function Import() {
           {file && (
             <button
               onClick={handleAnalyze}
-              disabled={loading}
+              disabled={loading || resetSeconds > 0}
               className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 text-white rounded-2xl font-bold shadow-lg shadow-purple-500/20 transition-all duration-300 cursor-pointer disabled:cursor-not-allowed"
             >
               {loading ? (
                 <>
                   <Loader2 size={18} className="animate-spin" />
                   {loadingStep}
+                </>
+              ) : resetSeconds > 0 ? (
+                <>
+                  <Clock size={18} className="animate-pulse" />
+                  Aguarde {Math.floor(resetSeconds / 60).toString().padStart(2, '0')}:{(resetSeconds % 60).toString().padStart(2, '0')} para analisar novamente
                 </>
               ) : (
                 <>
