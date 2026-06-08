@@ -76,7 +76,25 @@ ${fileText}
 
     if (!response.ok) {
       const errorText = await response.text()
-      return res.status(response.status).json({ error: `Erro na API do Groq: ${errorText}` })
+      const limitTokens = response.headers.get('x-ratelimit-limit-tokens')
+      const remainingTokens = response.headers.get('x-ratelimit-remaining-tokens')
+      const resetTokens = response.headers.get('x-ratelimit-reset-tokens')
+
+      let parsedJson: any = null
+      try {
+        parsedJson = JSON.parse(errorText)
+      } catch (e) {}
+
+      const cleanMsg = parsedJson?.error?.message || errorText
+
+      return res.status(response.status).json({
+        error: `Erro na API do Groq: ${cleanMsg}`,
+        rateLimits: {
+          limitTokens,
+          remainingTokens,
+          resetTokens
+        }
+      })
     }
 
     const responseData = await response.json()

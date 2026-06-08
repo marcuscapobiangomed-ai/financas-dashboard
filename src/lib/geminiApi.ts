@@ -64,7 +64,16 @@ export async function parseDocumentWithAI(
     if (!response.ok) {
       const errorText = await response.text()
       console.error('Erro na Vercel API Route:', errorText)
-      throw new Error(`Erro ao invocar a IA no servidor: ${response.status} ${response.statusText} - ${errorText}`)
+      
+      let parsedError: any = {}
+      try {
+        parsedError = JSON.parse(errorText)
+      } catch (e) {}
+
+      const errorObj = new Error(parsedError.error || `Erro ao invocar a IA no servidor: ${response.status}`) as any
+      errorObj.status = response.status
+      errorObj.rateLimits = parsedError.rateLimits
+      throw errorObj
     }
 
     const data = await response.json()

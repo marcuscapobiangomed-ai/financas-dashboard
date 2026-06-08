@@ -475,6 +475,19 @@ export function Import() {
     } catch (err: any) {
       console.error(err)
       setError(err?.message || 'Ocorreu um erro ao processar o documento.')
+
+      if (err?.rateLimits) {
+        if (err.rateLimits.limitTokens) setTokensLimit(parseInt(err.rateLimits.limitTokens) || 0)
+        if (err.rateLimits.remainingTokens) setTokensRemaining(parseInt(err.rateLimits.remainingTokens) || 0)
+        if (err.rateLimits.resetTokens) setResetSeconds(parseResetTokensToSeconds(err.rateLimits.resetTokens))
+      } else {
+        const errorMsg = err?.message || ''
+        const tryAgainMatch = errorMsg.match(/try again in (\d+(?:\.\d+)?)s/i)
+        if (tryAgainMatch) {
+          const seconds = Math.ceil(parseFloat(tryAgainMatch[1]))
+          setResetSeconds(seconds)
+        }
+      }
     } finally {
       setLoading(false)
       setLoadingStep('')
