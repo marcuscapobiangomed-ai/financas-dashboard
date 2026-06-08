@@ -32,7 +32,7 @@ function cleanAndCompressCSV(rawCsv: string): string {
   for (let i = 0; i < Math.min(lines.length, 5); i++) {
     const cols = lines[i].split(sep).map(c => c.trim().toLowerCase());
     let dIdx = cols.findIndex(c => dateKeywords.some(k => c.includes(k)));
-    let dsIdx = cols.findIndex(c => descKeywords.some(k => c.includes(k)));
+    let dsIdx = cols.findIndex(c => !c.includes('id') && descKeywords.some(k => c.includes(k)));
     let vIdx = cols.findIndex(c => valKeywords.some(k => c.includes(k)));
     
     if (dIdx !== -1 && dsIdx !== -1 && vIdx !== -1) {
