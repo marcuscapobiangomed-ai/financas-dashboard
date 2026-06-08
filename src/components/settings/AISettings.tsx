@@ -29,12 +29,28 @@ export function AISettings({ appSettings, updateAppSettings }: AISettingsProps) 
     setTestResult(null)
 
     try {
-      // Chamada leve para o endpoint de modelos do Gemini para validar a chave
-      const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${keyToTest}`
-      const response = await fetch(url)
+      const isGroq = keyToTest.startsWith('gsk_')
+      let response: Response
+
+      if (isGroq) {
+        // Chamada leve para o endpoint de modelos do Groq para validar a chave
+        const url = 'https://api.groq.com/openai/v1/models'
+        response = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${keyToTest}`
+          }
+        })
+      } else {
+        // Chamada leve para o endpoint de modelos do Gemini para validar a chave
+        const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${keyToTest}`
+        response = await fetch(url)
+      }
       
       if (response.ok) {
-        setTestResult({ success: true, message: 'Chave válida! A conexão com a API do Gemini foi estabelecida.' })
+        setTestResult({
+          success: true,
+          message: `Chave válida! A conexão com a API do ${isGroq ? 'Groq' : 'Gemini'} foi estabelecida.`
+        })
         // Autosalvar ao testar com sucesso
         updateAppSettings({ geminiApiKey: keyToTest })
       } else {
@@ -43,7 +59,7 @@ export function AISettings({ appSettings, updateAppSettings }: AISettingsProps) 
         setTestResult({ success: false, message: `Chave inválida: ${errMsg}` })
       }
     } catch (err) {
-      setTestResult({ success: false, message: 'Erro de rede ao conectar com a API do Gemini.' })
+      setTestResult({ success: false, message: 'Erro de rede ao conectar com o serviço de IA.' })
     } finally {
       setTesting(false)
     }
@@ -57,7 +73,7 @@ export function AISettings({ appSettings, updateAppSettings }: AISettingsProps) 
         </div>
         <div>
           <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Configurações de Inteligência Artificial</h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400">Configure sua chave da API do Gemini para ler faturas e planilhas</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Configure sua chave da API do Groq ou Gemini para ler faturas e planilhas</p>
         </div>
       </div>
 
@@ -65,7 +81,7 @@ export function AISettings({ appSettings, updateAppSettings }: AISettingsProps) 
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
             <Key size={14} className="text-gray-400" />
-            Gemini API Key
+            Chave de API (Groq / Gemini)
           </label>
           <div className="relative flex items-center">
             <input
@@ -73,7 +89,7 @@ export function AISettings({ appSettings, updateAppSettings }: AISettingsProps) 
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               onBlur={handleSave}
-              placeholder="Cole sua API Key do Gemini aqui..."
+              placeholder="Cole sua API Key da Groq (começa com gsk_) ou do Gemini aqui..."
               className="w-full pl-3 pr-10 py-2.5 bg-white/60 dark:bg-gray-900/40 border border-gray-200 dark:border-white/10 rounded-xl text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500 dark:focus:ring-purple-400/40 dark:focus:border-purple-400 transition-all font-mono"
             />
             <button
@@ -83,8 +99,18 @@ export function AISettings({ appSettings, updateAppSettings }: AISettingsProps) 
               {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
-          <p className="text-[10px] text-gray-400 dark:text-gray-500">
-            Sua chave é salva diretamente na sua conta de forma criptografada. Você pode gerar uma chave gratuita no{' '}
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 leading-relaxed">
+            Sua chave é salva diretamente na sua conta de forma segura. <br />
+            Você pode gerar uma chave no{' '}
+            <a
+              href="https://console.groq.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-purple-600 dark:text-purple-400 underline hover:text-purple-700"
+            >
+              Groq Console
+            </a>{' '}
+            ou no{' '}
             <a
               href="https://aistudio.google.com/"
               target="_blank"

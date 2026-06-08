@@ -16,8 +16,8 @@ export function Import() {
   const transactions = useFinanceStore((s) => s.transactions)
   const addTransactions = useFinanceStore((s) => s.addTransactions)
 
-  // API Key
-  const geminiApiKey = appSettings.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || ''
+  // API Key (supports Groq and Gemini keys)
+  const geminiApiKey = appSettings.geminiApiKey || import.meta.env.VITE_GROQ_API_KEY || import.meta.env.VITE_GEMINI_API_KEY || ''
 
   // UI States
   const [file, setFile] = useState<File | null>(null)
@@ -97,12 +97,35 @@ export function Import() {
       for (const sheetName of workbook.SheetNames) {
         const sheet = workbook.Sheets[sheetName]
         const csv = XLSX.utils.sheet_to_csv(sheet)
-        text += `--- Planilha: ${sheetName} ---\n${csv}\n\n`
+        const cleanLines = csv
+          .split('\n')
+          .map(line => line.trim())
+          .filter(line => {
+            if (!line) return false
+            // Remove todos os delimitadores e espaços em branco para checar se a linha tem conteúdo real
+            const withoutSeparators = line.replace(/[,;\t|\s]/g, '')
+            return withoutSeparators.length > 0
+          })
+        if (cleanLines.length > 0) {
+          text += `--- Planilha: ${sheetName} ---\n${cleanLines.join('\n')}\n\n`
+        }
       }
+      console.log('Tamanho do texto extraído da planilha:', text.length, 'caracteres')
       return text
     } else if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
       setLoadingStep('Lendo arquivo CSV...')
-      return await file.text()
+      const rawText = await file.text()
+      const cleanLines = rawText
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => {
+          if (!line) return false
+          const withoutSeparators = line.replace(/[,;\t|\s]/g, '')
+          return withoutSeparators.length > 0
+        })
+      const cleanCsv = cleanLines.join('\n')
+      console.log('Tamanho do texto extraído do CSV:', cleanCsv.length, 'caracteres')
+      return cleanCsv
     } else {
       throw new Error('Formato de arquivo não suportado. Use PDF, Excel (.xlsx, .xls) ou CSV.')
     }
@@ -112,7 +135,7 @@ export function Import() {
   async function handleAnalyze() {
     if (!file) return
     if (!geminiApiKey) {
-      setError('Por favor, configure sua Gemini API Key antes de realizar a análise.')
+      setError('Por favor, configure sua API Key da Groq ou do Gemini antes de realizar a análise.')
       return
     }
 
@@ -126,7 +149,7 @@ export function Import() {
       setLoadingStep('Lendo arquivo selecionado...')
       const text = await extractText(file)
 
-      setLoadingStep('Enviando dados para análise da Inteligência Artificial do Gemini...')
+      setLoadingStep('Enviando dados para análise da Inteligência Artificial...')
       const result = await parseDocumentWithAI(geminiApiKey, text, file.name, activeSections)
 
       setExtractedTxs(result.transactions)
@@ -285,10 +308,10 @@ export function Import() {
         <div className="bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200/50 dark:border-purple-800/30 rounded-3xl p-5 flex gap-4 items-start animate-fade-in">
           <AlertCircle className="text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" size={20} />
           <div>
-            <h3 className="font-semibold text-sm text-purple-950 dark:text-purple-300">API Key do Gemini não configurada</h3>
+            <h3 className="font-semibold text-sm text-purple-950 dark:text-purple-300">Chave de API da IA não configurada</h3>
             <p className="text-xs text-purple-800/80 dark:text-purple-400/85 mt-1 leading-relaxed">
-              Você precisa configurar uma chave do Gemini para usar a importação inteligente por IA. 
-              Isso é gratuito e pode ser gerado em poucos cliques. Acesse as{' '}
+              Você precisa configurar uma chave do Groq ou do Gemini para usar a importação inteligente por IA. 
+              Acesse as{' '}
               <Link to="/settings" className="underline font-semibold text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white">
                 Configurações do App
               </Link>{' '}
