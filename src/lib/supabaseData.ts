@@ -7,6 +7,36 @@ import { toSnake, toCamel, toModel, rowsToModels, requireSession, sanitizeMonthS
 
 export { toModel, sanitizeMonthSettings, parseUserSettingsRow }
 
+/**
+ * Executes an upsert operation with auto-recovery for missing schema columns.
+ * If Supabase returns a PGRST204/PGRST205/schema cache error indicating that a column doesn't exist,
+ * it dynamically strips that column from the payload and retries the operation.
+ */
+async function safeUpsert(table: string, row: Record<string, any>, onConflict: string): Promise<void> {
+  let attempt = 0
+  const maxAttempts = 10
+  const rowCopy = { ...row }
+  
+  while (attempt < maxAttempts) {
+    const { error } = await supabase.from(table).upsert(rowCopy, { onConflict })
+    if (!error) return
+
+    // Check for missing column error in the schema cache
+    // Message pattern: "Could not find the '...' column of '...' in the schema cache"
+    if (error.message && error.message.includes("Could not find the '")) {
+      const match = error.message.match(/Could not find the '([^']+)' column/)
+      if (match && match[1]) {
+        const missingColumn = match[1]
+        console.warn(`[Supabase] Coluna '${missingColumn}' ausente na tabela '${table}'. Removendo do payload e tentando novamente.`, error)
+        delete rowCopy[missingColumn]
+        attempt++
+        continue
+      }
+    }
+    throw error
+  }
+}
+
 // ── Transactions ───────────────────────────────────────────────────────────
 export async function fetchTransactions(userId: string): Promise<Transaction[]> {
   const { data, error } = await supabase.from('transactions').select('*').eq('user_id', userId)
@@ -16,8 +46,7 @@ export async function fetchTransactions(userId: string): Promise<Transaction[]> 
 export async function upsertTransaction(userId: string, t: Transaction): Promise<void> {
   await requireSession()
   const { confidence, ...cleanT } = t as any
-  const { error } = await supabase.from('transactions').upsert({ ...toSnake(cleanT), user_id: userId }, { onConflict: 'id' })
-  if (error) throw error
+  await safeUpsert('transactions', { ...toSnake(cleanT), user_id: userId }, 'id')
 }
 
 export async function bulkUpsertTransactions(userId: string, txs: Transaction[]): Promise<void> {
@@ -44,8 +73,7 @@ export async function fetchRecurringTemplates(userId: string): Promise<Recurring
 
 export async function upsertRecurringTemplate(userId: string, t: RecurringTemplate): Promise<void> {
   await requireSession()
-  const { error } = await supabase.from('recurring_templates').upsert({ ...toSnake(t as any), user_id: userId }, { onConflict: 'id' })
-  if (error) throw error
+  await safeUpsert('recurring_templates', { ...toSnake(t as any), user_id: userId }, 'id')
 }
 
 export async function deleteRecurringTemplateRemote(id: string): Promise<void> {
@@ -62,8 +90,7 @@ export async function fetchExtraordinaryEntries(userId: string): Promise<Extraor
 
 export async function upsertExtraordinaryEntry(userId: string, e: ExtraordinaryEntry): Promise<void> {
   await requireSession()
-  const { error } = await supabase.from('extraordinary_entries').upsert({ ...toSnake(e as any), user_id: userId }, { onConflict: 'id' })
-  if (error) throw error
+  await safeUpsert('extraordinary_entries', { ...toSnake(e as any), user_id: userId }, 'id')
 }
 
 export async function deleteExtraordinaryEntryRemote(id: string): Promise<void> {
@@ -80,8 +107,7 @@ export async function fetchInvestments(userId: string): Promise<Investment[]> {
 
 export async function upsertInvestment(userId: string, inv: Investment): Promise<void> {
   await requireSession()
-  const { error } = await supabase.from('investments').upsert({ ...toSnake(inv as any), user_id: userId }, { onConflict: 'id' })
-  if (error) throw error
+  await safeUpsert('investments', { ...toSnake(inv as any), user_id: userId }, 'id')
 }
 
 export async function deleteInvestmentRemote(id: string): Promise<void> {
@@ -112,8 +138,7 @@ export async function upsertMonthSettings(userId: string, monthKey: string, sett
     copied_from_months: settings.copiedFromMonths ?? null, closed_at: settings.closedAt ?? null,
     opened_at: settings.openedAt ?? null, closed_by: settings.closedBy ?? null,
   }
-  const { error } = await supabase.from('month_settings').upsert(row, { onConflict: 'user_id,month_key' })
-  if (error) throw error
+  await safeUpsert('month_settings', row, 'user_id,month_key')
 }
 
 // ── User Settings (AppSettings) ────────────────────────────────────────────
@@ -134,8 +159,7 @@ export async function upsertUserSettings(userId: string, settings: AppSettings):
     has_seen_tutorial: settings.hasSeenTutorial ?? false, rates_last_updated: settings.ratesLastUpdated ?? null,
     gemini_api_key: settings.geminiApiKey ?? null,
   }
-  const { error } = await supabase.from('user_settings').upsert(row, { onConflict: 'user_id' })
-  if (error) throw error
+  await safeUpsert('user_settings', row, 'user_id')
 }
 
 // ── Bulk operations ────────────────────────────────────────────────────────

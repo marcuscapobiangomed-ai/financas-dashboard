@@ -140,7 +140,7 @@ Output JSON structure strictly:
         required: ['transactions', 'questions']
       }
 
-      const geminiModels = ['gemini-2.5-flash', 'gemini-1.5-flash']
+      const geminiModels = ['gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash']
       
       for (const currentModel of geminiModels) {
         try {

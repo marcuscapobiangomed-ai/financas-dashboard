@@ -553,13 +553,14 @@ export function Import() {
           const unmatchedRows = lines.slice(1).filter(l => l.trim().length > 0)
           
           const isGroq = geminiApiKey.startsWith('gsk_')
-          const batchSize = isGroq ? 15 : unmatchedRows.length
+          const batchSize = isGroq ? 15 : 40
           const totalBatches = Math.ceil(unmatchedRows.length / batchSize)
           
           for (let b = 0; b < totalBatches; b++) {
-            if (b > 0 && isGroq) {
-              setLoadingStep(`Aguardando intervalo de segurança anti Rate-Limit (4s)...`)
-              await new Promise(resolve => setTimeout(resolve, 4000))
+            if (b > 0) {
+              const delayMs = isGroq ? 4000 : 1000
+              setLoadingStep(`Aguardando intervalo de segurança (${delayMs / 1000}s)...`)
+              await new Promise(resolve => setTimeout(resolve, delayMs))
             }
             
             const batchRows = unmatchedRows.slice(b * batchSize, (b + 1) * batchSize)
@@ -568,7 +569,7 @@ export function Import() {
             if (isGroq) {
               setLoadingStep(`Analisando lote ${b + 1} de ${totalBatches} (${Math.round(((b + 1) / totalBatches) * 100)}%)...`)
             } else {
-              setLoadingStep('Enviando dados para análise rápida do Gemini...')
+              setLoadingStep(`Enviando lote ${b + 1} de ${totalBatches} para análise do Gemini (${Math.round(((b + 1) / totalBatches) * 100)}%)...`)
             }
             
             const result = await parseDocumentWithAI(geminiApiKey, batchText, isGroq ? `${file.name} (Lote ${b + 1})` : file.name, activeSections)

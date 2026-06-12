@@ -41,6 +41,11 @@ export const useAuthStore = create<AuthStore>()((set) => ({
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user) {
         set({ user: session.user, session })
+        // Process any pending offline changes before fetching from DB
+        const financeStore = useFinanceStore.getState()
+        if (financeStore.syncQueue.length > 0) {
+          await financeStore.processSyncQueue()
+        }
         // Load data from Supabase into finance store
         const data = await fetchAllUserData(session.user.id)
         const supabaseIsEmpty = data.transactions.length === 0
@@ -69,6 +74,12 @@ export const useAuthStore = create<AuthStore>()((set) => ({
           useFinanceStore.getState().resetStore()
         } else if (session?.user && event === 'SIGNED_IN') {
           set({ user: session.user, session })
+          
+          const financeStore = useFinanceStore.getState()
+          if (financeStore.syncQueue.length > 0) {
+            await financeStore.processSyncQueue()
+          }
+          
           const data = await fetchAllUserData(session.user.id)
           const supabaseIsEmpty = data.transactions.length === 0
 
@@ -97,6 +108,12 @@ export const useAuthStore = create<AuthStore>()((set) => ({
     }
     if (data.user) {
       set({ user: data.user, session: data.session })
+      
+      const financeStore = useFinanceStore.getState()
+      if (financeStore.syncQueue.length > 0) {
+        await financeStore.processSyncQueue()
+      }
+      
       const storeData = await fetchAllUserData(data.user.id)
       const supabaseIsEmpty = storeData.transactions.length === 0
 
@@ -129,6 +146,11 @@ export const useAuthStore = create<AuthStore>()((set) => ({
           hasSeenTutorial: true // Always skip tutorial for new users
         }
         await upsertUserSettings(data.user.id, fullSettings)
+      }
+
+      const financeStore = useFinanceStore.getState()
+      if (financeStore.syncQueue.length > 0) {
+        await financeStore.processSyncQueue()
       }
 
       const storeData = await fetchAllUserData(data.user.id)

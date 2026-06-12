@@ -356,7 +356,7 @@ ${fileText}
     required: ['transactions', 'questions']
   }
 
-  const models = ['gemini-2.5-flash', 'gemini-1.5-flash']
+  const models = ['gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash']
   let lastErrorMsg = ''
 
   for (let i = 0; i < models.length; i++) {
