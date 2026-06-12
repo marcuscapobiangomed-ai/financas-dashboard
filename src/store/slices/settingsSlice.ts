@@ -11,6 +11,66 @@ import {
   defaultMonthSettings,
 } from '../financeStoreHelpers'
 
+interface DebouncedFunction<T extends (...args: any[]) => void> {
+  (...args: Parameters<T>): void
+  flush: () => void
+}
+
+function debounce<T extends (...args: any[]) => void>(fn: T, delay: number): DebouncedFunction<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
+  let lastArgs: Parameters<T> | null = null
+
+  const debounced = (...args: Parameters<T>) => {
+    lastArgs = args
+    if (timeoutId) clearTimeout(timeoutId)
+    timeoutId = setTimeout(() => {
+      fn(...args)
+      timeoutId = null
+      lastArgs = null
+    }, delay)
+  }
+
+  debounced.flush = () => {
+    if (timeoutId && lastArgs) {
+      clearTimeout(timeoutId)
+      fn(...lastArgs)
+      timeoutId = null
+      lastArgs = null
+    }
+  }
+
+  return debounced
+}
+
+const debouncedMonthSettingsSyncs: Record<string, DebouncedFunction<(uid: string, key: string, settings: MonthSettings) => void>> = {}
+
+function getDebouncedMonthSettingsSync(monthKey: string) {
+  if (!debouncedMonthSettingsSyncs[monthKey]) {
+    debouncedMonthSettingsSyncs[monthKey] = debounce((uid: string, key: string, settings: MonthSettings) => {
+      syncRemote('upsertMonthSettings', uid, key, settings)
+    }, 800)
+  }
+  return debouncedMonthSettingsSyncs[monthKey]
+}
+
+const debouncedUserSettingsSync = debounce((uid: string, settings: AppSettings) => {
+  syncRemote('upsertUserSettings', uid, settings)
+}, 800)
+
+const debouncedInvestmentsSync = debounce((uid: string, recalculatedInvestments: any[]) => {
+  syncRemote('bulkUpsertInvestments', uid, recalculatedInvestments)
+}, 800)
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    debouncedUserSettingsSync.flush()
+    debouncedInvestmentsSync.flush()
+    for (const syncFn of Object.values(debouncedMonthSettingsSyncs)) {
+      syncFn.flush()
+    }
+  })
+}
+
 export interface SettingsSlice {
   monthSettings: Record<string, MonthSettings>
   appSettings: AppSettings
@@ -44,7 +104,9 @@ export const createSettingsSlice = (set: any, get: any): SettingsSlice => ({
       monthSettings: { ...s.monthSettings, [monthKey]: updated },
     }))
     const uid = getUserId()
-    if (uid) syncRemote('upsertMonthSettings', uid, monthKey, updated)
+    if (uid) {
+      getDebouncedMonthSettingsSync(monthKey)(uid, monthKey, updated)
+    }
   },
 
   toggleMonthClosed: (monthKey) => {
@@ -86,7 +148,9 @@ export const createSettingsSlice = (set: any, get: any): SettingsSlice => ({
     const newSettings = { ...get().appSettings, ...updates }
     set({ appSettings: newSettings })
     const uid = getUserId()
-    if (uid) syncRemote('upsertUserSettings', uid, newSettings)
+    if (uid) {
+      debouncedUserSettingsSync(uid, newSettings)
+    }
 
     if (updates.cdiRateAnnual !== undefined || updates.ipcaRateAnnual !== undefined) {
       const { investments } = get()
@@ -104,7 +168,7 @@ export const createSettingsSlice = (set: any, get: any): SettingsSlice => ({
       if (uid) {
         const toSync = recalculated.filter((inv: any) => (inv.investmentType ?? 'manual') !== 'manual')
         if (toSync.length > 0) {
-          syncRemote('bulkUpsertInvestments', uid, toSync)
+          debouncedInvestmentsSync(uid, toSync)
         }
       }
     }
