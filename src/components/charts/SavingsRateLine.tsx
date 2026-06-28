@@ -5,6 +5,7 @@ import {
 import { useAnnualData } from '../../hooks/useAnnualData'
 import { useFinanceStore } from '../../store/useFinanceStore'
 import { EmptyState } from '../ui/EmptyState'
+import { TOOLTIP_STYLE } from '../../constants/chartStyles'
 
 export function SavingsRateLine({ fromMonthKey }: { fromMonthKey?: string }) {
   const { trends } = useAnnualData(fromMonthKey)
@@ -39,7 +40,7 @@ export function SavingsRateLine({ fromMonthKey }: { fromMonthKey?: string }) {
         />
         <Tooltip
           formatter={(v) => [`${Number(v).toFixed(1)}%`, 'Taxa de Poupança']}
-          contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
+          contentStyle={TOOLTIP_STYLE}
         />
         <ReferenceLine
           y={appSettings.defaultSavingsGoalPercent}

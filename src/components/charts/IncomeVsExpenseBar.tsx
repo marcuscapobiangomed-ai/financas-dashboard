@@ -5,6 +5,7 @@ import {
 import { useAnnualData } from '../../hooks/useAnnualData'
 import { formatCurrency } from '../../utils/currency'
 import { EmptyState } from '../ui/EmptyState'
+import { TOOLTIP_STYLE, AXIS_TICK_STYLE, formatYAxisK } from '../../constants/chartStyles'
 
 export function IncomeVsExpenseBar({ fromMonthKey }: { fromMonthKey?: string }) {
   const { trends } = useAnnualData(fromMonthKey)
@@ -20,8 +21,8 @@ export function IncomeVsExpenseBar({ fromMonthKey }: { fromMonthKey?: string }) 
         <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
         <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
         <YAxis
-          tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`}
-          tick={{ fontSize: 11, fill: '#9ca3af' }}
+          tickFormatter={formatYAxisK}
+          tick={AXIS_TICK_STYLE}
           axisLine={false}
           tickLine={false}
           width={55}
@@ -31,7 +32,7 @@ export function IncomeVsExpenseBar({ fromMonthKey }: { fromMonthKey?: string }) 
             formatCurrency(Number(value)),
             name === 'income' ? 'Receita' : name === 'expenses' ? 'Despesas' : 'Balanço',
           ]}
-          contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
+          contentStyle={TOOLTIP_STYLE}
         />
         <Legend
           formatter={(v) => v === 'income' ? 'Receita' : v === 'expenses' ? 'Despesas' : 'Balanço'}

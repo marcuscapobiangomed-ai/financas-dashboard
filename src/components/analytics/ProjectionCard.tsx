@@ -1,8 +1,10 @@
 import { TrendingUp, Target } from 'lucide-react'
 import { ProjectionData } from '../../types/analytics'
 import { formatCurrency, formatPercent } from '../../utils/currency'
+import { useFinanceStore } from '../../store/useFinanceStore'
 
 export function ProjectionCard({ projection }: { projection: ProjectionData }) {
+  const goalRate = useFinanceStore((s) => s.appSettings.defaultSavingsGoalPercent)
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
       <div className="flex items-center gap-2 mb-4">
@@ -30,7 +32,7 @@ export function ProjectionCard({ projection }: { projection: ProjectionData }) {
         </div>
         <div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Taxa média de poupança</p>
-          <p className={`text-lg font-bold ${projection.avgSavingsRate >= 20 ? 'text-emerald-600' : 'text-yellow-600'}`}>
+          <p className={`text-lg font-bold ${projection.avgSavingsRate >= goalRate ? 'text-emerald-600' : 'text-yellow-600'}`}>
             {formatPercent(projection.avgSavingsRate)}
           </p>
         </div>

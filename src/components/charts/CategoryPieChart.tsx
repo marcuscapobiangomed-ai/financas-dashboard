@@ -3,6 +3,7 @@ import { useAnalytics } from '../../hooks/useAnalytics'
 import { CATEGORY_META } from '../../types/category'
 import { formatCurrency } from '../../utils/currency'
 import { EmptyState } from '../ui/EmptyState'
+import { TOOLTIP_STYLE } from '../../constants/chartStyles'
 
 interface Props {
   monthKey: string
@@ -40,7 +41,7 @@ export function CategoryPieChart({ monthKey }: Props) {
         </Pie>
         <Tooltip
           formatter={(value) => [formatCurrency(Number(value)), '']}
-          contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
+          contentStyle={TOOLTIP_STYLE}
         />
         <Legend
           iconType="circle"

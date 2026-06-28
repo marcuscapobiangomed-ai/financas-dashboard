@@ -6,6 +6,7 @@ import { getLast12MonthKeys, getMonthShort } from '../../constants/months'
 import { useSectionConfig } from '../../hooks/useSectionConfig'
 import { formatCurrency } from '../../utils/currency'
 import { EmptyState } from '../ui/EmptyState'
+import { TOOLTIP_STYLE, AXIS_TICK_STYLE, formatYAxisK } from '../../constants/chartStyles'
 
 export function CategoryStackedBar({ fromMonthKey }: { fromMonthKey?: string }) {
   const transactions = useFinanceStore((s) => s.transactions)
@@ -13,16 +14,28 @@ export function CategoryStackedBar({ fromMonthKey }: { fromMonthKey?: string }) 
 
   const { data, categories } = useMemo(() => {
     const keys = getLast12MonthKeys(fromMonthKey)
+    const keysSet = new Set(keys)
     const usedCategories = new Set<Category>()
 
+    // Pre-group transactions by monthKey
+    const txsByMonth = new Map<string, typeof transactions>()
+    transactions.forEach((t) => {
+      if (!expenseSections.includes(t.section)) return
+      if (!keysSet.has(t.monthKey)) return
+      let list = txsByMonth.get(t.monthKey)
+      if (!list) {
+        list = []
+        txsByMonth.set(t.monthKey, list)
+      }
+      list.push(t)
+      usedCategories.add(t.category)
+    })
+
     const data = keys.map((key) => {
-      const monthTxs = transactions.filter(
-        (t) => t.monthKey === key && expenseSections.includes(t.section)
-      )
+      const monthTxs = txsByMonth.get(key) ?? []
       const row: Record<string, string | number> = { label: getMonthShort(key) }
       monthTxs.forEach((t) => {
         row[t.category] = ((row[t.category] as number) || 0) + t.amount
-        usedCategories.add(t.category)
       })
       return row
     })
@@ -41,8 +54,8 @@ export function CategoryStackedBar({ fromMonthKey }: { fromMonthKey?: string }) 
         <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
         <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
         <YAxis
-          tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`}
-          tick={{ fontSize: 11, fill: '#9ca3af' }}
+          tickFormatter={formatYAxisK}
+          tick={AXIS_TICK_STYLE}
           axisLine={false}
           tickLine={false}
           width={55}
@@ -52,7 +65,7 @@ export function CategoryStackedBar({ fromMonthKey }: { fromMonthKey?: string }) 
             formatCurrency(Number(value)),
             CATEGORY_META[name as Category]?.label ?? String(name),
           ]}
-          contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
+          contentStyle={TOOLTIP_STYLE}
         />
         <Legend
           formatter={(v) => CATEGORY_META[v as Category]?.label ?? v}

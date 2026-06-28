@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceLine,
@@ -8,6 +8,7 @@ import { Category, CATEGORY_META } from '../../types/category'
 import { getLast12MonthKeys, getMonthShort } from '../../constants/months'
 import { EmptyState } from '../ui/EmptyState'
 import { useSectionConfig } from '../../hooks/useSectionConfig'
+import { TOOLTIP_STYLE, AXIS_TICK_STYLE, formatYAxisK } from '../../constants/chartStyles'
 
 const TOP_N = 5
 
@@ -17,32 +18,47 @@ export function CategoryTrendLine({ fromMonthKey }: { fromMonthKey?: string }) {
 
   const monthKeys = useMemo(() => getLast12MonthKeys(fromMonthKey), [fromMonthKey])
 
+  // Pre-group transactions by monthKey+category for O(n) filtering
+  const byMonthCat = useMemo(() => {
+    const keysSet = new Set(monthKeys)
+    const grouped = new Map<string, number>()
+    transactions.forEach((t) => {
+      if (!expenseSections.includes(t.section)) return
+      if (!keysSet.has(t.monthKey)) return
+      const key = `${t.monthKey}::${t.category}`
+      grouped.set(key, (grouped.get(key) ?? 0) + t.amount)
+    })
+    return grouped
+  }, [transactions, monthKeys, expenseSections])
+
   // Find top N categories by total expense across 12 months
   const topCategories = useMemo(() => {
     const totals = new Map<Category, number>()
-    transactions
-      .filter((t) => monthKeys.includes(t.monthKey) && expenseSections.includes(t.section))
-      .forEach((t) => {
-        totals.set(t.category, (totals.get(t.category) ?? 0) + t.amount)
-      })
+    for (const [key, amount] of byMonthCat) {
+      const [, cat] = key.split('::')
+      totals.set(cat as Category, (totals.get(cat as Category) ?? 0) + amount)
+    }
     return Array.from(totals.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, TOP_N)
       .map(([cat]) => cat)
-  }, [transactions, monthKeys, expenseSections])
+  }, [byMonthCat])
 
-  const [visible, setVisible] = useState<Set<Category>>(new Set(topCategories))
+  const [visible, setVisible] = useState<Set<Category>>(new Set())
+  useEffect(() => {
+    if (topCategories.length > 0 && (visible.size === 0 || !Array.from(visible).some((c) => topCategories.includes(c)))) {
+      setVisible(new Set(topCategories))
+    }
+  }, [topCategories])
 
   // Build chart data: one row per month
   const data = useMemo(() => monthKeys.map((key) => {
     const row: Record<string, number | string> = { label: getMonthShort(key) }
     topCategories.forEach((cat) => {
-      row[cat] = transactions
-        .filter((t) => t.monthKey === key && t.category === cat)
-        .reduce((s, t) => s + t.amount, 0)
+      row[cat] = byMonthCat.get(`${key}::${cat}`) ?? 0
     })
     return row
-  }), [transactions, monthKeys, topCategories])
+  }), [monthKeys, topCategories, byMonthCat])
 
   // Averages per category for reference line
   const averages = useMemo(() => {
@@ -98,15 +114,15 @@ export function CategoryTrendLine({ fromMonthKey }: { fromMonthKey?: string }) {
           <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
           <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
           <YAxis
-            tickFormatter={(v) => `R$${(v / 1000).toFixed(1)}k`}
-            tick={{ fontSize: 11, fill: '#9ca3af' }}
+            tickFormatter={formatYAxisK}
+            tick={AXIS_TICK_STYLE}
             axisLine={false}
             tickLine={false}
             width={48}
           />
           <Tooltip
-            formatter={(v, name) => [`R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, CATEGORY_META[name as Category]?.label ?? name]}
-            contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
+            formatter={(v, name) => [formatCurrency(Number(v)), CATEGORY_META[name as Category]?.label ?? name]}
+            contentStyle={TOOLTIP_STYLE}
           />
           {topCategories.filter((c) => visible.has(c)).map((cat) => (
             <Line

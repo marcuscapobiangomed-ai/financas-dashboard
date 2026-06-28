@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useFinanceStore } from '../store/useFinanceStore'
 import { Category, CATEGORY_META } from '../types/category'
 import { SpendingInsight, CategoryBreakdown, ProjectionData } from '../types/analytics'
-import { computeIncome, computeTotalExpenses, computeSavingsRate, projectEndOfMonth } from '../utils/calculations'
+import { computeIncome, computeTotalExpenses, computeSavingsRate, projectEndOfMonth, percentageOf } from '../utils/calculations'
 import { getCurrentMonthKey, getLast12MonthKeys, prevMonthKey } from '../constants/months'
 import { formatCurrency } from '../utils/currency'
 import { useSectionConfig } from './useSectionConfig'
@@ -31,8 +31,19 @@ export function useAnalytics(monthKey?: string) {
       amountByMonthCategory.set(mcKey, (amountByMonthCategory.get(mcKey) ?? 0) + t.amount)
     })
 
+    // Pre-group extraordinary entries by monthKey
+    const extraByMonth = new Map<string, typeof extraordinaryEntries>()
+    extraordinaryEntries.forEach((e) => {
+      let mList = extraByMonth.get(e.monthKey)
+      if (!mList) {
+        mList = []
+        extraByMonth.set(e.monthKey, mList)
+      }
+      mList.push(e)
+    })
+
     const monthTxs = txsByMonth.get(currentKey) ?? []
-    const monthExtraordinary = extraordinaryEntries.filter((e) => e.monthKey === currentKey)
+    const monthExtraordinary = extraByMonth.get(currentKey) ?? []
     const expenseTxs = monthTxs.filter((t) => expenseSections.includes(t.section))
 
     const totalExpenses = expenseTxs.reduce((s, t) => s + t.amount, 0)
@@ -63,7 +74,7 @@ export function useAnalytics(monthKey?: string) {
           category,
           label: meta?.label ?? category,
           total,
-          percentage: totalExpenses > 0 ? (total / totalExpenses) * 100 : 0,
+          percentage: percentageOf(total, totalExpenses),
           monthlyAvg,
           trend,
           trendPercent,
@@ -106,7 +117,7 @@ export function useAnalytics(monthKey?: string) {
           id: 'savings-below-goal',
           type: 'warning',
           title: 'Abaixo da meta de poupança',
-          description: `Poupança atual: ${savingsRate.toFixed(1)}%. Meta: ${goalRate}%. Faltam ${formatCurrency(((goalRate - savingsRate) / 100) * income)}.`,
+          description: `Poupança atual: ${savingsRate.toFixed(1)}%. Meta: ${goalRate}%. Faltam ${formatCurrency((goalRate / 100) * income - (income - totalExpenses))}.`,
         })
       }
     }
@@ -134,20 +145,20 @@ export function useAnalytics(monthKey?: string) {
     }
 
     // Projection: include extraordinary in historical income averages
-    const last12Completed = getLast12MonthKeys(currentKey).slice(0, -1)
-    const completedMonths = last12Completed.filter((k) => {
+    const previous11Keys = getLast12MonthKeys(currentKey).slice(0, -1)
+    const monthsWithData = previous11Keys.filter((k) => {
       const txs = txsByMonth.get(k)
       return txs && txs.length > 0
     })
-    const n = completedMonths.length
+    const n = monthsWithData.length
     let projection: ProjectionData | null = null
     if (n > 0) {
-      const avgIncome = completedMonths.reduce((s, k) => {
+      const avgIncome = monthsWithData.reduce((s, k) => {
         const txs = txsByMonth.get(k) ?? []
-        const extraOrdinary = extraordinaryEntries.filter((e) => e.monthKey === k)
-        return s + computeIncome(txs) + extraOrdinary.reduce((sum, e) => sum + e.netAmount, 0)
+        const extraList = extraByMonth.get(k) ?? []
+        return s + computeIncome(txs) + extraList.reduce((sum, e) => sum + e.netAmount, 0)
       }, 0) / n
-      const avgExpenses = completedMonths.reduce((s, k) => {
+      const avgExpenses = monthsWithData.reduce((s, k) => {
         const txs = txsByMonth.get(k) ?? []
         return s + computeTotalExpenses(txs, expenseSections)
       }, 0) / n
@@ -155,6 +166,7 @@ export function useAnalytics(monthKey?: string) {
       const monthsRemaining = 12 - m
       const projectedYearIncome = avgIncome * (n + monthsRemaining)
       const projectedYearTotal = avgExpenses * (n + monthsRemaining)
+      const avgSavingsRate = computeSavingsRate(avgIncome, avgExpenses)
       projection = {
         projectedYearTotal,
         projectedYearIncome,
@@ -162,11 +174,11 @@ export function useAnalytics(monthKey?: string) {
         monthsRemaining,
         avgMonthlyExpense: avgExpenses,
         avgMonthlyIncome: avgIncome,
-        avgSavingsRate: computeSavingsRate(avgIncome, avgExpenses),
-        onTrackForGoal: computeSavingsRate(avgIncome, avgExpenses) >= goalRate,
+        avgSavingsRate,
+        onTrackForGoal: avgSavingsRate >= goalRate,
       }
     }
 
-    return { categoryBreakdowns, insights, projection, totalExpenses, income }
+    return { categoryBreakdowns, insights, projection }
   }, [transactions, extraordinaryEntries, currentKey, appSettings.defaultSavingsGoalPercent, expenseSections])
 }
