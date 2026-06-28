@@ -6,6 +6,7 @@ import {
   getUserId,
   syncRemote,
   checkBudgetAlert,
+  assertMonthNotClosed,
 } from '../financeStoreHelpers'
 
 export interface TransactionSlice {
@@ -27,6 +28,7 @@ export const createTransactionSlice = (set: any, get: any): TransactionSlice => 
   transactions: [],
 
   addTransaction: (t) => {
+    try { assertMonthNotClosed(get, t.monthKey) } catch { console.warn('[closed] addTransaction blocked:', t.monthKey); return }
     const newT: Transaction = { ...t, id: generateId(), createdAt: now(), updatedAt: now() }
     set((s: any) => ({ transactions: [...s.transactions, newT] }))
     const uid = getUserId()
@@ -37,6 +39,9 @@ export const createTransactionSlice = (set: any, get: any): TransactionSlice => 
   },
 
   addTransactions: (ts) => {
+    for (const t of ts) {
+      try { assertMonthNotClosed(get, t.monthKey) } catch { console.warn('[closed] addTransactions blocked:', t.monthKey); return }
+    }
     const timeNow = now()
     const newTs = ts.map((t) => ({
       ...t,
@@ -55,6 +60,7 @@ export const createTransactionSlice = (set: any, get: any): TransactionSlice => 
     const baseDescription = base.description
 
     const transactions: Transaction[] = []
+    const checkedMonths = new Set<string>()
     for (let i = 0; i < installmentTotal; i++) {
       const d = new Date(startYear, startMonth - 1 + i, startDay || 1)
       const instYear = d.getFullYear()
@@ -65,6 +71,12 @@ export const createTransactionSlice = (set: any, get: any): TransactionSlice => 
       const mk = closingDay != null
         ? getBillingMonthKey(instDate, closingDay)
         : `${instYear}-${String(instMonth).padStart(2, '0')}`
+
+      // Check each unique monthKey before adding
+      if (!checkedMonths.has(mk)) {
+        checkedMonths.add(mk)
+        try { assertMonthNotClosed(get, mk) } catch { console.warn('[closed] addInstallmentTransactions blocked:', mk); return }
+      }
 
       transactions.push({
         ...base,

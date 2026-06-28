@@ -108,6 +108,18 @@ export function checkBudgetAlert(state: any, monthKey: string, section: string) 
 // Global flag to suppress sync-back when applying realtime updates
 export let _realtimeOrigin = { value: false }
 
+/**
+ * Check if a month is closed and throw an error if so.
+ * Used by store slices to prevent mutations on closed months.
+ */
+export function assertMonthNotClosed(get: any, monthKey: string): void {
+  const state = get()
+  const settings = state.monthSettings?.[monthKey]
+  if (settings?.isClosed) {
+    throw new Error(`O mês ${monthKey} está fechado. Reabra-o para fazer alterações.`)
+  }
+}
+
 /** Sleep for the given number of milliseconds. */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
