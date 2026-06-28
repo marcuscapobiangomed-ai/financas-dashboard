@@ -55,6 +55,8 @@ export const createInvestmentSlice = (set: any, get: any): InvestmentSlice => ({
   },
 
   deleteInvestment: (id) => {
+    const exists = get().investments.some((inv: any) => inv.id === id)
+    if (!exists) return
     set((s: any) => ({ investments: s.investments.filter((inv: any) => inv.id !== id) }))
     const uid = getUserId()
     if (uid) syncRemote('deleteInvestmentRemote', id)

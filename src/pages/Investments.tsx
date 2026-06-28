@@ -6,23 +6,15 @@ import { InvestmentCard } from '../components/investments/InvestmentCard'
 import { InvestmentModal } from '../components/investments/InvestmentModal'
 import { Button } from '../components/ui/Button'
 import { getInvestmentMeta } from '../constants/investmentTypes'
+import { formatMonthKey } from '../constants/months'
+import { formatCurrency } from '../utils/currency'
 import { Investment, InvestmentType } from '../types/investment'
-
-function fmt(v: number) {
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
-
-function formatMonthKey(key: string) {
-  const [y, m] = key.split('-')
-  const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-  return `${months[Number(m) - 1]}/${y}`
-}
 
 export function Investments() {
   const {
     investments, addInvestment, updateInvestment, deleteInvestment, currentMonthKey, transactions,
     modalOpen, setModalOpen, editingId, form, setForm, activeTab, setActiveTab, applyMsg, editingRates,
-    setEditingRates, tempCdi, setTempCdi, tempIpca, setTempIpca, selicDisplay, rateMsg, cdiRate, ipcaRate,
+    setEditingRates, tempCdi, setTempCdi, tempIpca, setTempIpca, selicDisplay, rateMsg, ratesFetching, cdiRate, ipcaRate,
     handleRefreshRates, handleApply, openNew, openEdit, handleTypeChange, saveRates, openEditRates,
   } = useInvestments()
 
@@ -89,7 +81,7 @@ export function Investments() {
 
       <RatesBanner
         cdiRate={cdiRate} ipcaRate={ipcaRate} selicDisplay={selicDisplay} editingRates={editingRates}
-        tempCdi={tempCdi} tempIpca={tempIpca} ratesFetching={false} rateMsg={rateMsg}
+        tempCdi={tempCdi} tempIpca={tempIpca}         ratesFetching={ratesFetching} rateMsg={rateMsg}
         setTempCdi={setTempCdi} setTempIpca={setTempIpca} setEditingRates={setEditingRates}
         saveRates={saveRates} openEditRates={openEditRates} handleRefreshRates={handleRefreshRates}
       />
@@ -105,11 +97,11 @@ export function Investments() {
           <div className="flex items-center gap-2 mb-2"><Wallet size={14} className="text-emerald-600" /><span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Rendimentos de {formatMonthKey(currentMonthKey)}</span></div>
           <div className="flex flex-col gap-1">
             {appliedThisMonth.map((t) => (
-              <div key={t.id} className="flex justify-between text-sm"><span className="text-emerald-800 dark:text-emerald-200">{t.description}</span><span className="font-semibold text-emerald-700 dark:text-emerald-300">{fmt(t.amount)}</span></div>
+              <div key={t.id} className="flex justify-between text-sm"><span className="text-emerald-800 dark:text-emerald-200">{t.description}</span><span className="font-semibold text-emerald-700 dark:text-emerald-300">{formatCurrency(t.amount)}</span></div>
             ))}
             <div className="flex justify-between text-sm font-bold pt-1 mt-1 border-t border-emerald-200 dark:border-emerald-700">
               <span className="text-emerald-800 dark:text-emerald-200">Total</span>
-              <span className="text-emerald-700 dark:text-emerald-300">{fmt(appliedThisMonth.reduce((s, t) => s + t.amount, 0))}</span>
+              <span className="text-emerald-700 dark:text-emerald-300">{formatCurrency(appliedThisMonth.reduce((s, t) => s + t.amount, 0))}</span>
             </div>
           </div>
         </div>

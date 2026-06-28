@@ -1,13 +1,10 @@
 import { Investment } from '../../types/investment'
 import { getInvestmentMeta } from '../../constants/investmentTypes'
+import { formatCurrency } from '../../utils/currency'
 import { daysSinceStartMonth, netYieldAfterIR } from '../../utils/investmentCalc'
 
 interface InvestmentsSummaryProps {
   investments: Investment[]
-}
-
-function fmt(v: number) {
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 export function InvestmentsSummary({ investments }: InvestmentsSummaryProps) {
@@ -46,19 +43,19 @@ export function InvestmentsSummary({ investments }: InvestmentsSummaryProps) {
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       <div className="glass-panel-lg p-5 flex flex-col justify-between">
         <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-2">Patrimônio Total</p>
-        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{fmt(totalPrincipal)}</p>
+        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(totalPrincipal)}</p>
       </div>
       <div className="glass-panel-lg p-5 border-t-4 border-t-indigo-500">
         <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-2">Renda Fixa</p>
-        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{fmt(totalFixed)}</p>
+        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(totalFixed)}</p>
       </div>
       <div className="glass-panel-lg p-5 border-t-4 border-t-emerald-500">
         <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-2">Renda Var.</p>
-        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{fmt(totalVariable)}</p>
+        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(totalVariable)}</p>
       </div>
       <div className="glass-panel-lg p-5 bg-gradient-to-br from-emerald-50/80 to-cyan-50/80 dark:from-emerald-900/30 dark:to-cyan-900/20">
         <p className="text-xs text-emerald-600 font-bold uppercase tracking-wider mb-2">Rend. Mensal Liq.</p>
-        <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">+{fmt(totalMonthlyNet)}</p>
+        <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">+{formatCurrency(totalMonthlyNet)}</p>
       </div>
     </div>
   )

@@ -1,6 +1,8 @@
 import { LineChart, PieChart, Pause, Play, Pencil, Trash2 } from 'lucide-react'
 import { Investment } from '../../types/investment'
 import { getInvestmentMeta } from '../../constants/investmentTypes'
+import { formatMonthKey } from '../../constants/months'
+import { formatCurrency } from '../../utils/currency'
 import { getEffectiveAnnualRate, computeProjection } from '../../utils/investmentCalc'
 
 interface InvestmentCardProps {
@@ -10,16 +12,6 @@ interface InvestmentCardProps {
   onUpdate: (id: string, updates: Partial<Investment>) => void
   onEdit: (inv: Investment) => void
   onDelete: (id: string) => void
-}
-
-function fmt(v: number) {
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
-
-function formatMonthKey(key: string) {
-  const [y, m] = key.split('-')
-  const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-  return `${months[Number(m) - 1]}/${y}`
 }
 
 export function InvestmentCard({
@@ -79,7 +71,7 @@ export function InvestmentCard({
 
         {/* Main value */}
         <div className="text-right">
-          <p className="text-xl font-black text-gray-900 dark:text-gray-100">{fmt(inv.principal)}</p>
+          <p className="text-xl font-black text-gray-900 dark:text-gray-100">{formatCurrency(inv.principal)}</p>
           <span className="text-xs text-gray-500">desde {formatMonthKey(inv.startMonth)}</span>
         </div>
       </div>
@@ -88,11 +80,11 @@ export function InvestmentCard({
       <div className="flex items-center gap-3 pt-3 border-t border-gray-100/50 dark:border-white/5">
         <div className="flex-1">
           <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Rendimento/mês</span>
-          <p className="text-base font-bold text-emerald-600 dark:text-emerald-400">+{fmt(proj.monthlyAmount)}</p>
+          <p className="text-base font-bold text-emerald-600 dark:text-emerald-400">+{formatCurrency(proj.monthlyAmount)}</p>
         </div>
         <div className="flex-1">
           <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Rendimento/ano</span>
-          <p className="text-base font-bold text-indigo-600 dark:text-indigo-400">+{fmt(proj.annualAmount)}</p>
+          <p className="text-base font-bold text-indigo-600 dark:text-indigo-400">+{formatCurrency(proj.annualAmount)}</p>
         </div>
         <div className="flex-1">
           <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Taxa a.a.</span>

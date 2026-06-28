@@ -29,6 +29,11 @@ export function getMonthShort(key: string): string {
   return MONTH_SHORT[month - 1]
 }
 
+export function formatMonthKey(key: string): string {
+  const { year, month } = parseMonthKey(key)
+  return `${MONTH_SHORT[month - 1]}/${year}`
+}
+
 export function getCurrentMonthKey(): string {
   const now = new Date()
   return getMonthKey(now.getFullYear(), now.getMonth() + 1)

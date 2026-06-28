@@ -103,6 +103,27 @@ export function netYieldAfterIR(
   return { netYield: grossYield - taxAmount, taxAmount, taxRate }
 }
 
+// ── Switch helper (shared by resolveMonthlyYieldPercent & getEffectiveAnnualRate) ─
+
+function getAnnualRateForType(
+  type: string,
+  cdiPercent: number | undefined,
+  ipcaPercent: number | undefined,
+  cdiRateAnnual: number,
+  ipcaRateAnnual: number,
+): number | null {
+  switch (type) {
+    case 'cdb': case 'lci': case 'lca': case 'tesouro_selic': case 'fundo':
+      return effectiveAnnualRate(cdiPercent ?? 100, cdiRateAnnual)
+    case 'tesouro_ipca':
+      return effectiveAnnualRateIPCA(ipcaPercent ?? 0, ipcaRateAnnual)
+    case 'poupanca':
+      return poupancaAnnualRate(cdiRateAnnual)
+    default:
+      return null
+  }
+}
+
 // ── Resolve monthlyYieldPercent from investment type + rates ──────
 
 export function resolveMonthlyYieldPercent(
@@ -114,23 +135,9 @@ export function resolveMonthlyYieldPercent(
   existingMonthlyYieldPercent: number
 ): number {
   const type = investmentType ?? 'manual'
-  switch (type) {
-    case 'cdb':
-    case 'lci':
-    case 'lca':
-    case 'tesouro_selic':
-    case 'fundo':
-      return annualToMonthly(effectiveAnnualRate(cdiPercent ?? 100, cdiRateAnnual))
-    case 'tesouro_ipca':
-      return annualToMonthly(effectiveAnnualRateIPCA(ipcaPercent ?? 0, ipcaRateAnnual))
-    case 'poupanca':
-      return annualToMonthly(poupancaAnnualRate(cdiRateAnnual))
-    case 'acoes':
-    case 'fiis':
-    case 'manual':
-    default:
-      return existingMonthlyYieldPercent
-  }
+  const annual = getAnnualRateForType(type, cdiPercent, ipcaPercent, cdiRateAnnual, ipcaRateAnnual)
+  if (annual !== null) return annualToMonthly(annual)
+  return existingMonthlyYieldPercent
 }
 
 /** Get the effective annual rate for an investment (for display) */
@@ -143,21 +150,7 @@ export function getEffectiveAnnualRate(
   monthlyYieldPercent: number
 ): number {
   const type = investmentType ?? 'manual'
-  switch (type) {
-    case 'cdb':
-    case 'lci':
-    case 'lca':
-    case 'tesouro_selic':
-    case 'fundo':
-      return effectiveAnnualRate(cdiPercent ?? 100, cdiRateAnnual)
-    case 'tesouro_ipca':
-      return effectiveAnnualRateIPCA(ipcaPercent ?? 0, ipcaRateAnnual)
-    case 'poupanca':
-      return poupancaAnnualRate(cdiRateAnnual)
-    case 'acoes':
-    case 'fiis':
-    case 'manual':
-    default:
-      return monthlyYieldPercent * 12
-  }
+  const annual = getAnnualRateForType(type, cdiPercent, ipcaPercent, cdiRateAnnual, ipcaRateAnnual)
+  if (annual !== null) return annual
+  return monthlyYieldPercent * 12
 }

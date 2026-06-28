@@ -5,6 +5,7 @@ import { Input } from '../ui/Input'
 import { FormState } from '../../hooks/useInvestments'
 import { InvestmentType } from '../../types/investment'
 import { INVESTMENT_TYPES, getInvestmentMeta } from '../../constants/investmentTypes'
+import { formatCurrency } from '../../utils/currency'
 import {
   computeProjection, effectiveAnnualRate, effectiveAnnualRateIPCA, poupancaAnnualRate,
 } from '../../utils/investmentCalc'
@@ -19,10 +20,6 @@ interface InvestmentModalProps {
   ipcaRate: number
   handleTypeChange: (type: InvestmentType) => void
   onSubmit: () => void
-}
-
-function fmt(v: number) {
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 export function InvestmentModal({
@@ -92,7 +89,7 @@ export function InvestmentModal({
             <Input label="Preço Médio" type="number" prefix="R$" value={form.averagePrice} onChange={(e) => setForm((f) => ({ ...f, averagePrice: e.target.value }))} placeholder="Ex: 35.50" />
             {form.shares && form.averagePrice && (
                <div className="col-span-2 bg-gray-50 dark:bg-gray-800/50 p-2 rounded border border-gray-100 dark:border-white/5 text-[10px] font-bold text-gray-500 uppercase">
-                  Total Investido: <span className="text-indigo-600 dark:text-indigo-400">{fmt((parseFloat(form.shares) || 0) * (parseFloat(form.averagePrice) || 0))}</span>
+                  Total Investido: <span className="text-indigo-600 dark:text-indigo-400">{formatCurrency((parseFloat(form.shares) || 0) * (parseFloat(form.averagePrice) || 0))}</span>
                </div>
             )}
           </div>
@@ -141,8 +138,8 @@ export function InvestmentModal({
           <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-lg px-3 py-2.5 border border-emerald-100 dark:border-emerald-800">
             <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-1">Rendimento estimado</p>
             <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-emerald-600">
-              <span>Mensal: <strong>{fmt(preview.monthlyAmount)}</strong></span>
-              <span>Anual: <strong>{fmt(preview.annualAmount)}</strong></span>
+              <span>Mensal: <strong>{formatCurrency(preview.monthlyAmount)}</strong></span>
+              <span>Anual: <strong>{formatCurrency(preview.annualAmount)}</strong></span>
             </div>
           </div>
         )}
