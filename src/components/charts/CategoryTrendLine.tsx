@@ -8,6 +8,7 @@ import { Category, CATEGORY_META } from '../../types/category'
 import { getLast12MonthKeys, getMonthShort } from '../../constants/months'
 import { EmptyState } from '../ui/EmptyState'
 import { useSectionConfig } from '../../hooks/useSectionConfig'
+import { formatCurrency } from '../../utils/currency'
 import { TOOLTIP_STYLE, AXIS_TICK_STYLE, formatYAxisK } from '../../constants/chartStyles'
 
 const TOP_N = 5
