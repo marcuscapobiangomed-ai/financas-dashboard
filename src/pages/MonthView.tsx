@@ -1,7 +1,8 @@
-import { Lock, Unlock, Copy, Edit3, StickyNote, Target, TrendingUp, TrendingDown } from 'lucide-react'
+import { Lock, Unlock, Copy, Edit3, StickyNote, Target, TrendingUp, TrendingDown, Circle } from 'lucide-react'
 import { useMonthView } from '../hooks/useMonthView'
 import { SectionTable } from '../components/month/SectionTable'
 import { ExtraordinarySection } from '../components/month/ExtraordinarySection'
+import { PendingSection } from '../components/month/PendingSection'
 import { BulkEditModal } from '../components/month/BulkEditModal'
 import { CopyTransactionsModal } from '../components/month/CopyTransactionsModal'
 import { CloseMonthModal } from '../components/month/CloseMonthModal'
@@ -125,6 +126,9 @@ export function MonthView() {
       <BulkEditModal open={bulkOpen} onClose={() => setBulkOpen(false)} monthKey={currentMonthKey} />
       <CopyTransactionsModal open={copyOpen} onClose={() => setCopyOpen(false)} monthKey={currentMonthKey} />
       <CloseMonthModal open={closeOpen} onClose={() => setCloseOpen(false)} monthKey={currentMonthKey} isClosed={isClosed} />
+
+      {/* Pending transactions */}
+      <PendingSection monthKey={currentMonthKey} disabled={isClosed} />
 
       {/* Section tables */}
       <div className="flex flex-col gap-4 pb-8">

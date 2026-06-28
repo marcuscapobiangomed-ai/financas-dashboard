@@ -7,7 +7,7 @@ export function computeSectionSummary(
   transactions: Transaction[],
   limit: number
 ): SectionSummary {
-  const sectionTransactions = transactions.filter((t) => t.section === section)
+  const sectionTransactions = transactions.filter((t) => t.section === section && t.isPaid !== false)
   const total = sectionTransactions.reduce((sum, t) => sum + t.amount, 0)
   const percentUsed = limit > 0 ? (total / limit) * 100 : 0
   return {
@@ -23,13 +23,13 @@ export function computeSectionSummary(
 
 export function computeIncome(transactions: Transaction[]): number {
   return transactions
-    .filter((t) => t.section === 'entradas')
+    .filter((t) => t.section === 'entradas' && t.isPaid !== false)
     .reduce((sum, t) => sum + t.amount, 0)
 }
 
 export function computeTotalExpenses(transactions: Transaction[], expenseSections: string[]): number {
   return transactions
-    .filter((t) => expenseSections.includes(t.section))
+    .filter((t) => expenseSections.includes(t.section) && t.isPaid !== false)
     .reduce((sum, t) => sum + t.amount, 0)
 }
 

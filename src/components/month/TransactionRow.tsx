@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, Circle, CheckCircle2 } from 'lucide-react'
 import { Transaction } from '../../types/transaction'
 import { CATEGORY_META } from '../../types/category'
 import { useFinanceStore } from '../../store/useFinanceStore'
@@ -14,22 +14,40 @@ interface TransactionRowProps {
 
 export function TransactionRow({ transaction: t, disabled }: TransactionRowProps) {
   const deleteTransaction = useFinanceStore((s) => s.deleteTransaction)
+  const togglePaid = useFinanceStore((s) => s.togglePaid)
   const [editing, setEditing] = useState(false)
 
   const meta = CATEGORY_META[t.category]
+  const isPaid = t.isPaid ?? false
+  const isIncome = t.type === 'income'
 
   return (
     <>
-      <tr className="hover:bg-indigo-50/40 dark:hover:bg-gray-700/40 group transition-colors">
+      <tr className={`hover:bg-indigo-50/40 dark:hover:bg-gray-700/40 group transition-colors ${isPaid ? 'opacity-50' : ''}`}>
         <td className="px-4 py-3.5">
           <div className="flex items-center gap-3">
+            {!disabled && (
+              <button
+                onClick={() => togglePaid(t.id)}
+                className={`shrink-0 cursor-pointer transition-colors ${isPaid ? 'text-emerald-500' : 'text-gray-300 hover:text-gray-400'}`}
+                title={isPaid ? 'Marcar como pendente' : 'Marcar como pago'}
+              >
+                {isPaid ? <CheckCircle2 size={16} /> : <Circle size={16} />}
+              </button>
+            )}
             <div
               className="w-3 h-3 rounded-full shrink-0 ring-2 ring-white/50 dark:ring-gray-600/50"
               style={{ backgroundColor: meta?.color ?? '#6b7280' }}
             />
             <div className="flex flex-col">
-              <span className="text-sm text-gray-800 dark:text-gray-200 font-medium">{t.description}</span>
+              <span className={`text-sm font-medium ${isPaid ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-800 dark:text-gray-200'}`}>
+                {t.description}
+                {isIncome && <span className="ml-1.5 text-xs text-emerald-500 font-normal">(recebida)</span>}
+              </span>
               <div className="flex flex-wrap gap-1.5 mt-0.5">
+                {!isPaid && (
+                  <span className="text-xs bg-amber-100/70 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-full">pendente</span>
+                )}
                 {t.date.substring(0, 7) !== t.monthKey && (
                   <span className="text-xs text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-800" title="A data da compra é de outro mês em relação à fatura">
                     compra: {t.date.split('-')[2]}/{t.date.split('-')[1]}
@@ -51,8 +69,8 @@ export function TransactionRow({ transaction: t, disabled }: TransactionRowProps
           </div>
         </td>
         <td className="px-4 py-3.5 text-right">
-          <span className={`text-sm font-semibold ${t.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-700 dark:text-gray-300'}`}>
-            {t.type === 'income' ? '+' : ''}{formatCurrency(t.amount)}
+          <span className={`text-sm font-semibold ${isPaid ? 'text-gray-400 dark:text-gray-500' : isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-700 dark:text-gray-300'}`}>
+            {isIncome ? '+' : ''}{formatCurrency(t.amount)}
           </span>
         </td>
         <td className="px-4 py-3.5 w-24">

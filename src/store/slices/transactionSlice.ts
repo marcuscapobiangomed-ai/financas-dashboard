@@ -21,6 +21,7 @@ export interface TransactionSlice {
   updateTransaction: (id: string, updates: Partial<Transaction>) => void
   bulkUpdateTransactions: (ids: string[], updates: Partial<Transaction>) => void
   deleteTransaction: (id: string) => void
+  togglePaid: (id: string) => void
   getTransactionsForMonth: (monthKey: string) => Transaction[]
 }
 
@@ -151,6 +152,17 @@ export const createTransactionSlice = (set: any, get: any): TransactionSlice => 
     set((s: any) => ({ transactions: s.transactions.filter((t: any) => t.id !== id) }))
     const uid = getUserId()
     if (uid) syncRemote('deleteTransactionRemote', id)
+  },
+
+  togglePaid: (id) => {
+    const existing = get().transactions.find((t: any) => t.id === id)
+    if (!existing) return
+    const updated = { ...existing, isPaid: !existing.isPaid, updatedAt: now() }
+    set((s: any) => ({
+      transactions: s.transactions.map((t: any) => (t.id === id ? updated : t))
+    }))
+    const uid = getUserId()
+    if (uid) syncRemote('upsertTransaction', uid, updated)
   },
 
   getTransactionsForMonth: (monthKey) => {

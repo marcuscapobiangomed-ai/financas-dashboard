@@ -24,6 +24,9 @@ export interface MonthData {
   overLimitSections: SectionSummary[]
   extraordinaryIncome: number
   totalIncomePlusExtraordinary: number
+  pendingTransactions: ReturnType<typeof useFinanceStore.getState>['transactions']
+  pendingIncome: number
+  pendingExpenses: number
 }
 
 export function useMonthData(monthKey: string): MonthData {
@@ -57,6 +60,14 @@ export function useMonthData(monthKey: string): MonthData {
     const extraordinaryIncome = monthExtraordinary.reduce((s, e) => s + e.netAmount, 0)
     const overLimitSections = sections.filter((s) => s.isOverLimit)
 
+    const pendingTransactions = monthTransactions.filter((t) => t.isPaid === false)
+    const pendingIncome = pendingTransactions
+      .filter((t) => t.section === 'entradas')
+      .reduce((s, t) => s + t.amount, 0)
+    const pendingExpenses = pendingTransactions
+      .filter((t) => expenseSections.includes(t.section))
+      .reduce((s, t) => s + t.amount, 0)
+
     return {
       monthKey,
       transactions: monthTransactions,
@@ -71,6 +82,9 @@ export function useMonthData(monthKey: string): MonthData {
       overLimitSections,
       extraordinaryIncome,
       totalIncomePlusExtraordinary: income + extraordinaryIncome,
+      pendingTransactions,
+      pendingIncome,
+      pendingExpenses,
     }
   }, [transactions, extraordinaryEntries, monthKey, monthSettings, appSettings, sectionOrder, sectionLabels, expenseSections])
 }

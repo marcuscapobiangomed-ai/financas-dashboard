@@ -13,6 +13,7 @@ export interface Transaction {
   category: Category
   date: string        // "2025-03-15"
   monthKey: string    // "2025-03"
+  isPaid?: boolean
   isRecurring?: boolean
   recurringId?: string
   note?: string
