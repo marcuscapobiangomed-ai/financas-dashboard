@@ -71,12 +71,16 @@ export function useRealtimeSync() {
           },
           (payload) => {
             if (!user?.id) return
-            useFinanceStore.getState().applyRealtimeUpdate(
-              payload.table,
-              payload.eventType,
-              payload.new,
-              payload.old
-            )
+            try {
+              useFinanceStore.getState().applyRealtimeUpdate(
+                payload.table,
+                payload.eventType,
+                payload.new,
+                payload.old
+              )
+            } catch (err) {
+              console.error('[Realtime] Erro ao aplicar atualização:', payload.table, payload.eventType, err)
+            }
           }
         )
       })

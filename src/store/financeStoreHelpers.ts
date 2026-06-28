@@ -3,7 +3,7 @@ import { useFinanceStore } from './useFinanceStore'
 import { Transaction } from '../types/transaction'
 import { AppSettings, MonthSettings } from '../types/budget'
 import { getNotificationPermission, showBudgetAlert } from '../lib/notifications'
-import { hasActiveSession } from '../lib/supabase'
+import { hasActiveSession, tryRefreshSession } from '../lib/supabase'
 import * as db from '../lib/supabaseData'
 
 export function getUserId(): string | null {
@@ -134,6 +134,22 @@ async function callWithRetry(fn: () => Promise<void>): Promise<void> {
   throw lastErr
 }
 
+/**
+ * Attempt to recover from a session error by refreshing the token,
+ * then re-executing the operation once.
+ * Returns true if recovery succeeded.
+ */
+async function attemptSessionRecovery(fn: () => Promise<void>): Promise<boolean> {
+  try {
+    const refreshed = await tryRefreshSession()
+    if (!refreshed) return false
+    await fn()
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function syncRemote(actionOrFn: keyof typeof db | (() => Promise<void>), ...args: any[]) {
   if (_realtimeOrigin.value) return
 
@@ -149,11 +165,20 @@ export function syncRemote(actionOrFn: keyof typeof db | (() => Promise<void>), 
     actionOrFn()
       .then(() => {
         store.setSyncStatus('idle')
+        store.setSyncError(null)
         store.setLastSyncedAt(now())
       })
-      .catch((err) => {
+      .catch(async (err) => {
         console.error('[sync function]', err)
         if (isSessionError(err)) {
+          // Try to recover session and retry the whole function
+          const recovered = await attemptSessionRecovery(actionOrFn as () => Promise<void>)
+          if (recovered) {
+            store.setSyncStatus('idle')
+            store.setSyncError(null)
+            store.setLastSyncedAt(now())
+            return
+          }
           store.setSyncStatus('error')
           store.setSyncError('Sessão expirada. Faça login novamente.')
         } else {
@@ -182,40 +207,52 @@ export function syncRemote(actionOrFn: keyof typeof db | (() => Promise<void>), 
     return
   }
 
-  // Run with retry + session validation
+  // Run with retry — NO pre-flight session check.
+  // Each DB function already calls requireSession() internally which handles refresh.
+  // Removing the pre-flight check eliminates the race condition where
+  // hasActiveSession() fails during token auto-refresh, permanently blocking all sync.
   ;(async () => {
-    // Validate session before attempting
-    const sessionOk = await hasActiveSession()
-    if (!sessionOk) {
-      store.setSyncStatus('error')
-      store.setSyncError('Sessão expirada. Faça login novamente para sincronizar.')
-      return
-    }
-
     try {
       await callWithRetry(() => method(...args))
-      const queueSize = useFinanceStore.getState().syncQueue.length
-      store.setSyncStatus(queueSize > 0 ? 'offline' : 'idle')
-      store.setLastSyncedAt(now())
-      if (queueSize > 0) store.processSyncQueue()
+      // ✅ Success — clear any previous error state (auto-recovery)
+      const currentStore = useFinanceStore.getState()
+      currentStore.setSyncStatus('idle')
+      currentStore.setSyncError(null)
+      currentStore.setLastSyncedAt(now())
+      // Process any queued items now that we know the connection works
+      if (currentStore.syncQueue.length > 0) currentStore.processSyncQueue()
     } catch (err: any) {
       console.error('[sync execution]', actionName, err)
-      if (isNetworkError(err)) {
-        // All retries exhausted — queue for later
-        store.setSyncStatus('offline')
-        store.pushToSyncQueue({ id: generateId(), action: actionName, args, createdAt: Date.now() })
-      } else if (isSessionError(err)) {
-        store.setSyncStatus('error')
-        store.setSyncError('Sessão expirada. Faça login novamente para sincronizar.')
-      } else {
-        store.setSyncStatus('error')
-        store.setSyncError(err?.message ?? 'Erro crítico ao sincronizar com o banco')
-        // Refresh from server to restore consistency
-        const uid = getUserId()
-        if (uid) {
-          db.fetchAllUserData(uid).then((data) => store.loadFromSupabase(data)).catch(() => {})
+
+      if (isSessionError(err)) {
+        // Session expired — try to refresh and retry once
+        const recovered = await attemptSessionRecovery(() => method(...args))
+        if (recovered) {
+          const currentStore = useFinanceStore.getState()
+          currentStore.setSyncStatus('idle')
+          currentStore.setSyncError(null)
+          currentStore.setLastSyncedAt(now())
+          if (currentStore.syncQueue.length > 0) currentStore.processSyncQueue()
+          return
         }
+        // Refresh failed — queue the operation for later (don't lose it!)
+        const currentStore = useFinanceStore.getState()
+        currentStore.setSyncStatus('error')
+        currentStore.setSyncError('Sessão expirada. Faça login novamente para sincronizar.')
+        currentStore.pushToSyncQueue({ id: generateId(), action: actionName, args, createdAt: Date.now() })
+      } else if (isNetworkError(err)) {
+        // All retries exhausted — queue for later
+        const currentStore = useFinanceStore.getState()
+        currentStore.setSyncStatus('offline')
+        currentStore.pushToSyncQueue({ id: generateId(), action: actionName, args, createdAt: Date.now() })
+      } else {
+        // Unknown error — queue the operation so it's not lost, then try to refresh from server
+        const currentStore = useFinanceStore.getState()
+        currentStore.setSyncStatus('error')
+        currentStore.setSyncError(err?.message ?? 'Erro ao sincronizar com o banco')
+        currentStore.pushToSyncQueue({ id: generateId(), action: actionName, args, createdAt: Date.now() })
       }
     }
   })()
 }
+

@@ -1,4 +1,4 @@
-import { supabase, hasActiveSession } from './supabase'
+import { supabase, hasActiveSession, tryRefreshSession } from './supabase'
 import type { AppSettings, MonthSettings } from '../types/budget'
 import { DEFAULT_APP_SETTINGS } from '../constants/defaultBudget'
 
@@ -51,7 +51,10 @@ export function rowsToModels<T>(rows: Record<string, unknown>[]): T[] {
 
 export async function requireSession(): Promise<void> {
   const active = await hasActiveSession()
-  if (!active) {
+  if (active) return
+  // hasActiveSession already tried refreshing, but let's give one more explicit attempt
+  const refreshed = await tryRefreshSession()
+  if (!refreshed) {
     throw new Error('Sessão expirada. Faça login novamente para sincronizar.')
   }
 }

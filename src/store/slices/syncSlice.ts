@@ -9,7 +9,7 @@ import {
   _realtimeOrigin,
   QUEUE_TTL_MS,
 } from '../financeStoreHelpers'
-import { hasActiveSession } from '../../lib/supabase'
+import { hasActiveSession, tryRefreshSession } from '../../lib/supabase'
 import * as db from '../../lib/supabaseData'
 import { parseUserSettingsRow, sanitizeMonthSettings, toModel } from '../../lib/supabaseData'
 
@@ -68,11 +68,16 @@ export const createSyncSlice = (set: any, get: any): SyncSlice => ({
     const { syncQueue, setSyncStatus, isQueueProcessing, setQueueProcessing } = get()
     if (syncQueue.length === 0 || !navigator.onLine || isQueueProcessing) return
 
+    // Try to ensure we have a valid session — attempt refresh if needed
     const sessionOk = await hasActiveSession()
     if (!sessionOk) {
-      setSyncStatus('error')
-      get().setSyncError('Sessão expirada. Faça login novamente.')
-      return
+      // hasActiveSession already tried refresh internally; try once more explicitly
+      const refreshed = await tryRefreshSession()
+      if (!refreshed) {
+        setSyncStatus('error')
+        get().setSyncError('Sessão expirada. Faça login novamente.')
+        return
+      }
     }
 
     setQueueProcessing(true)
@@ -103,12 +108,24 @@ export const createSyncSlice = (set: any, get: any): SyncSlice => ({
         }
       } catch (err: any) {
         console.error('[sync queue]', item.action, err)
-        if (isNetworkError(err)) {
+        if (isSessionError(err)) {
+          // Try to refresh the session and retry this item once
+          const refreshed = await tryRefreshSession()
+          if (refreshed) {
+            try {
+              const retryMethod = (db as any)[item.action]
+              if (retryMethod) await retryMethod(...item.args)
+              continue // Success after refresh — move to next item
+            } catch (retryErr: any) {
+              console.error('[sync queue] Retry after refresh failed:', item.action, retryErr)
+            }
+          }
+          // Refresh failed or retry failed — keep in queue
           remaining.push(item)
           hasNetworkError = true
-        } else if (isSessionError(err)) {
+        } else if (isNetworkError(err)) {
           remaining.push(item)
-          hasNetworkError = true // treat as network to retry later
+          hasNetworkError = true
         } else {
           // Toxic item — discard and continue processing the rest
           console.warn('[sync queue] Item tóxico descartado:', item.action, item.id)
@@ -136,6 +153,7 @@ export const createSyncSlice = (set: any, get: any): SyncSlice => ({
     setSyncStatus(finalStatus)
 
     if (finalStatus === 'idle') {
+      get().setSyncError(null) // Clear any previous errors on success
       get().setLastSyncedAt(new Date().toISOString())
     }
   },
@@ -144,38 +162,42 @@ export const createSyncSlice = (set: any, get: any): SyncSlice => ({
     _realtimeOrigin.value = true
     try {
       set((s: any) => {
-        if (table === 'transactions') {
-          if (eventType === 'DELETE') return { transactions: s.transactions.filter((t: any) => t.id !== oldRow.id) }
-          const camel = toModel<Transaction>(newRow)
-          const exists = s.transactions.some((t: any) => t.id === camel.id)
-          return { transactions: exists ? s.transactions.map((t: any) => t.id === camel.id ? camel : t) : [...s.transactions, camel] }
-        }
-        if (table === 'recurring_templates') {
-          if (eventType === 'DELETE') return { recurringTemplates: s.recurringTemplates.filter((t: any) => t.id !== oldRow.id) }
-          const camel = toModel<RecurringTemplate>(newRow)
-          const exists = s.recurringTemplates.some((t: any) => t.id === camel.id)
-          return { recurringTemplates: exists ? s.recurringTemplates.map((t: any) => t.id === camel.id ? camel : t) : [...s.recurringTemplates, camel] }
-        }
-        if (table === 'extraordinary_entries') {
-          if (eventType === 'DELETE') return { extraordinaryEntries: s.extraordinaryEntries.filter((t: any) => t.id !== oldRow.id) }
-          const camel = toModel<ExtraordinaryEntry>(newRow)
-          const exists = s.extraordinaryEntries.some((t: any) => t.id === camel.id)
-          return { extraordinaryEntries: exists ? s.extraordinaryEntries.map((t: any) => t.id === camel.id ? camel : t) : [...s.extraordinaryEntries, camel] }
-        }
-        if (table === 'investments') {
-          if (eventType === 'DELETE') return { investments: s.investments.filter((t: any) => t.id !== oldRow.id) }
-          const camel = toModel<any>(newRow)
-          const exists = s.investments.some((t: any) => t.id === camel.id)
-          return { investments: exists ? s.investments.map((t: any) => t.id === camel.id ? camel : t) : [...s.investments, camel] }
-        }
-        if (table === 'month_settings') {
-          if (eventType === 'DELETE') return s
-          const camel = sanitizeMonthSettings(toModel<MonthSettings & { userId?: string }>(newRow))
-          return { monthSettings: { ...s.monthSettings, [camel.monthKey]: camel } }
-        }
-        if (table === 'user_settings') {
-          const parsed = parseUserSettingsRow(newRow as Record<string, unknown>)
-          return { appSettings: parsed }
+        try {
+          if (table === 'transactions') {
+            if (eventType === 'DELETE') return { transactions: s.transactions.filter((t: any) => t.id !== oldRow?.id) }
+            const camel = toModel<Transaction>(newRow)
+            const exists = s.transactions.some((t: any) => t.id === camel.id)
+            return { transactions: exists ? s.transactions.map((t: any) => t.id === camel.id ? camel : t) : [...s.transactions, camel] }
+          }
+          if (table === 'recurring_templates') {
+            if (eventType === 'DELETE') return { recurringTemplates: s.recurringTemplates.filter((t: any) => t.id !== oldRow?.id) }
+            const camel = toModel<RecurringTemplate>(newRow)
+            const exists = s.recurringTemplates.some((t: any) => t.id === camel.id)
+            return { recurringTemplates: exists ? s.recurringTemplates.map((t: any) => t.id === camel.id ? camel : t) : [...s.recurringTemplates, camel] }
+          }
+          if (table === 'extraordinary_entries') {
+            if (eventType === 'DELETE') return { extraordinaryEntries: s.extraordinaryEntries.filter((t: any) => t.id !== oldRow?.id) }
+            const camel = toModel<ExtraordinaryEntry>(newRow)
+            const exists = s.extraordinaryEntries.some((t: any) => t.id === camel.id)
+            return { extraordinaryEntries: exists ? s.extraordinaryEntries.map((t: any) => t.id === camel.id ? camel : t) : [...s.extraordinaryEntries, camel] }
+          }
+          if (table === 'investments') {
+            if (eventType === 'DELETE') return { investments: s.investments.filter((t: any) => t.id !== oldRow?.id) }
+            const camel = toModel<any>(newRow)
+            const exists = s.investments.some((t: any) => t.id === camel.id)
+            return { investments: exists ? s.investments.map((t: any) => t.id === camel.id ? camel : t) : [...s.investments, camel] }
+          }
+          if (table === 'month_settings') {
+            if (eventType === 'DELETE') return s
+            const camel = sanitizeMonthSettings(toModel<MonthSettings & { userId?: string }>(newRow))
+            return { monthSettings: { ...s.monthSettings, [camel.monthKey]: camel } }
+          }
+          if (table === 'user_settings') {
+            const parsed = parseUserSettingsRow(newRow as Record<string, unknown>)
+            return { appSettings: parsed }
+          }
+        } catch (innerErr) {
+          console.error('[Realtime] Erro ao processar atualização:', table, eventType, innerErr)
         }
         return s
       })

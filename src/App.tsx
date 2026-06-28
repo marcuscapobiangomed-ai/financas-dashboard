@@ -26,6 +26,7 @@ const Login = lazy(() => import('./pages/Login').then((m) => ({ default: m.Login
 const Register = lazy(() => import('./pages/Register').then((m) => ({ default: m.Register })))
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword').then((m) => ({ default: m.ForgotPassword })))
 const ResetPassword = lazy(() => import('./pages/ResetPassword').then((m) => ({ default: m.ResetPassword })))
+const SyncTest = lazy(() => import('./pages/SyncTest').then((m) => ({ default: m.SyncTest })))
 
 function PageLoader() {
   return (
@@ -66,11 +67,37 @@ function AppShell() {
   }, [darkMode])
 
   useEffect(() => {
+    // When browser goes back online: clear error state and process queued items
     const handleOnline = () => {
-       useFinanceStore.getState().processSyncQueue()
+      const store = useFinanceStore.getState()
+      if (store.syncStatus === 'error') {
+        store.setSyncError(null)
+        store.setSyncStatus('offline')
+      }
+      store.processSyncQueue()
     }
+
+    // When user returns to the tab: check for pending sync and recover
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return
+      const store = useFinanceStore.getState()
+      if (store.syncQueue.length > 0 || store.syncStatus === 'error' || store.syncStatus === 'offline') {
+        if (store.syncStatus === 'error') {
+          store.setSyncError(null)
+          store.setSyncStatus('offline')
+        }
+        if (navigator.onLine) {
+          store.processSyncQueue()
+        }
+      }
+    }
+
     window.addEventListener('online', handleOnline)
-    return () => window.removeEventListener('online', handleOnline)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [])
 
   return (
@@ -92,6 +119,7 @@ function AppShell() {
               <Route path="/ir-report" element={<IRReport />} />
               <Route path="/import" element={<Import />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/sync-test" element={<SyncTest />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
