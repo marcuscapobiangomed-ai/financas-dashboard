@@ -98,6 +98,13 @@ export const createTransactionSlice = (set: any, get: any): TransactionSlice => 
   },
 
   updateTransaction: (id, updates) => {
+    const existing = get().transactions.find((t: any) => t.id === id)
+    if (!existing) return
+    const targetMonthKey = updates.monthKey ?? existing.monthKey
+    try { assertMonthNotClosed(get, targetMonthKey) } catch { console.warn('[closed] updateTransaction blocked:', targetMonthKey); return }
+    if (targetMonthKey !== existing.monthKey) {
+      try { assertMonthNotClosed(get, existing.monthKey) } catch { console.warn('[closed] updateTransaction blocked (original):', existing.monthKey); return }
+    }
     set((s: any) => ({
       transactions: s.transactions.map((t: any) =>
         t.id === id ? { ...t, ...updates, updatedAt: now() } : t
@@ -112,6 +119,19 @@ export const createTransactionSlice = (set: any, get: any): TransactionSlice => 
 
   bulkUpdateTransactions: (ids, updates) => {
     const idsSet = new Set(ids)
+    const checked = new Set<string>()
+    for (const tx of get().transactions) {
+      if (!idsSet.has(tx.id)) continue
+      const targetMk = updates.monthKey ?? tx.monthKey
+      if (!checked.has(targetMk)) {
+        checked.add(targetMk)
+        try { assertMonthNotClosed(get, targetMk) } catch { console.warn('[closed] bulkUpdateTransactions blocked:', targetMk); return }
+      }
+      if (updates.monthKey && updates.monthKey !== tx.monthKey && !checked.has(tx.monthKey)) {
+        checked.add(tx.monthKey)
+        try { assertMonthNotClosed(get, tx.monthKey) } catch { console.warn('[closed] bulkUpdateTransactions blocked (original):', tx.monthKey); return }
+      }
+    }
     set((s: any) => ({
       transactions: s.transactions.map((t: any) =>
         idsSet.has(t.id) ? { ...t, ...updates, updatedAt: now() } : t
@@ -125,6 +145,9 @@ export const createTransactionSlice = (set: any, get: any): TransactionSlice => 
   },
 
   deleteTransaction: (id) => {
+    const existing = get().transactions.find((t: any) => t.id === id)
+    if (!existing) return
+    try { assertMonthNotClosed(get, existing.monthKey) } catch { console.warn('[closed] deleteTransaction blocked:', existing.monthKey); return }
     set((s: any) => ({ transactions: s.transactions.filter((t: any) => t.id !== id) }))
     const uid = getUserId()
     if (uid) syncRemote('deleteTransactionRemote', id)

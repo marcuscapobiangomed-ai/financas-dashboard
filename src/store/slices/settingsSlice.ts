@@ -9,6 +9,7 @@ import {
   getUserId,
   syncRemote,
   defaultMonthSettings,
+  assertMonthNotClosed,
 } from '../financeStoreHelpers'
 
 interface DebouncedFunction<T extends (...args: any[]) => void> {
@@ -115,6 +116,7 @@ export const createSettingsSlice = (set: any, get: any): SettingsSlice => ({
   },
 
   duplicatePreviousMonth: (monthKey) => {
+    try { assertMonthNotClosed(get, monthKey) } catch { console.warn('[closed] duplicatePreviousMonth blocked:', monthKey); return }
     const { transactions } = get()
     const [year, month] = monthKey.split('-').map(Number)
     const prevYear = month === 1 ? year - 1 : year

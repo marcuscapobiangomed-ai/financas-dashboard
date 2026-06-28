@@ -38,7 +38,7 @@ export function MonthView() {
           <Button variant="secondary" size="sm" icon={<StickyNote size={13} />} onClick={() => setNotesOpen(!notesOpen)} className={hasNotes ? 'ring-2 ring-amber-400/50' : ''}>
             Notas {hasNotes && <span className="ml-1 w-2 h-2 rounded-full bg-amber-500" />}
           </Button>
-          <Button variant="secondary" size="sm" icon={<Edit3 size={13} />} onClick={() => setBulkOpen(true)}>Editar</Button>
+          <Button variant="secondary" size="sm" icon={<Edit3 size={13} />} onClick={() => setBulkOpen(true)} disabled={isClosed}>Editar</Button>
         </div>
       </div>
 

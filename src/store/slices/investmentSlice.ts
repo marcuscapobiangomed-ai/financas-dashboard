@@ -6,6 +6,7 @@ import {
   now,
   getUserId,
   syncRemote,
+  assertMonthNotClosed,
 } from '../financeStoreHelpers'
 
 export interface InvestmentSlice {
@@ -60,6 +61,7 @@ export const createInvestmentSlice = (set: any, get: any): InvestmentSlice => ({
   },
 
   applyInvestmentYieldsToMonth: (monthKey) => {
+    try { assertMonthNotClosed(get, monthKey) } catch { console.warn('[closed] applyInvestmentYieldsToMonth blocked:', monthKey); return 0 }
     const { investments, transactions } = get()
     const dateStr = `${monthKey}-01`
     const existingInvIds = new Set(

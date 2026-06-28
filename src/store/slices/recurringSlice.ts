@@ -5,6 +5,7 @@ import {
   getUserId,
   syncRemote,
   monthsDiff,
+  assertMonthNotClosed,
 } from '../financeStoreHelpers'
 
 export interface RecurringSlice {
@@ -46,6 +47,7 @@ export const createRecurringSlice = (set: any, get: any): RecurringSlice => ({
   },
 
   applyRecurringToMonth: (monthKey) => {
+    try { assertMonthNotClosed(get, monthKey) } catch { console.warn('[closed] applyRecurringToMonth blocked:', monthKey); return 0 }
     const { recurringTemplates, transactions } = get()
     const existingIds = new Set(
       transactions.filter((t: any) => t.monthKey === monthKey && t.recurringId).map((t: any) => t.recurringId)

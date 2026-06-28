@@ -8,6 +8,7 @@ import {
   getUserId,
   now,
   syncRemote,
+  assertMonthNotClosed,
 } from '../financeStoreHelpers'
 import * as db from '../../lib/supabaseData'
 import { z } from 'zod'
@@ -189,6 +190,15 @@ export const createDataManagementSlice = (set: any, get: any): DataManagementSli
         const { transactions: existingTxs, recurringTemplates: existingRecurring, extraordinaryEntries: existingExtra, investments: existingInv, monthSettings: existingMs } = get()
         
         const newTxs = data.transactions.filter((t: Transaction) => !existingTxs.some((e: any) => e.id === t.id))
+        // Validate that none of the affected months are closed
+        const affectedMonths = new Set<string>()
+        for (const tx of newTxs) affectedMonths.add(tx.monthKey)
+        for (const entry of (data.extraordinaryEntries ?? [])) {
+          if (!existingExtra.some((e: any) => e.id === entry.id)) affectedMonths.add(entry.monthKey)
+        }
+        for (const mk of affectedMonths) {
+          try { assertMonthNotClosed(get, mk) } catch { console.warn('[closed] import merge blocked:', mk); return false }
+        }
         const newRecurring = (data.recurringTemplates ?? []).filter((r: RecurringTemplate) => !existingRecurring.some((e: any) => e.id === r.id))
         const newExtra = (data.extraordinaryEntries ?? []).filter((e: ExtraordinaryEntry) => !existingExtra.some((o: any) => o.id === e.id))
         const newInv = (data.investments ?? []).filter((i: Investment) => !existingInv.some((o: any) => o.id === i.id))
@@ -249,6 +259,8 @@ export const createDataManagementSlice = (set: any, get: any): DataManagementSli
   },
 
   migrateMonth: (fromMonthKey, toMonthKey) => {
+    try { assertMonthNotClosed(get, fromMonthKey) } catch { console.warn('[closed] migrateMonth source blocked:', fromMonthKey); return 0 }
+    try { assertMonthNotClosed(get, toMonthKey) } catch { console.warn('[closed] migrateMonth target blocked:', toMonthKey); return 0 }
     const { transactions, extraordinaryEntries } = get()
     const txToMigrate = transactions.filter((t: any) => t.monthKey === fromMonthKey)
     const extraToMigrate = extraordinaryEntries.filter((e: any) => e.monthKey === fromMonthKey)
