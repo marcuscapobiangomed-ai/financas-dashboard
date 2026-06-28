@@ -3,7 +3,8 @@ import type { Transaction, RecurringTemplate, ExtraordinaryEntry } from '../type
 import type { AppSettings, MonthSettings } from '../types/budget'
 import type { Investment } from '../types/investment'
 import { DEFAULT_APP_SETTINGS } from '../constants/defaultBudget'
-import { toSnake, toCamel, toModel, rowsToModels, requireSession, sanitizeMonthSettings, parseUserSettingsRow } from './supabaseSchema'
+import { toSnake, toCamel, toModel, rowsToModels, sanitizeMonthSettings, parseUserSettingsRow } from './supabaseSchema'
+import { requireSession } from '../sync/session'
 
 export { toModel, sanitizeMonthSettings, parseUserSettingsRow }
 

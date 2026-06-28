@@ -73,3 +73,9 @@ export const useFinanceStore = create<FinanceStore>()(
     }
   )
 )
+
+// Register the store in the sync engine to prevent circular dependencies
+import { registerStore } from '../sync'
+registerStore(useFinanceStore)
+
+

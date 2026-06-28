@@ -1,17 +1,9 @@
 import { Transaction, RecurringTemplate, ExtraordinaryEntry } from '../../types/transaction'
 import { MonthSettings } from '../../types/budget'
-import {
-  isNetworkError,
-  isSessionError,
-  SyncActionDescriptor,
-  getUserId,
-  syncRemote,
-  _realtimeOrigin,
-  QUEUE_TTL_MS,
-} from '../financeStoreHelpers'
-import { hasActiveSession, tryRefreshSession } from '../../lib/supabase'
-import * as db from '../../lib/supabaseData'
-import { parseUserSettingsRow, sanitizeMonthSettings, toModel } from '../../lib/supabaseData'
+import { getUserId, _realtimeOrigin } from '../financeStoreHelpers'
+import { SyncActionDescriptor } from '../../sync'
+import { processSyncQueue as processQueue } from '../../sync/queue'
+import { toModel, sanitizeMonthSettings, parseUserSettingsRow } from '../../lib/supabaseData'
 
 export interface SyncSlice {
   syncStatus: 'idle' | 'syncing' | 'error' | 'offline'
@@ -66,99 +58,19 @@ export const createSyncSlice = (set: any, get: any): SyncSlice => ({
   },
 
   processSyncQueue: async () => {
-    const { syncQueue, setSyncStatus, isQueueProcessing, setQueueProcessing } = get()
-    if (syncQueue.length === 0 || !navigator.onLine || isQueueProcessing) return
-
-    // Try to ensure we have a valid session — attempt refresh if needed
-    const sessionOk = await hasActiveSession()
-    if (!sessionOk) {
-      // hasActiveSession already tried refresh internally; try once more explicitly
-      const refreshed = await tryRefreshSession()
-      if (!refreshed) {
-        setSyncStatus('error')
-        get().setSyncError('Sessão expirada. Faça login novamente.')
-        return
-      }
+    const storeInterface = {
+      getSyncQueue: () => get().syncQueue,
+      setSyncQueue: (q: SyncActionDescriptor[]) => set({ syncQueue: q }),
+      setSyncStatus: (s: any) => get().setSyncStatus(s),
+      setSyncError: (e: any) => get().setSyncError(e),
+      setQueueProcessing: (b: boolean) => get().setQueueProcessing(b),
+      setLastSyncedAt: (ts: string) => get().setLastSyncedAt(ts),
+      loadFromSupabase: (data: any) => get().loadFromSupabase(data),
+      getUserId: () => getUserId()
     }
-
-    setQueueProcessing(true)
-    setSyncStatus('syncing')
-
-    // Discard TTL-expired items
-    const validQueue = syncQueue.filter(
-      (item: any) => (Date.now() - (item.createdAt || 0)) < QUEUE_TTL_MS
-    )
-    if (validQueue.length < syncQueue.length) {
-      console.warn(`[sync queue] Descartados ${syncQueue.length - validQueue.length} itens expirados da fila`)
-    }
-
-    const remaining: SyncActionDescriptor[] = []
-    let hasNetworkError = false
-    let hasToxicError = false
-
-    for (const item of validQueue) {
-      if (hasNetworkError) {
-        remaining.push(item)
-        continue
-      }
-
-      try {
-        const method = (db as any)[item.action]
-        if (method) {
-          await method(...item.args)
-        }
-      } catch (err: any) {
-        console.error('[sync queue]', item.action, err)
-        if (isSessionError(err)) {
-          // Try to refresh the session and retry this item once
-          const refreshed = await tryRefreshSession()
-          if (refreshed) {
-            try {
-              const retryMethod = (db as any)[item.action]
-              if (retryMethod) await retryMethod(...item.args)
-              continue // Success after refresh — move to next item
-            } catch (retryErr: any) {
-              console.error('[sync queue] Retry after refresh failed:', item.action, retryErr)
-            }
-          }
-          // Refresh failed or retry failed — keep in queue
-          remaining.push(item)
-          hasNetworkError = true
-        } else if (isNetworkError(err)) {
-          remaining.push(item)
-          hasNetworkError = true
-        } else {
-          // Toxic item — discard and continue processing the rest
-          console.warn('[sync queue] Item tóxico descartado:', item.action, item.id)
-          hasToxicError = true
-        }
-      }
-    }
-
-    set({ syncQueue: remaining })
-    setQueueProcessing(false)
-
-    if (hasToxicError) {
-      get().setSyncError('Alguns itens falharam e foram descartados. Os dados foram atualizados.')
-      const uid = getUserId()
-      if (uid) db.fetchAllUserData(uid).then((data: any) => get().loadFromSupabase(data)).catch(() => {})
-    }
-
-    // If we had toxic errors, we discarded them and reloaded data from the server.
-    // We're effectively in sync — status should be 'idle', not 'error'.
-    // The user will see a brief toast about discarded items and then it auto-clears.
-    const finalStatus =
-      hasNetworkError || remaining.length > 0
-        ? 'offline'
-        : 'idle'
-
-    setSyncStatus(finalStatus)
-
-    if (finalStatus === 'idle') {
-      get().setSyncError(null) // Clear any previous errors on success
-      get().setLastSyncedAt(new Date().toISOString())
-    }
+    await processQueue(storeInterface)
   },
+
 
   applyRealtimeUpdate: (table, eventType, newRow, oldRow) => {
     _realtimeOrigin.value = true

@@ -1,4 +1,5 @@
-import { supabase, hasActiveSession, tryRefreshSession } from './supabase'
+import { supabase } from './supabase'
+import { requireSession } from '../sync/session'
 import type { AppSettings, MonthSettings } from '../types/budget'
 import { DEFAULT_APP_SETTINGS } from '../constants/defaultBudget'
 
@@ -49,15 +50,7 @@ export function rowsToModels<T>(rows: Record<string, unknown>[]): T[] {
 
 // ── Session guard ──────────────────────────────────────────────────────────
 
-export async function requireSession(): Promise<void> {
-  const active = await hasActiveSession()
-  if (active) return
-  // hasActiveSession already tried refreshing, but let's give one more explicit attempt
-  const refreshed = await tryRefreshSession()
-  if (!refreshed) {
-    throw new Error('Sessão expirada. Faça login novamente para sincronizar.')
-  }
-}
+// requireSession is imported from sync/session
 
 // ── Month Settings Sanitization ────────────────────────────────────────────
 

@@ -45,32 +45,12 @@ export const supabase: SupabaseClient = isSupabaseConfigured
       auth: { persistSession: false, autoRefreshToken: false },
     })
 
-/** Check whether the current Supabase session is active. */
-export async function hasActiveSession(): Promise<boolean> {
-  if (!isSupabaseConfigured) return false
-  try {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (session?.access_token) return true
-    // Session missing or expired — try a silent refresh
-    return await tryRefreshSession()
-  } catch {
-    return false
-  }
-}
+// Import session utilities from the modular sync module to avoid duplication
+import {
+  hasActiveSession as _hasActiveSession,
+  tryRefreshSession as _tryRefreshSession
+} from '../sync/session'
 
-/**
- * Attempt to silently refresh an expired Supabase session.
- * Returns `true` if a valid session was obtained after refresh.
- * This is the key auto-recovery mechanism: when the JWT expires mid-use,
- * calling this before giving up allows the app to continue working seamlessly.
- */
-export async function tryRefreshSession(): Promise<boolean> {
-  if (!isSupabaseConfigured) return false
-  try {
-    const { data: { session }, error } = await supabase.auth.refreshSession()
-    if (error || !session?.access_token) return false
-    return true
-  } catch {
-    return false
-  }
-}
+export const hasActiveSession = _hasActiveSession
+export const tryRefreshSession = _tryRefreshSession
+
