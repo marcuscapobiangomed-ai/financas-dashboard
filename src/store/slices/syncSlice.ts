@@ -56,7 +56,8 @@ export const createSyncSlice = (set: any, get: any): SyncSlice => ({
 
   /** Manually trigger a retry — useful from the UI after an error. */
   retrySyncNow: () => {
-    const { syncStatus, processSyncQueue, setSyncStatus, setSyncError } = get()
+    const { syncStatus, processSyncQueue, setSyncStatus, setSyncError, isQueueProcessing } = get()
+    if (isQueueProcessing) return
     if (syncStatus === 'error') {
       setSyncError(null)
       setSyncStatus('offline')
@@ -143,11 +144,12 @@ export const createSyncSlice = (set: any, get: any): SyncSlice => ({
       if (uid) db.fetchAllUserData(uid).then((data: any) => get().loadFromSupabase(data)).catch(() => {})
     }
 
+    // If we had toxic errors, we discarded them and reloaded data from the server.
+    // We're effectively in sync — status should be 'idle', not 'error'.
+    // The user will see a brief toast about discarded items and then it auto-clears.
     const finalStatus =
       hasNetworkError || remaining.length > 0
         ? 'offline'
-        : hasToxicError
-        ? 'error'
         : 'idle'
 
     setSyncStatus(finalStatus)

@@ -20,6 +20,8 @@ export const QUEUE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 const MAX_SYNC_RETRIES = 3
 /** Base delay for retry backoff in ms. */
 const RETRY_BASE_MS = 800
+/** Interval in ms for automatic retry when syncStatus is 'error'. */
+export const SYNC_RETRY_INTERVAL_MS = 30_000
 
 export type SyncActionDescriptor = {
   id: string;
@@ -154,6 +156,19 @@ export function syncRemote(actionOrFn: keyof typeof db | (() => Promise<void>), 
   if (_realtimeOrigin.value) return
 
   const store = useFinanceStore.getState()
+
+  // ── Error guard ──────────────────────────────────────────────────────────
+  // If syncStatus is 'error', skip the network call and just queue the operation.
+  // A periodic retry timer (in App.tsx) will automatically try to recover and
+  // drain the queue as soon as the connection/session is healthy again.
+  if (store.syncStatus === 'error') {
+    if (typeof actionOrFn === 'function') {
+      store.setSyncError('Há um erro de sincronização pendente. Aguarde a recuperação automática ou clique em "Tentar novamente".')
+      return
+    }
+    store.pushToSyncQueue({ id: generateId(), action: actionOrFn, args, createdAt: Date.now() })
+    return
+  }
 
   // ── Bulk / arbitrary function ────────────────────────────────────────────
   if (typeof actionOrFn === 'function') {

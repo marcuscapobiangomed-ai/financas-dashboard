@@ -1,4 +1,4 @@
-import { useEffect, useState, lazy, Suspense } from 'react'
+import { useEffect, useState, useRef, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useFinanceStore } from './store/useFinanceStore'
 import { useAuthStore } from './store/useAuthStore'
@@ -58,13 +58,39 @@ function MigrationBanner() {
 
 function AppShell() {
   const darkMode = useFinanceStore((s) => s.appSettings.darkMode)
+  const syncStatus = useFinanceStore((s) => s.syncStatus)
   const location = useLocation()
   const isIRPage = location.pathname === '/ir-report'
+  const retryTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   useRealtimeSync()
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode)
   }, [darkMode])
+
+  // ── Periodic retry when syncStatus is 'error' ──────────────────────────
+  useEffect(() => {
+    if (syncStatus === 'error' && navigator.onLine && !retryTimerRef.current) {
+      retryTimerRef.current = setInterval(() => {
+        const store = useFinanceStore.getState()
+        if (store.syncStatus === 'error' && navigator.onLine) {
+          store.setSyncError(null)
+          store.setSyncStatus('offline')
+          store.processSyncQueue()
+        }
+      }, 30_000)
+    } else if (syncStatus !== 'error' && retryTimerRef.current) {
+      clearInterval(retryTimerRef.current)
+      retryTimerRef.current = null
+    }
+
+    return () => {
+      if (retryTimerRef.current) {
+        clearInterval(retryTimerRef.current)
+        retryTimerRef.current = null
+      }
+    }
+  }, [syncStatus])
 
   useEffect(() => {
     // When browser goes back online: clear error state and process queued items
