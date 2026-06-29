@@ -53,6 +53,11 @@ export function TransactionRow({ transaction: t, disabled }: TransactionRowProps
                     compra: {t.date.split('-')[2]}/{t.date.split('-')[1]}
                   </span>
                 )}
+                {t.paidByOther && (
+                  <span className="text-xs bg-blue-100/70 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded-full">
+                    Pago por: {t.paidByName || 'outro'}
+                  </span>
+                )}
                 {t.note && (
                   <span className="text-xs text-gray-400 dark:text-gray-500 truncate max-w-[280px]">{t.note}</span>
                 )}

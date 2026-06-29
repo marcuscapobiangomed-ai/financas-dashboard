@@ -15,7 +15,7 @@ export { toModel, sanitizeMonthSettings, parseUserSettingsRow }
  */
 async function safeUpsert(table: string, row: Record<string, any>, onConflict: string): Promise<void> {
   let attempt = 0
-  const maxAttempts = 10
+  const maxAttempts = 20
   const rowCopy = { ...row }
   
   while (attempt < maxAttempts) {
@@ -30,6 +30,33 @@ async function safeUpsert(table: string, row: Record<string, any>, onConflict: s
         const missingColumn = match[1]
         console.warn(`[Supabase] Coluna '${missingColumn}' ausente na tabela '${table}'. Removendo do payload e tentando novamente.`, error)
         delete rowCopy[missingColumn]
+        attempt++
+        continue
+      }
+    }
+    throw error
+  }
+}
+
+async function safeBulkUpsert(table: string, rows: Record<string, any>[], onConflict: string): Promise<void> {
+  if (rows.length === 0) return
+  let attempt = 0
+  const maxAttempts = 20
+  const rowsCopy = rows.map((r) => ({ ...r }))
+  
+  while (attempt < maxAttempts) {
+    const { error } = await supabase.from(table).upsert(rowsCopy, { onConflict })
+    if (!error) return
+
+    // Check for missing column error in the schema cache
+    if (error.message && error.message.includes("Could not find the '")) {
+      const match = error.message.match(/Could not find the '([^']+)' column/)
+      if (match && match[1]) {
+        const missingColumn = match[1]
+        console.warn(`[Supabase] Coluna '${missingColumn}' ausente na tabela '${table}' durante bulk upsert. Removendo do payload e tentando novamente.`, error)
+        for (const r of rowsCopy) {
+          delete r[missingColumn]
+        }
         attempt++
         continue
       }
@@ -56,8 +83,7 @@ export async function bulkUpsertTransactions(userId: string, txs: Transaction[])
     const { confidence, ...cleanT } = t as any
     return { ...toSnake(cleanT), user_id: userId }
   })
-  const { error } = await supabase.from('transactions').upsert(rows, { onConflict: 'id' })
-  if (error) throw error
+  await safeBulkUpsert('transactions', rows, 'id')
 }
 
 export async function deleteTransactionRemote(id: string): Promise<void> {
@@ -197,20 +223,17 @@ export async function deleteAllUserData(userId: string): Promise<void> {
 export async function bulkUpdateTransactions(userId: string, txs: Transaction[]): Promise<void> {
   if (txs.length === 0) return; await requireSession()
   const rows = txs.map((t) => ({ ...toSnake(t as any), user_id: userId }))
-  const { error } = await supabase.from('transactions').upsert(rows, { onConflict: 'id' })
-  if (error) throw error
+  await safeBulkUpsert('transactions', rows, 'id')
 }
 
 export async function bulkUpdateExtraordinaryEntries(userId: string, entries: ExtraordinaryEntry[]): Promise<void> {
   if (entries.length === 0) return; await requireSession()
   const rows = entries.map((e) => ({ ...toSnake(e as any), user_id: userId }))
-  const { error } = await supabase.from('extraordinary_entries').upsert(rows, { onConflict: 'id' })
-  if (error) throw error
+  await safeBulkUpsert('extraordinary_entries', rows, 'id')
 }
 
 export async function bulkUpsertInvestments(userId: string, investments: Investment[]): Promise<void> {
   if (investments.length === 0) return; await requireSession()
   const rows = investments.map((inv) => ({ ...toSnake(inv as any), user_id: userId }))
-  const { error } = await supabase.from('investments').upsert(rows, { onConflict: 'id' })
-  if (error) throw error
+  await safeBulkUpsert('investments', rows, 'id')
 }

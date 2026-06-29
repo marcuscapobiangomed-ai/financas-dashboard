@@ -30,6 +30,8 @@ export function useTransactionForm({ initial, defaultSection, defaultMonthKey, o
   const [category, setCategory] = useState<Category>(initialCategory)
   const [date, setDate] = useState(initial?.date ?? `${monthKey}-01`)
   const [note, setNote] = useState(initial?.note ?? '')
+  const [paidByOther, setPaidByOther] = useState(initial?.paidByOther ?? false)
+  const [paidByName, setPaidByName] = useState(initial?.paidByName ?? '')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -78,14 +80,20 @@ export function useTransactionForm({ initial, defaultSection, defaultMonthKey, o
       ? initial.monthKey
       : (isCardSection && billingMonthKey) ? billingMonthKey : (date.length >= 7 ? date.substring(0, 7) : monthKey)
 
+    const paidFields = paidByOther
+      ? { paidByOther: true, paidByName: paidByName.trim() || undefined }
+      : {}
+
     if (initial?.id) {
       updateTransaction(initial.id, {
         description: description.trim(), amount: num, section, category, date,
-        monthKey: derivedMonthKey, type: isIncome ? 'income' : 'expense', note: note.trim() || undefined,
+        monthKey: derivedMonthKey, type: isIncome ? 'income' : 'expense',
+        note: note.trim() || undefined, ...paidFields,
       })
     } else if (isInstallment && isCardSection) {
       addInstallmentTransactions(
-        { description: description.trim(), amount: num, section, category, date, type: 'expense', note: note.trim() || undefined },
+        { description: description.trim(), amount: num, section, category, date, type: 'expense',
+          note: note.trim() || undefined, ...paidFields },
         parseInt(installmentCount), currentCard?.closingDay
       )
     } else if (isRecurring && isExpenseSection && !initial?.id) {
@@ -95,18 +103,21 @@ export function useTransactionForm({ initial, defaultSection, defaultMonthKey, o
       })
       addTransaction({
         description: description.trim(), amount: num, section, category, date, type: 'expense',
-        monthKey: derivedMonthKey, isRecurring: true, recurringId: templateId, note: note.trim() || undefined,
+        monthKey: derivedMonthKey, isRecurring: true, recurringId: templateId,
+        note: note.trim() || undefined, ...paidFields,
       })
     } else {
       addTransaction({
         description: description.trim(), amount: num, section, category, date,
-        type: isIncome ? 'income' : 'expense', monthKey: derivedMonthKey, note: note.trim() || undefined,
+        type: isIncome ? 'income' : 'expense', monthKey: derivedMonthKey,
+        note: note.trim() || undefined, ...paidFields,
       })
     }
 
     const reset = () => {
       setDescription(''); setAmount(''); setNote(''); setIsInstallment(false)
       setInstallmentCount('2'); setIsRecurring(false); setRecurringEndMonth('')
+      setPaidByOther(false); setPaidByName('')
     }
 
     if (saveAndNew) {
@@ -136,6 +147,7 @@ export function useTransactionForm({ initial, defaultSection, defaultMonthKey, o
     category, setCategory, date, setDate, note, setNote, errors, setErrors, suggestions,
     showSuggestions, setShowSuggestions, isInstallment, setIsInstallment, installmentCount,
     setInstallmentCount, isRecurring, setIsRecurring, recurringEndMonth, setRecurringEndMonth,
+    paidByOther, setPaidByOther, paidByName, setPaidByName,
     amountRef, isCardSection, isExpenseSection, currentCard, billingMonthKey, billingMonthLabel,
     availableCategories, sectionOrder, sectionLabels, handleSubmit, handleDescriptionChange, selectSuggestion
   }

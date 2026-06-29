@@ -54,6 +54,7 @@ describe('callWithRetry', () => {
   it('retries multiple times and eventually throws after exhausting retries', async () => {
     const fn = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
     const promise = callWithRetry(fn)
+    promise.catch(() => {})
     await vi.advanceTimersByTimeAsync(800)
     await vi.advanceTimersByTimeAsync(1600)
     await expect(promise).rejects.toThrow('Failed to fetch')
@@ -63,6 +64,7 @@ describe('callWithRetry', () => {
   it('immediately throws on non-network error without retrying', async () => {
     const fn = vi.fn().mockRejectedValue(new Error('Validation error'))
     const promise = callWithRetry(fn)
+    promise.catch(() => {})
     await vi.runAllTimersAsync()
     await expect(promise).rejects.toThrow('Validation error')
     expect(fn).toHaveBeenCalledTimes(1)
@@ -71,6 +73,7 @@ describe('callWithRetry', () => {
   it('throws on session error without retrying', async () => {
     const fn = vi.fn().mockRejectedValue(new Error('Sessão expirada'))
     const promise = callWithRetry(fn)
+    promise.catch(() => {})
     await vi.runAllTimersAsync()
     await expect(promise).rejects.toThrow('Sessão expirada')
     expect(fn).toHaveBeenCalledTimes(1)
@@ -80,6 +83,7 @@ describe('callWithRetry', () => {
     const err = new TypeError('Failed to fetch')
     const fn = vi.fn().mockRejectedValue(err)
     const promise = callWithRetry(fn)
+    promise.catch(() => {})
     await vi.advanceTimersByTimeAsync(800)
     await vi.advanceTimersByTimeAsync(1600)
     await expect(promise).rejects.toThrow('Failed to fetch')
@@ -88,6 +92,7 @@ describe('callWithRetry', () => {
   it('uses exponential backoff between retries', async () => {
     const fn = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
     const promise = callWithRetry(fn)
+    promise.catch(() => {})
     await vi.advanceTimersByTimeAsync(800)
     expect(fn).toHaveBeenCalledTimes(2)
     await vi.advanceTimersByTimeAsync(1600)

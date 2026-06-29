@@ -24,6 +24,7 @@ export function TransactionForm({
     description, setDescription, amount, setAmount, section, setSection, category, setCategory, date, setDate, note, setNote,
     errors, suggestions, showSuggestions, setShowSuggestions, isInstallment, setIsInstallment,
     installmentCount, setInstallmentCount, isRecurring, setIsRecurring, recurringEndMonth, setRecurringEndMonth,
+    paidByOther, setPaidByOther, paidByName, setPaidByName,
     amountRef, isCardSection, isExpenseSection, currentCard, billingMonthLabel, availableCategories,
     sectionOrder, sectionLabels, handleSubmit, handleDescriptionChange,
   } = useTransactionForm({ initial, defaultSection, defaultMonthKey, onSave })
@@ -91,6 +92,29 @@ export function TransactionForm({
       {/* Recurring toggle */}
       {isExpenseSection && !isInstallment && !initial?.id && (
         <RecurringFields isRecurring={isRecurring} setIsRecurring={setIsRecurring} recurringEndMonth={recurringEndMonth} setRecurringEndMonth={setRecurringEndMonth} />
+      )}
+
+      {/* Paid by other (expense only) */}
+      {isExpenseSection && (
+        <div className="flex flex-col gap-2">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={paidByOther}
+              onChange={(e) => setPaidByOther(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+            />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Pago por outro</span>
+          </label>
+          {paidByOther && (
+            <Input
+              label="Quem vai pagar?"
+              placeholder="Ex: pais, mãe, irmão..."
+              value={paidByName}
+              onChange={(e) => setPaidByName(e.target.value)}
+            />
+          )}
+        </div>
       )}
 
       {/* Note */}

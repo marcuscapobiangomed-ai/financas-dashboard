@@ -61,3 +61,17 @@ ADD COLUMN IF NOT EXISTS closed_at timestamptz,
 ADD COLUMN IF NOT EXISTS opened_at timestamptz,
 ADD COLUMN IF NOT EXISTS closed_by text;
 
+-- 4. Tabela transactions
+ALTER TABLE transactions
+ADD COLUMN IF NOT EXISTS is_recurring boolean DEFAULT false,
+ADD COLUMN IF NOT EXISTS recurring_id uuid,
+ADD COLUMN IF NOT EXISTS paid_by_other boolean DEFAULT false,
+ADD COLUMN IF NOT EXISTS paid_by_name text,
+ADD COLUMN IF NOT EXISTS note text,
+ADD COLUMN IF NOT EXISTS tags text[],
+ADD COLUMN IF NOT EXISTS installment_group_id uuid,
+ADD COLUMN IF NOT EXISTS installment_current integer,
+ADD COLUMN IF NOT EXISTS installment_total integer,
+ADD COLUMN IF NOT EXISTS is_paid boolean DEFAULT true;
+
+
