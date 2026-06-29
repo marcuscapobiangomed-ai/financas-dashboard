@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceLine,
@@ -45,12 +45,14 @@ export function CategoryTrendLine({ fromMonthKey }: { fromMonthKey?: string }) {
       .map(([cat]) => cat)
   }, [byMonthCat])
 
-  const [visible, setVisible] = useState<Set<Category>>(new Set())
-  useEffect(() => {
-    if (topCategories.length > 0 && (visible.size === 0 || !Array.from(visible).some((c) => topCategories.includes(c)))) {
-      setVisible(new Set(topCategories))
+  // Initialize visible with all top categories (derived state, no effect needed)
+  const [visible, setVisible] = useState<Set<Category> | null>(null)
+  const effectiveVisible = useMemo(() => {
+    if (visible !== null && Array.from(visible).some((c) => topCategories.includes(c))) {
+      return visible
     }
-  }, [topCategories])
+    return new Set(topCategories)
+  }, [visible, topCategories])
 
   // Build chart data: one row per month
   const data = useMemo(() => monthKeys.map((key) => {
@@ -71,13 +73,10 @@ export function CategoryTrendLine({ fromMonthKey }: { fromMonthKey?: string }) {
     return avgs
   }, [data, topCategories])
 
-  if (topCategories.length === 0) {
-    return <EmptyState title="Sem dados" description="Adicione despesas para ver a tendência por categoria" />
-  }
-
-  function toggleCategory(cat: Category) {
+  const toggleCategory = useCallback((cat: Category) => {
     setVisible((prev) => {
-      const next = new Set(prev)
+      const current = prev ?? new Set(topCategories)
+      const next = new Set(current)
       if (next.has(cat)) {
         if (next.size > 1) next.delete(cat)
       } else {
@@ -85,6 +84,10 @@ export function CategoryTrendLine({ fromMonthKey }: { fromMonthKey?: string }) {
       }
       return next
     })
+  }, [topCategories])
+
+  if (topCategories.length === 0) {
+    return <EmptyState title="Sem dados" description="Adicione despesas para ver a tendência por categoria" />
   }
 
   return (
@@ -93,13 +96,13 @@ export function CategoryTrendLine({ fromMonthKey }: { fromMonthKey?: string }) {
       <div className="flex flex-wrap gap-2 mb-4">
         {topCategories.map((cat) => {
           const meta = CATEGORY_META[cat]
-          const isOn = visible.has(cat)
+          const isOn = effectiveVisible.has(cat)
           return (
             <button
               key={cat}
               onClick={() => toggleCategory(cat)}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer ${
-                isOn ? 'border-transparent text-white' : 'bg-white text-gray-400 border-gray-200'
+                isOn ? 'border-transparent text-white shadow-sm' : 'bg-white dark:bg-gray-700 text-gray-400 dark:text-gray-400 border-gray-200 dark:border-gray-600'
               }`}
               style={isOn ? { backgroundColor: meta.color, borderColor: meta.color } : {}}
             >
@@ -110,9 +113,9 @@ export function CategoryTrendLine({ fromMonthKey }: { fromMonthKey?: string }) {
         })}
       </div>
 
-      <ResponsiveContainer width="100%" height={220}>
+      <ResponsiveContainer width="100%" height={240}>
         <LineChart data={data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid, #f3f4f6)" />
           <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
           <YAxis
             tickFormatter={formatYAxisK}
@@ -125,7 +128,7 @@ export function CategoryTrendLine({ fromMonthKey }: { fromMonthKey?: string }) {
             formatter={(v, name) => [formatCurrency(Number(v)), CATEGORY_META[name as Category]?.label ?? name]}
             contentStyle={TOOLTIP_STYLE}
           />
-          {topCategories.filter((c) => visible.has(c)).map((cat) => (
+          {topCategories.filter((c) => effectiveVisible.has(c)).map((cat) => (
             <Line
               key={cat}
               type="monotone"
@@ -136,7 +139,7 @@ export function CategoryTrendLine({ fromMonthKey }: { fromMonthKey?: string }) {
               activeDot={{ r: 5 }}
             />
           ))}
-          {topCategories.filter((c) => visible.has(c)).map((cat) => (
+          {topCategories.filter((c) => effectiveVisible.has(c)).map((cat) => (
             <ReferenceLine
               key={`avg-${cat}`}
               y={averages[cat]}
@@ -147,7 +150,7 @@ export function CategoryTrendLine({ fromMonthKey }: { fromMonthKey?: string }) {
           ))}
         </LineChart>
       </ResponsiveContainer>
-      <p className="text-xs text-gray-400 text-center mt-1">Linhas tracejadas = média dos 12 meses</p>
+      <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-1">Linhas tracejadas = média dos 12 meses</p>
     </div>
   )
 }

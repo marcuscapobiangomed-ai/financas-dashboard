@@ -12,10 +12,35 @@ export function useAnnualData(fromMonthKey?: string) {
 
   return useMemo(() => {
     const monthKeys = getLast12MonthKeys(fromMonthKey)
+    const keysSet = new Set(monthKeys)
+
+    // Pre-group transactions by monthKey for O(n) instead of O(12n)
+    const txsByMonth = new Map<string, typeof transactions>()
+    transactions.forEach((t) => {
+      if (!keysSet.has(t.monthKey)) return
+      let list = txsByMonth.get(t.monthKey)
+      if (!list) {
+        list = []
+        txsByMonth.set(t.monthKey, list)
+      }
+      list.push(t)
+    })
+
+    // Pre-group extraordinary entries by monthKey
+    const extraByMonth = new Map<string, typeof extraordinaryEntries>()
+    extraordinaryEntries.forEach((e) => {
+      if (!keysSet.has(e.monthKey)) return
+      let list = extraByMonth.get(e.monthKey)
+      if (!list) {
+        list = []
+        extraByMonth.set(e.monthKey, list)
+      }
+      list.push(e)
+    })
 
     const trends: MonthTrend[] = monthKeys.map((key) => {
-      const monthTxs = transactions.filter((t) => t.monthKey === key)
-      const monthExtra = extraordinaryEntries.filter((e) => e.monthKey === key)
+      const monthTxs = txsByMonth.get(key) ?? []
+      const monthExtra = extraByMonth.get(key) ?? []
       const extraordinaryIncome = monthExtra.reduce((s, e) => s + e.netAmount, 0)
       const income = computeIncome(monthTxs) + extraordinaryIncome
       const expenses = computeTotalExpenses(monthTxs, expenseSections)

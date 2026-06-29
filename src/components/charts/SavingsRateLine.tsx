@@ -11,21 +11,31 @@ export function SavingsRateLine({ fromMonthKey }: { fromMonthKey?: string }) {
   const { trends } = useAnnualData(fromMonthKey)
   const appSettings = useFinanceStore((s) => s.appSettings)
   const hasData = trends.some((t) => t.income > 0)
+  const goal = appSettings.defaultSavingsGoalPercent
 
   if (!hasData) {
     return <EmptyState title="Sem dados" description="Adicione receitas para visualizar a taxa de poupança" />
   }
 
+  // Check if most months are above or below goal for dynamic coloring
+  const aboveGoalCount = trends.filter((t) => t.savingsRate >= goal).length
+  const dominantAbove = aboveGoalCount > trends.length / 2
+  const strokeColor = dominantAbove ? '#10b981' : '#6366f1'
+
   return (
-    <ResponsiveContainer width="100%" height={200}>
+    <ResponsiveContainer width="100%" height={280}>
       <AreaChart data={trends} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
         <defs>
-          <linearGradient id="savingsGrad" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id="savingsGradGreen" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+            <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
+          </linearGradient>
+          <linearGradient id="savingsGradIndigo" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
             <stop offset="95%" stopColor="#6366f1" stopOpacity={0.02} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid, #f3f4f6)" />
         <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
         <YAxis
           tickFormatter={(v) => `${v.toFixed(0)}%`}
@@ -43,18 +53,19 @@ export function SavingsRateLine({ fromMonthKey }: { fromMonthKey?: string }) {
           contentStyle={TOOLTIP_STYLE}
         />
         <ReferenceLine
-          y={appSettings.defaultSavingsGoalPercent}
+          y={goal}
           stroke="#10b981"
           strokeDasharray="4 4"
-          label={{ value: `Meta ${appSettings.defaultSavingsGoalPercent}%`, position: 'right', fontSize: 10, fill: '#10b981' }}
+          label={{ value: `Meta ${goal}%`, position: 'right', fontSize: 10, fill: '#10b981' }}
         />
         <Area
           type="monotone"
           dataKey="savingsRate"
-          stroke="#6366f1"
+          stroke={strokeColor}
           strokeWidth={2}
-          fill="url(#savingsGrad)"
-          dot={{ r: 3, fill: '#6366f1' }}
+          fill={dominantAbove ? 'url(#savingsGradGreen)' : 'url(#savingsGradIndigo)'}
+          dot={{ r: 3, fill: strokeColor }}
+          activeDot={{ r: 5, fill: strokeColor }}
         />
       </AreaChart>
     </ResponsiveContainer>

@@ -27,6 +27,7 @@ export interface SpendingInsight {
   type: 'warning' | 'success' | 'info' | 'tip'
   title: string
   description: string
+  actionHint?: string
   value?: number
   category?: Category
   month?: string
@@ -41,13 +42,45 @@ export interface ProjectionData {
   avgMonthlyIncome: number
   avgSavingsRate: number
   onTrackForGoal: boolean
+  projectedMonthExpense?: number
+}
+
+export interface AnalyticsSummary {
+  income: number
+  expenses: number
+  balance: number
+  savingsRate: number
+  incomeDelta: number
+  expensesDelta: number
+  balanceDelta: number
+  savingsRateDelta: number
 }
 
 export interface YearComparison {
   category: Category
   label: string
+  color: string
   year1Total: number
   year2Total: number
   delta: number
   deltaPercent: number
 }
+
+export interface YearMonthlyData {
+  month: number
+  label: string
+  year1Income: number
+  year1Expenses: number
+  year1Balance: number
+  year2Income: number
+  year2Expenses: number
+  year2Balance: number
+}
+
+export interface YearStats {
+  income: number
+  expenses: number
+  balance: number
+  savingsRate: number
+}
+

@@ -18,7 +18,7 @@ export function IncomeVsExpenseBar({ fromMonthKey }: { fromMonthKey?: string }) 
   return (
     <ResponsiveContainer width="100%" height={280}>
       <ComposedChart data={trends} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid, #f3f4f6)" />
         <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
         <YAxis
           tickFormatter={formatYAxisK}

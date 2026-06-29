@@ -11,6 +11,18 @@ body {
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  --chart-tooltip-border: #e5e7eb;
+  --chart-tooltip-bg: #ffffff;
+  --chart-tooltip-text: #374151;
+  --chart-grid: #f3f4f6;
+}
+
+.dark body,
+.dark {
+  --chart-tooltip-border: #374151;
+  --chart-tooltip-bg: #1f2937;
+  --chart-tooltip-text: #e5e7eb;
+  --chart-grid: #374151;
 }
 
 @keyframes slide-up {
@@ -29,6 +41,15 @@ body {
 
 .animate-slide-in {
   animation: slide-in 0.2s ease-out;
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.4s ease-out both;
 }
 
 /* Print styles for PDF export */

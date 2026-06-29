@@ -1,20 +1,27 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { useAnalytics } from '../../hooks/useAnalytics'
 import { CATEGORY_META } from '../../types/category'
+import { CategoryBreakdown } from '../../types/analytics'
 import { formatCurrency } from '../../utils/currency'
 import { EmptyState } from '../ui/EmptyState'
 import { TOOLTIP_STYLE } from '../../constants/chartStyles'
 
 interface Props {
-  monthKey: string
+  monthKey?: string
+  data?: CategoryBreakdown[]
+  totalLabel?: string
 }
 
-export function CategoryPieChart({ monthKey }: Props) {
-  const { categoryBreakdowns } = useAnalytics(monthKey)
+export function CategoryPieChart({ monthKey, data, totalLabel }: Props) {
+  // Use provided data if available, otherwise fall back to hook
+  const hookData = monthKey && !data ? useAnalytics(monthKey).categoryBreakdowns : null
+  const categoryBreakdowns = data ?? hookData ?? []
 
   if (categoryBreakdowns.length === 0) {
     return <EmptyState title="Sem dados" description="Adicione lançamentos para ver o gráfico" />
   }
+
+  const total = categoryBreakdowns.reduce((s, c) => s + c.total, 0)
 
   const dataWithColors = categoryBreakdowns.map((c) => ({
     name: c.label,
@@ -40,7 +47,10 @@ export function CategoryPieChart({ monthKey }: Props) {
           ))}
         </Pie>
         <Tooltip
-          formatter={(value) => [formatCurrency(Number(value)), '']}
+          formatter={(value, name) => [
+            `${formatCurrency(Number(value))} (${dataWithColors.find((d) => d.name === name)?.percentage.toFixed(1) ?? 0}%)`,
+            name,
+          ]}
           contentStyle={TOOLTIP_STYLE}
         />
         <Legend
@@ -48,6 +58,28 @@ export function CategoryPieChart({ monthKey }: Props) {
           iconSize={8}
           formatter={(value) => <span style={{ fontSize: 11, color: '#6b7280' }}>{value}</span>}
         />
+        {/* Center label */}
+        <text
+          x="50%"
+          y="42%"
+          textAnchor="middle"
+          dominantBaseline="middle"
+          className="fill-gray-900 dark:fill-gray-100"
+          fontSize="15"
+          fontWeight="700"
+        >
+          {formatCurrency(total)}
+        </text>
+        <text
+          x="50%"
+          y="50%"
+          textAnchor="middle"
+          dominantBaseline="middle"
+          className="fill-gray-400"
+          fontSize="9"
+        >
+          {totalLabel ?? 'Total despesas'}
+        </text>
       </PieChart>
     </ResponsiveContainer>
   )
