@@ -23,7 +23,11 @@ export function TransactionRow({ transaction: t, disabled }: TransactionRowProps
 
   return (
     <>
-      <tr className={`hover:bg-indigo-50/40 dark:hover:bg-gray-700/40 group transition-colors ${isPaid ? 'opacity-50' : ''}`}>
+      <tr className={`transition-colors group border-b border-gray-100/50 dark:border-gray-800/40 ${
+        isPaid 
+          ? 'bg-emerald-50/5 dark:bg-emerald-950/5 hover:bg-emerald-50/10 dark:hover:bg-emerald-950/10' 
+          : 'hover:bg-indigo-50/40 dark:hover:bg-gray-700/40'
+      }`}>
         <td className="px-4 py-3.5">
           <div className="flex items-center gap-3">
             {!disabled && (
@@ -40,7 +44,7 @@ export function TransactionRow({ transaction: t, disabled }: TransactionRowProps
               style={{ backgroundColor: meta?.color ?? '#6b7280' }}
             />
             <div className="flex flex-col">
-              <span className={`text-sm font-medium ${isPaid ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-800 dark:text-gray-200'}`}>
+              <span className={`text-sm font-medium ${isPaid ? 'text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>
                 {t.description}
                 {isIncome && <span className="ml-1.5 text-xs text-emerald-500 font-normal">(recebida)</span>}
               </span>
@@ -74,7 +78,7 @@ export function TransactionRow({ transaction: t, disabled }: TransactionRowProps
           </div>
         </td>
         <td className="px-4 py-3.5 text-right">
-          <span className={`text-sm font-semibold ${isPaid ? 'text-gray-400 dark:text-gray-500' : isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-700 dark:text-gray-300'}`}>
+          <span className={`text-sm font-semibold ${isPaid ? 'text-gray-500 dark:text-gray-400' : isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-700 dark:text-gray-300'}`}>
             {isIncome ? '+' : ''}{formatCurrency(t.amount)}
           </span>
         </td>
