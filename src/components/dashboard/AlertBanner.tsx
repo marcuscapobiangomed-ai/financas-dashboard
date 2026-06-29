@@ -1,23 +1,40 @@
 import { useState } from 'react'
 import { AlertTriangle, X } from 'lucide-react'
 import { useBudgetAlerts } from '../../hooks/useBudgetAlerts'
+import { useMonthData } from '../../hooks/useMonthData'
 import { formatCurrency } from '../../utils/currency'
 
 export function AlertBanner({ monthKey }: { monthKey: string }) {
   const { overLimit, nearLimit, hasAlerts, hasWarnings } = useBudgetAlerts(monthKey)
+  const { accumulatedBalance } = useMonthData(monthKey)
+  const isNegative = accumulatedBalance < 0
+
   // Track which specific alert combination was dismissed — reappears if alerts change
-  const alertKey = overLimit.map((a) => `${a.section}:${Math.floor(a.total)}`).join(',')
+  const alertKey = `${overLimit.map((a) => `${a.section}:${Math.floor(a.total)}`).join(',')}|neg:${isNegative}`
   const [dismissedKey, setDismissedKey] = useState('')
 
-  if (dismissedKey === alertKey || (!hasAlerts && !hasWarnings)) return null
+  if (dismissedKey === alertKey || (!hasAlerts && !hasWarnings && !isNegative)) return null
+
+  const isRed = hasAlerts || isNegative
 
   return (
-    <div className={`rounded-xl p-4 flex items-start gap-3 ${hasAlerts ? 'bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800' : 'bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800'}`}>
-      <AlertTriangle size={16} className={`shrink-0 mt-0.5 ${hasAlerts ? 'text-red-500' : 'text-yellow-600'}`} />
+    <div className={`rounded-xl p-4 flex items-start gap-3 ${isRed ? 'bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800' : 'bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800'}`}>
+      <AlertTriangle size={16} className={`shrink-0 mt-0.5 ${isRed ? 'text-red-500' : 'text-yellow-600'}`} />
       <div className="flex-1">
+        {isNegative && (
+          <div className={hasAlerts ? 'mb-3 pb-3 border-b border-red-200 dark:border-red-800' : ''}>
+            <p className="text-sm font-semibold text-red-800 dark:text-red-300 mb-0.5">
+              Saldo Acumulado Negativo
+            </p>
+            <p className="text-sm text-red-700 dark:text-red-400">
+              O seu saldo acumulado projetado ao final de este mês está negativo em <strong>{formatCurrency(accumulatedBalance)}</strong>. Por favor, revise suas despesas.
+            </p>
+          </div>
+        )}
+
         {hasAlerts && (
           <div>
-            <p className={`text-sm font-semibold mb-1 ${hasAlerts ? 'text-red-800 dark:text-red-300' : 'text-yellow-800 dark:text-yellow-300'}`}>
+            <p className="text-sm font-semibold text-red-800 dark:text-red-300 mb-1">
               Limite ultrapassado
             </p>
             <ul className="flex flex-col gap-0.5">
@@ -30,8 +47,8 @@ export function AlertBanner({ monthKey }: { monthKey: string }) {
           </div>
         )}
         {hasWarnings && (
-          <div className={hasAlerts ? 'mt-2' : ''}>
-            {!hasAlerts && <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300 mb-1">Atenção: limite próximo</p>}
+          <div className={hasAlerts || isNegative ? 'mt-2' : ''}>
+            {(!hasAlerts && !isNegative) && <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300 mb-1">Atenção: limite próximo</p>}
             <ul className="flex flex-col gap-0.5">
               {nearLimit.map((s) => (
                 <li key={s.section} className="text-sm text-yellow-700 dark:text-yellow-400">

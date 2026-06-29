@@ -1,10 +1,10 @@
 import { useMemo } from 'react'
-import { TrendingUp, TrendingDown, Minus, Wallet, ArrowDownCircle, Scale, PiggyBank, Landmark } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, Wallet, ArrowDownCircle, Scale, PiggyBank, Landmark, AlertTriangle } from 'lucide-react'
 import { formatCurrency, formatPercent } from '../../utils/currency'
 import { useMonthData } from '../../hooks/useMonthData'
 import { useFinanceStore } from '../../store/useFinanceStore'
 import { useSectionConfig } from '../../hooks/useSectionConfig'
-import { prevMonthKey } from '../../constants/months'
+import { prevMonthKey, getCurrentMonthKey } from '../../constants/months'
 import { computeIncome, computeTotalExpenses, computeSavingsRate } from '../../utils/calculations'
 
 function DeltaBadge({ current, previous, invert }: { current: number; previous: number; invert?: boolean }) {
@@ -51,7 +51,7 @@ function StatCard({ label, value, subtitle, icon, iconBg, deltaEl, valueColor = 
 }
 
 export function SummaryCards({ monthKey }: { monthKey: string }) {
-  const { income, totalExpenses, extraordinaryIncome } = useMonthData(monthKey)
+  const { income, totalExpenses, extraordinaryIncome, accumulatedBalance, carryoverBalance } = useMonthData(monthKey)
   const transactions = useFinanceStore((s) => s.transactions)
   const extraordinaryEntries = useFinanceStore((s) => s.extraordinaryEntries)
   const { expenseSections } = useSectionConfig()
@@ -60,22 +60,7 @@ export function SummaryCards({ monthKey }: { monthKey: string }) {
   const balance = totalIncome - totalExpenses
   const savingsRate = computeSavingsRate(totalIncome, totalExpenses)
 
-  // Accumulated balance across all months + initial balance from settings
   const appSettings = useFinanceStore((s) => s.appSettings)
-  const allMonthKeys = useMemo(() => {
-    const keys = new Set(transactions.map((t) => t.monthKey))
-    return Array.from(keys).sort()
-  }, [transactions])
-  const accumulatedBalance = useMemo(() => {
-    const initial = appSettings.initialBalance ?? 0
-    return allMonthKeys.reduce((acc, key) => {
-      const txs = transactions.filter((t) => t.monthKey === key)
-      const extra = extraordinaryEntries.filter((e) => e.monthKey === key)
-      const inc = computeIncome(txs) + extra.reduce((s, e) => s + e.netAmount, 0)
-      const exp = computeTotalExpenses(txs, expenseSections)
-      return acc + inc - exp
-    }, initial)
-  }, [transactions, extraordinaryEntries, allMonthKeys, appSettings.initialBalance, expenseSections])
 
   const prev = prevMonthKey(monthKey)
   const prevTxs = transactions.filter((t) => t.monthKey === prev)
@@ -87,6 +72,58 @@ export function SummaryCards({ monthKey }: { monthKey: string }) {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Hero - accumulated balance card at TOP */}
+      <div className={`rounded-2xl p-5 sm:p-6 shadow-lg transition-colors ${
+        accumulatedBalance >= 0
+          ? 'bg-gradient-to-br from-emerald-500 to-emerald-700 text-white'
+          : 'bg-gradient-to-br from-red-500 to-red-700 text-white'
+      }`}>
+        <div className="flex items-start justify-between mb-1">
+          <div>
+            <p className="text-white/80 text-xs font-medium uppercase tracking-wide flex items-center gap-1.5">
+              <Landmark size={15} />
+              Saldo Total Acumulado
+            </p>
+            <p className="text-3xl sm:text-4xl font-extrabold mt-1 tracking-tight">
+              {formatCurrency(accumulatedBalance)}
+            </p>
+          </div>
+          {accumulatedBalance < 0 && (
+            <span className="flex items-center gap-1 text-xs bg-white/20 px-2.5 py-1 rounded-full font-semibold shrink-0">
+              <AlertTriangle size={13} />
+              Negativo
+            </span>
+          )}
+        </div>
+
+        {appSettings.initialBalance > 0 && monthKey === getCurrentMonthKey() && (
+          <p className="text-white/60 text-[10px] mt-1">
+            Inclui saldo inicial de {formatCurrency(appSettings.initialBalance)}
+          </p>
+        )}
+
+        {/* Breakdown: previous month carryover + this month result = total */}
+        <div className="mt-4 pt-4 border-t border-white/20 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
+          <div>
+            <span className="text-white/50 text-[10px] block">Saldo Anterior</span>
+            <span className="font-semibold">{formatCurrency(carryoverBalance)}</span>
+          </div>
+          <span className="text-white/30 text-lg font-light">+</span>
+          <div>
+            <span className="text-white/50 text-[10px] block">Resultado do Mês</span>
+            <span className={`font-semibold ${balance >= 0 ? '' : 'text-red-200'}`}>
+              {balance >= 0 ? '+' : ''}{formatCurrency(balance)}
+            </span>
+          </div>
+          <span className="text-white/30 text-lg font-light">=</span>
+          <div>
+            <span className="text-white/50 text-[10px] block">Total</span>
+            <span className="font-bold">{formatCurrency(accumulatedBalance)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Grid of 4 stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <StatCard
         label="Receita Total"
@@ -120,14 +157,6 @@ export function SummaryCards({ monthKey }: { monthKey: string }) {
         valueColor={savingsRate >= 20 ? 'text-emerald-600' : savingsRate >= 10 ? 'text-yellow-600' : 'text-red-600'}
       />
       </div>
-      <StatCard
-        label="Saldo Acumulado (todas as entradas)"
-        value={formatCurrency(accumulatedBalance)}
-        subtitle={appSettings.initialBalance ? `Inclui saldo inicial de ${formatCurrency(appSettings.initialBalance)}` : undefined}
-        icon={<Landmark size={18} className={accumulatedBalance >= 0 ? 'text-emerald-600' : 'text-red-500'} />}
-        iconBg={accumulatedBalance >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/30' : 'bg-red-50 dark:bg-red-900/30'}
-        valueColor={accumulatedBalance >= 0 ? 'text-emerald-700' : 'text-red-600'}
-      />
     </div>
   )
 }

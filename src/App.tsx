@@ -20,6 +20,7 @@ const QuickEntry = lazy(() => import('./pages/QuickEntry').then((m) => ({ defaul
 const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })))
 const Recurring = lazy(() => import('./pages/Recurring').then((m) => ({ default: m.Recurring })))
 const Investments = lazy(() => import('./pages/Investments').then((m) => ({ default: m.Investments })))
+const CashFlow = lazy(() => import('./pages/CashFlow').then((m) => ({ default: m.CashFlow })))
 const IRReport = lazy(() => import('./pages/IRReport').then((m) => ({ default: m.IRReport })))
 const Import = lazy(() => import('./pages/Import').then((m) => ({ default: m.Import })))
 const Login = lazy(() => import('./pages/Login').then((m) => ({ default: m.Login })))
@@ -143,6 +144,7 @@ function AppShell() {
               <Route path="/recurring" element={<Recurring />} />
               <Route path="/investments" element={<Investments />} />
               <Route path="/ir-report" element={<IRReport />} />
+              <Route path="/cashflow" element={<CashFlow />} />
               <Route path="/import" element={<Import />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/sync-test" element={<SyncTest />} />

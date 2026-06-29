@@ -16,7 +16,8 @@ export function MonthView() {
     copyOpen, setCopyOpen, closeOpen, setCloseOpen, activeTab, setActiveTab,
     incomeSections, expenseSections, currentNotes, currentHighlights, currentLessons,
     currentSavingsGoal, savingsGoalPercent, totalIncome, totalExpenses, savingsRate,
-    hasNotes, handleNotesChange, handleHighlightsChange, handleLessonsChange, handleSavingsGoalChange, appSettings
+    hasNotes, handleNotesChange, handleHighlightsChange, handleLessonsChange, handleSavingsGoalChange, appSettings,
+    accumulatedBalance, carryoverBalance
   } = useMonthView()
 
   return (
@@ -45,7 +46,7 @@ export function MonthView() {
 
       {/* Summary */}
       <div className="glass-panel-lg p-6 z-20">
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
           <div className="glass-card p-4 text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-2">Receita</p>
             <p className="text-xl font-extrabold text-glow-positive">{formatCurrency(totalIncome)}</p>
@@ -62,6 +63,13 @@ export function MonthView() {
             <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-2">Taxa de Poupança</p>
             <p className={`text-xl font-extrabold ${savingsRate >= savingsGoalPercent ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>{savingsRate.toFixed(1)}%</p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">meta: {savingsGoalPercent}%</p>
+          </div>
+          <div className="glass-card p-4 text-center">
+            <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-2">Acumulado</p>
+            <p className={`text-2xl font-extrabold ${accumulatedBalance >= 0 ? 'text-glow-positive' : 'text-glow-negative'}`}>{formatCurrency(accumulatedBalance)}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              anterior: {formatCurrency(carryoverBalance)}
+            </p>
           </div>
         </div>
       </div>

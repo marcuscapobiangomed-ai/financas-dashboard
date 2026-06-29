@@ -27,6 +27,8 @@ export interface MonthData {
   pendingTransactions: ReturnType<typeof useFinanceStore.getState>['transactions']
   pendingIncome: number
   pendingExpenses: number
+  accumulatedBalance: number
+  carryoverBalance: number
 }
 
 export function useMonthData(monthKey: string): MonthData {
@@ -68,6 +70,18 @@ export function useMonthData(monthKey: string): MonthData {
       .filter((t) => expenseSections.includes(t.section))
       .reduce((s, t) => s + t.amount, 0)
 
+    const accumulatedTransactions = transactions.filter((t) => t.monthKey <= monthKey)
+    const accumulatedExtraordinary = extraordinaryEntries.filter((e) => e.monthKey <= monthKey)
+    const accIncome = computeIncome(accumulatedTransactions) + accumulatedExtraordinary.reduce((s, e) => s + e.netAmount, 0)
+    const accExpenses = computeTotalExpenses(accumulatedTransactions, expenseSections)
+    const accumulatedBalance = (appSettings.initialBalance ?? 0) + accIncome - accExpenses
+
+    const previousTransactions = transactions.filter((t) => t.monthKey < monthKey)
+    const previousExtraordinary = extraordinaryEntries.filter((e) => e.monthKey < monthKey)
+    const prevIncome = computeIncome(previousTransactions) + previousExtraordinary.reduce((s, e) => s + e.netAmount, 0)
+    const prevExpenses = computeTotalExpenses(previousTransactions, expenseSections)
+    const carryoverBalance = (appSettings.initialBalance ?? 0) + prevIncome - prevExpenses
+
     return {
       monthKey,
       transactions: monthTransactions,
@@ -85,6 +99,8 @@ export function useMonthData(monthKey: string): MonthData {
       pendingTransactions,
       pendingIncome,
       pendingExpenses,
+      accumulatedBalance,
+      carryoverBalance,
     }
   }, [transactions, extraordinaryEntries, monthKey, monthSettings, appSettings, sectionOrder, sectionLabels, expenseSections])
 }

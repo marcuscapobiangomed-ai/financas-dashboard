@@ -6,7 +6,7 @@ export function useMonthView() {
   const currentMonthKey = useFinanceStore((s) => s.currentMonthKey)
   const updateMonthSettings = useFinanceStore((s) => s.updateMonthSettings)
   const monthSettings = useFinanceStore((s) => s.monthSettings)
-  const { sections, income, totalExpenses, isClosed, extraordinaryIncome } = useMonthData(currentMonthKey)
+  const { sections, income, totalExpenses, isClosed, extraordinaryIncome, accumulatedBalance, carryoverBalance } = useMonthData(currentMonthKey)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [notesOpen, setNotesOpen] = useState(false)
   const [copyOpen, setCopyOpen] = useState(false)
@@ -71,6 +71,8 @@ export function useMonthView() {
     handleHighlightsChange,
     handleLessonsChange,
     handleSavingsGoalChange,
-    appSettings
+    appSettings,
+    accumulatedBalance,
+    carryoverBalance
   }
 }

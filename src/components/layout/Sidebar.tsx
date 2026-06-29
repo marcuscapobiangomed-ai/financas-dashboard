@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Calendar, BarChart2, ArrowLeftRight,
-  Settings, PiggyBank, AlertTriangle, TrendingUp, LogOut, FileText, Upload
+  Settings, PiggyBank, AlertTriangle, TrendingUp, LogOut, FileText, Upload, Landmark
 } from 'lucide-react'
 import { useBudgetAlerts } from '../../hooks/useBudgetAlerts'
 import { useFinanceStore } from '../../store/useFinanceStore'
@@ -13,6 +13,7 @@ const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', exact: true },
   { to: '/month', icon: Calendar, label: 'Lançamentos' },
   { to: '/investments', icon: TrendingUp, label: 'Investimentos' },
+  { to: '/cashflow', icon: Landmark, label: 'Fluxo de Caixa' },
   { to: '/analytics', icon: BarChart2, label: 'Analytics' },
   { to: '/comparison', icon: ArrowLeftRight, label: 'Comparativo' },
   { to: '/ir-report', icon: FileText, label: 'Relatório IRPF' },
