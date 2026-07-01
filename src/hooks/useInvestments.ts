@@ -21,6 +21,8 @@ export interface FormState {
   ipcaPercent: string
   monthlyYieldPercent: string
   startMonth: string
+  startDate: string
+  endDate: string
   notes: string
   ticker: string
   shares: string
@@ -36,6 +38,8 @@ export function blankForm(): FormState {
     ipcaPercent: '',
     monthlyYieldPercent: '',
     startMonth: getCurrentMonthKey(),
+    startDate: '',
+    endDate: '',
     notes: '',
     ticker: '',
     shares: '',
@@ -117,6 +121,8 @@ export function useInvestments() {
       ipcaPercent: inv.ipcaPercent != null ? String(inv.ipcaPercent) : '',
       monthlyYieldPercent: String(inv.monthlyYieldPercent),
       startMonth: inv.startMonth,
+      startDate: inv.startDate ?? '',
+      endDate: inv.endDate ?? '',
       notes: inv.notes ?? '',
       ticker: inv.ticker ?? '',
       shares: inv.shares != null ? String(inv.shares) : '',

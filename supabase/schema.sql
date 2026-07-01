@@ -95,6 +95,8 @@ CREATE TABLE investments (
   principal numeric(12,2) NOT NULL,
   monthly_yield_percent numeric(8,4) NOT NULL,
   start_month text NOT NULL,
+  start_date date,
+  end_date date,
   is_active boolean DEFAULT true,
   notes text,
   investment_type text DEFAULT 'manual',

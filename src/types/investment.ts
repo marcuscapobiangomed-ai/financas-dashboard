@@ -24,6 +24,8 @@ export interface Investment {
   principal: number
   monthlyYieldPercent: number   // derived for CDI-based, manual for legacy
   startMonth: string            // "2026-01"
+  startDate?: string            // "2026-06-15" — optional specific start date
+  endDate?: string              // "2026-06-30" — optional maturity/end date
   isActive: boolean
   notes?: string
 

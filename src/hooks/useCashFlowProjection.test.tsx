@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { useCashFlowProjection } from './useCashFlowProjection'
 import { Category } from '../types/category'
@@ -62,10 +62,16 @@ function recurringTmpl(overrides: Partial<RecurringTemplate> = {}): RecurringTem
 }
 
 beforeEach(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-06-15'))
   mockStore.transactions = []
   mockStore.extraordinaryEntries = []
   mockStore.recurringTemplates = []
   mockStore.appSettings.initialBalance = 1000
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 describe('useCashFlowProjection', () => {

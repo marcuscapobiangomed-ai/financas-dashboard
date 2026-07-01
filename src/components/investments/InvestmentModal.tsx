@@ -152,7 +152,30 @@ export function InvestmentModal({
           />
         </div>
 
-        <Input label="Observações (opcional)" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Ex: vence em dez/2026, resgate automático..." />
+        {/* Date range — prazo do investimento */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Data de início</label>
+            <input
+              type="date" className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 dark:bg-gray-800 dark:text-gray-100"
+              value={form.startDate} onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1">Data de vencimento</label>
+            <input
+              type="date" className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 dark:bg-gray-800 dark:text-gray-100"
+              value={form.endDate} onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
+            />
+          </div>
+          {form.startDate && form.endDate && (
+            <div className="col-span-2 bg-gray-50 dark:bg-gray-800/50 p-2 rounded border border-gray-100 dark:border-white/5 text-[10px] font-bold text-gray-500 uppercase">
+              Prazo: <span className="text-indigo-600 dark:text-indigo-400">{Math.max(1, Math.ceil((new Date(form.endDate).getTime() - new Date(form.startDate).getTime()) / (1000 * 60 * 60 * 24)))} dias</span>
+            </div>
+          )}
+        </div>
+
+        <Input label="Observações (opcional)" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Ex: resgate automático, carência..." />
 
         <div className="flex gap-2 pt-1">
           <Button variant="secondary" onClick={onClose} className="flex-1">Cancelar</Button>

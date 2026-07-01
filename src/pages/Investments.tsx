@@ -39,6 +39,7 @@ export function Investments() {
       investmentType: form.investmentType as InvestmentType,
       cdiPercent: parseFloat(form.cdiPercent) || undefined, ipcaPercent: parseFloat(form.ipcaPercent) || undefined,
       ticker: form.ticker.toUpperCase().trim() || undefined, shares: sharesNum || undefined, averagePrice: avgPriceNum || undefined,
+      startDate: form.startDate || undefined, endDate: form.endDate || undefined,
     }
 
     if (editingId) updateInvestment(editingId, payload); else addInvestment(payload)

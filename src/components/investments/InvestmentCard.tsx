@@ -1,9 +1,19 @@
-import { LineChart, PieChart, Pause, Play, Pencil, Trash2 } from 'lucide-react'
+import { LineChart, PieChart, Pause, Play, Pencil, Trash2, CalendarDays } from 'lucide-react'
 import { Investment } from '../../types/investment'
 import { getInvestmentMeta } from '../../constants/investmentTypes'
 import { formatMonthKey } from '../../constants/months'
 import { formatCurrency } from '../../utils/currency'
 import { getEffectiveAnnualRate, computeProjection } from '../../utils/investmentCalc'
+
+function fmtDate(iso: string): string {
+  if (!iso) return ''
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
+
+function daysBetween(a: string, b: string): number {
+  return Math.max(1, Math.ceil((new Date(b).getTime() - new Date(a).getTime()) / (1000 * 60 * 60 * 24)))
+}
 
 interface InvestmentCardProps {
   inv: Investment
@@ -72,7 +82,20 @@ export function InvestmentCard({
         {/* Main value */}
         <div className="text-right">
           <p className="text-xl font-black text-gray-900 dark:text-gray-100">{formatCurrency(inv.principal)}</p>
-          <span className="text-xs text-gray-500">desde {formatMonthKey(inv.startMonth)}</span>
+          {inv.startDate && inv.endDate ? (
+            <div className="flex items-center gap-1 text-xs text-gray-500">
+              <CalendarDays size={11} />
+              <span>{fmtDate(inv.startDate)} → {fmtDate(inv.endDate)}</span>
+              <span className="text-[10px] text-gray-400">({daysBetween(inv.startDate, inv.endDate)}d)</span>
+            </div>
+          ) : inv.startDate ? (
+            <div className="flex items-center gap-1 text-xs text-gray-500">
+              <CalendarDays size={11} />
+              <span>desde {fmtDate(inv.startDate)}</span>
+            </div>
+          ) : (
+            <span className="text-xs text-gray-500">desde {formatMonthKey(inv.startMonth)}</span>
+          )}
         </div>
       </div>
 

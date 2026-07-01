@@ -50,7 +50,9 @@ ADD COLUMN IF NOT EXISTS cdi_percent numeric(8,4),
 ADD COLUMN IF NOT EXISTS ipca_percent numeric(8,4),
 ADD COLUMN IF NOT EXISTS ticker text,
 ADD COLUMN IF NOT EXISTS shares numeric(12,4),
-ADD COLUMN IF NOT EXISTS average_price numeric(12,2);
+ADD COLUMN IF NOT EXISTS average_price numeric(12,2),
+ADD COLUMN IF NOT EXISTS start_date date,
+ADD COLUMN IF NOT EXISTS end_date date;
 
 -- 3. Tabela month_settings
 ALTER TABLE month_settings
