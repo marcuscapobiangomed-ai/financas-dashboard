@@ -7,7 +7,6 @@ import { SettingsSlice, createSettingsSlice } from './slices/settingsSlice'
 import { SyncSlice, createSyncSlice } from './slices/syncSlice'
 import { DataManagementSlice, createDataManagementSlice } from './slices/dataManagementSlice'
 import { ExtraordinarySlice, createExtraordinarySlice } from './slices/extraordinarySlice'
-import { Transaction } from '../types/transaction'
 
 export interface FinanceStore
   extends TransactionSlice,
@@ -65,8 +64,15 @@ export const useFinanceStore = create<FinanceStore>()(
     }),
     {
       name: 'financas-offline-queue',
-      // Persist the sync queue AND the last synced timestamp across page reloads
+      // Keep local finance data available across reloads, even before remote sync finishes.
       partialize: (state) => ({
+        transactions: state.transactions,
+        recurringTemplates: state.recurringTemplates,
+        extraordinaryEntries: state.extraordinaryEntries,
+        investments: state.investments,
+        monthSettings: state.monthSettings,
+        appSettings: state.appSettings,
+        currentMonthKey: state.currentMonthKey,
         syncQueue: state.syncQueue,
         lastSyncedAt: state.lastSyncedAt,
       }),
@@ -77,5 +83,3 @@ export const useFinanceStore = create<FinanceStore>()(
 // Register the store in the sync engine to prevent circular dependencies
 import { registerStore } from '../sync'
 registerStore(useFinanceStore)
-
-

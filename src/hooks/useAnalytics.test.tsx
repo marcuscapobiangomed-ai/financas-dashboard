@@ -296,7 +296,6 @@ describe('useAnalytics', () => {
   })
 
   it('handles previous month with zero income gracefully', () => {
-    const prevKey = '2024-12'
     mockStore.transactions = [
       incomeTx({ amount: 5000, monthKey: MONTH_KEY }),
       tx({ amount: 500, monthKey: MONTH_KEY }),

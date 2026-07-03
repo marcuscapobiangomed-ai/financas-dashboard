@@ -5,18 +5,37 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+interface ActiveSection {
+  id: string
+  label?: string
+}
+
+interface GeminiResponseData {
+  candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
+}
+
+interface GroqResponseData {
+  choices?: Array<{ message?: { content?: string } }>
+}
+
+interface GroqErrorResponse {
+  error?: { message?: string }
+}
+
+type ProviderResult = Record<string, unknown> & { provider?: 'gemini' | 'groq' }
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const apiKey = Deno.env.get('GROQ_API_KEY')
-    if (!apiKey) {
-      throw new Error('Chave de API do Groq (GROQ_API_KEY) não configurada nos segredos do Supabase.')
-    }
-
     const { fileText, fileName, activeSections, categories } = await req.json()
+    const sections = Array.isArray(activeSections) ? activeSections as ActiveSection[] : []
 
     const systemInstruction = `Você é um assistente financeiro de inteligência artificial altamente preciso.
 Sua tarefa é analisar o texto de extratos bancários, faturas de cartão de crédito em PDF ou planilhas de gastos e extrair TODAS as transações financeiras encontradas de forma estruturada.
@@ -53,7 +72,7 @@ Regras para transações:
 3. Limpe a descrição: remova códigos de transações, números de terminais ou textos redundantes.
 4. Extraia o valor como um número real estritamente positivo (sempre positivo).
 5. Atribua uma categoria obrigatória. Escolha estritamente a categoria mais adequada destas opções: [${categories}].
-6. Atribua uma seção obrigatória ("section"). Escolha estritamente uma destas opções: [${activeSections.map((s: any) => s.id).join(', ')}]. Dica: compras de cartão de crédito devem ser mapeadas para o ID do cartão correspondente, despesas fixas para "despesas_fixas", dinheiro físico ou gastos gerais para "gastos_diarios", etc.
+6. Atribua uma seção obrigatória ("section"). Escolha estritamente uma destas opções: [${sections.map((s) => s.id).join(', ')}]. Dica: compras de cartão de crédito devem ser mapeadas para o ID do cartão correspondente, despesas fixas para "despesas_fixas", dinheiro físico ou gastos gerais para "gastos_diarios", etc.
 7. Defina um campo "confidence" de 0 a 100 (inteiro), indicando o nível de certeza estimado sobre a categoria e seção atribuídas.
 
 Regras para dúvidas (questions):
@@ -162,16 +181,16 @@ Output JSON structure strictly:
           })
 
           if (geminiResponse.ok) {
-            const geminiData = await geminiResponse.json()
+            const geminiData = await geminiResponse.json() as GeminiResponseData
             const contentText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
             if (contentText) {
               try {
-                const parsed = JSON.parse(contentText)
+                const parsed = JSON.parse(contentText) as ProviderResult
                 parsed.provider = 'gemini'
                 return new Response(JSON.stringify(parsed), {
                   headers: { ...corsHeaders, 'Content-Type': 'application/json' }
                 })
-              } catch (e) {
+              } catch {
                 return new Response(contentText, {
                   headers: { ...corsHeaders, 'Content-Type': 'application/json' }
                 })
@@ -181,18 +200,22 @@ Output JSON structure strictly:
             const errText = await geminiResponse.text()
             console.warn(`Gemini Edge Function model ${currentModel} failed with status ${geminiResponse.status}: ${errText}`)
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.warn(`Exception in Edge Function calling Gemini model ${currentModel}:`, err)
         }
       }
-    } catch (geminiErr: any) {
+    } catch (geminiErr: unknown) {
       console.warn('Google Gemini Edge Function call failed, falling back to Groq...', geminiErr)
     }
+
+    const apiKey = Deno.env.get('GROQ_API_KEY')
+    if (!apiKey) {
+      throw new Error('Chave de API do Groq (GROQ_API_KEY) não configurada nos segredos do Supabase.')
     }
 
     const models = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'qwen/qwen3-32b']
-    let response: any = null
-    let responseData: any = null
+    let response: Response | null = null
+    let responseData: GroqResponseData | null = null
     let contentText = ''
     let lastErrorMsg = ''
 
@@ -218,10 +241,12 @@ Output JSON structure strictly:
 
         if (!response.ok) {
           const errorText = await response.text()
-          let parsedJson: any = null
+          let parsedJson: GroqErrorResponse | null = null
           try {
-            parsedJson = JSON.parse(errorText)
-          } catch (e) {}
+            parsedJson = JSON.parse(errorText) as GroqErrorResponse
+          } catch {
+            parsedJson = null
+          }
 
           const cleanMsg = parsedJson?.error?.message || errorText
           lastErrorMsg = `Erro no modelo ${currentModel}: ${cleanMsg}`
@@ -233,7 +258,7 @@ Output JSON structure strictly:
           continue
         }
 
-        responseData = await response.json()
+        responseData = await response.json() as GroqResponseData
         contentText = responseData.choices?.[0]?.message?.content || ''
         if (!contentText) {
           lastErrorMsg = `O modelo ${currentModel} retornou resposta vazia.`
@@ -241,8 +266,8 @@ Output JSON structure strictly:
         }
 
         break
-      } catch (err: any) {
-        lastErrorMsg = `Exceção ao chamar ${currentModel}: ${err.message || err}`
+      } catch (err: unknown) {
+        lastErrorMsg = `Exceção ao chamar ${currentModel}: ${getErrorMessage(err)}`
         console.warn(`Exception in Edge Function calling Groq model ${currentModel}:`, err)
         continue
       }
@@ -253,12 +278,12 @@ Output JSON structure strictly:
     }
 
     try {
-      const parsed = JSON.parse(contentText)
+      const parsed = JSON.parse(contentText) as ProviderResult
       parsed.provider = 'groq'
       return new Response(JSON.stringify(parsed), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
-    } catch (e) {
+    } catch {
       return new Response(contentText, {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })

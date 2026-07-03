@@ -1,6 +1,4 @@
 import { Category } from '../types/category'
-import { supabase } from './supabase'
-
 export interface ParsedTransaction {
   date: string
   type: 'income' | 'expense'
@@ -66,7 +64,9 @@ async function callServersideParse(
     let parsedError: any = {}
     try {
       parsedError = JSON.parse(errorText)
-    } catch (e) {}
+    } catch {
+      parsedError = {}
+    }
 
     const errorObj = new Error(parsedError.error || `Erro ao invocar a IA no servidor: ${response.status}`) as any
     errorObj.status = response.status
@@ -210,7 +210,9 @@ ${fileText}
         let parsedJson: any = null
         try {
           parsedJson = JSON.parse(errorText)
-        } catch (e) {}
+        } catch {
+          parsedJson = null
+        }
 
         const cleanMsg = parsedJson?.error?.message || errorText
         lastErrorMsg = `Erro no modelo ${currentModel}: ${cleanMsg}`
@@ -270,7 +272,7 @@ ${fileText}
       },
       provider: 'groq'
     }
-  } catch (err) {
+  } catch {
     console.error('Falha ao interpretar JSON retornado pelo Groq:', contentText)
     throw new Error('O formato retornado pelo Groq não é um JSON válido.')
   }
@@ -283,8 +285,6 @@ async function parseDocumentWithGemini(
   activeSections: Array<{ id: string; label: string }>
 ): Promise<GeminiParsingResult> {
   const categoriesList = Object.keys(Category).join(', ')
-  const sectionsList = activeSections.map(s => `${s.id} (${s.label})`).join(', ')
-
   const systemInstruction = `Você é um assistente financeiro de inteligência artificial altamente preciso.
 Sua tarefa é analisar o texto de extratos bancários, faturas de cartão de crédito em PDF ou planilhas de gastos e extrair TODAS as transações financeiras encontradas de forma estruturada.
 

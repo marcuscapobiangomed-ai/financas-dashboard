@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import {
-  TrendingUp, TrendingDown, Landmark, Wallet, ArrowDownCircle,
-  PiggyBank, CalendarDays, AlertCircle,
+  TrendingUp, Landmark, Wallet, ArrowDownCircle,
+  CalendarDays,
 } from 'lucide-react'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,

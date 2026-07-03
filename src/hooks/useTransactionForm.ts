@@ -130,7 +130,7 @@ export function useTransactionForm({ initial, defaultSection, defaultMonthKey, o
     validate, amount, section, initial, date, isCardSection, billingMonthKey, monthKey,
     isInstallment, installmentCount, updateTransaction, addInstallmentTransactions,
     currentCard, isRecurring, isExpenseSection, addRecurringTemplate, addTransaction,
-    description, category, note, recurringEndMonth, defaultSection, sectionCategories, onSave
+    description, category, note, paidByOther, paidByName, recurringEndMonth, defaultSection, sectionCategories, onSave
   ])
 
   const handleDescriptionChange = useCallback((val: string) => {

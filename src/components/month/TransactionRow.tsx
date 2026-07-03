@@ -23,13 +23,13 @@ export function TransactionRow({ transaction: t, disabled }: TransactionRowProps
 
   return (
     <>
-      <tr className={`transition-colors group border-b border-gray-100/50 dark:border-gray-800/40 ${
+      <div className={`transition-colors group border-b border-gray-100/50 dark:border-gray-800/40 ${
         isPaid 
           ? 'bg-emerald-50/5 dark:bg-emerald-950/5 hover:bg-emerald-50/10 dark:hover:bg-emerald-950/10' 
           : 'hover:bg-indigo-50/40 dark:hover:bg-gray-700/40'
       }`}>
-        <td className="px-4 py-3.5">
-          <div className="flex items-center gap-3">
+        <div className="px-4 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             {!disabled && (
               <button
                 onClick={() => togglePaid(t.id)}
@@ -76,31 +76,29 @@ export function TransactionRow({ transaction: t, disabled }: TransactionRowProps
               </div>
             </div>
           </div>
-        </td>
-        <td className="px-4 py-3.5 text-right">
-          <span className={`text-sm font-semibold ${isPaid ? 'text-gray-500 dark:text-gray-400' : isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-700 dark:text-gray-300'}`}>
-            {isIncome ? '+' : ''}{formatCurrency(t.amount)}
-          </span>
-        </td>
-        <td className="px-4 py-3.5 w-24">
-          {!disabled && (
-            <div className="flex gap-1.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-              <button
-                onClick={() => setEditing(true)}
-                className="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 cursor-pointer transition-colors"
-              >
-                <Pencil size={14} />
-              </button>
-              <button
-                onClick={() => { if (window.confirm(`Excluir "${t.description}"?`)) deleteTransaction(t.id) }}
-                className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/40 cursor-pointer transition-colors"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-          )}
-        </td>
-      </tr>
+          <div className="flex items-center justify-end gap-3 sm:shrink-0">
+            <span className={`text-sm font-semibold ${isPaid ? 'text-gray-500 dark:text-gray-400' : isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-700 dark:text-gray-300'}`}>
+              {isIncome ? '+' : ''}{formatCurrency(t.amount)}
+            </span>
+            {!disabled && (
+              <div className="flex gap-1.5 justify-end opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => setEditing(true)}
+                  className="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 cursor-pointer transition-colors"
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  onClick={() => { if (window.confirm(`Excluir "${t.description}"?`)) deleteTransaction(t.id) }}
+                  className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/40 cursor-pointer transition-colors"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       <Modal open={editing} onClose={() => setEditing(false)} title="Editar Lançamento">
         {editing && (

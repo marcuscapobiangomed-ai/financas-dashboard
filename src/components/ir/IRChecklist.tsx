@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { ListChecks, TrendingUp, Briefcase, Building2, Heart, Users, CheckCircle2 } from 'lucide-react'
+import { TrendingUp, Briefcase, Building2, Heart, Users, CheckCircle2 } from 'lucide-react'
 
 interface IRChecklistProps {
   checklistProgress: Set<number>

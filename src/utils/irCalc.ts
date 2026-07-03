@@ -1,5 +1,4 @@
 import { getInvestmentMeta } from '../constants/investmentTypes'
-import { daysSinceStartMonth, netYieldAfterIR } from './investmentCalc'
 import type { Transaction } from '../types/transaction'
 import type { Investment } from '../types/investment'
 import { OBRIGATORIEDADE_LIMITS, DEDUCTIBLE_EXPENSE_PATTERNS } from '../constants/irLimits'

@@ -13,9 +13,8 @@ interface Props {
 }
 
 export function CategoryPieChart({ monthKey, data, totalLabel }: Props) {
-  // Use provided data if available, otherwise fall back to hook
-  const hookData = monthKey && !data ? useAnalytics(monthKey).categoryBreakdowns : null
-  const categoryBreakdowns = data ?? hookData ?? []
+  const analytics = useAnalytics(monthKey)
+  const categoryBreakdowns = data ?? analytics.categoryBreakdowns
 
   if (categoryBreakdowns.length === 0) {
     return <EmptyState title="Sem dados" description="Adicione lançamentos para ver o gráfico" />

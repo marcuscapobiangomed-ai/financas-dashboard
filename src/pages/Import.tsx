@@ -1,15 +1,27 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import {
   Upload, FileText, Sparkles, Check, AlertCircle, AlertTriangle,
-  Loader2, Trash2, Edit2, CheckCircle2, ChevronRight, HelpCircle,
+  Loader2, Trash2, CheckCircle2, ChevronRight, HelpCircle,
   Clock
 } from 'lucide-react'
-import * as XLSX from 'xlsx'
+import readXlsxFile, { type Sheet } from 'read-excel-file/browser'
 import { useFinanceStore } from '../store/useFinanceStore'
 import { extractTextFromPDF } from '../lib/pdfParser'
 import { parseDocumentWithAI, ParsedTransaction, ParsingQuestion } from '../lib/geminiApi'
 import { Category, CATEGORY_META } from '../types/category'
+
+function csvEscape(value: unknown): string {
+  if (value == null) return ''
+  const normalized = value instanceof Date ? value.toISOString().slice(0, 10) : String(value)
+  return /[",\n\r]/.test(normalized) ? `"${normalized.replace(/"/g, '""')}"` : normalized
+}
+
+function sheetToCsv(sheet: Sheet): string {
+  return sheet.data
+    .map((row) => row.map(csvEscape).join(','))
+    .join('\n')
+}
 
 function cleanAndCompressCSV(rawCsv: string): string {
   const lines = rawCsv.split('\n')
@@ -32,9 +44,9 @@ function cleanAndCompressCSV(rawCsv: string): string {
   
   for (let i = 0; i < Math.min(lines.length, 5); i++) {
     const cols = lines[i].split(sep).map(c => c.trim().toLowerCase());
-    let dIdx = cols.findIndex(c => dateKeywords.some(k => c.includes(k)));
-    let dsIdx = cols.findIndex(c => !c.includes('id') && descKeywords.some(k => c.includes(k)));
-    let vIdx = cols.findIndex(c => valKeywords.some(k => c.includes(k)));
+    const dIdx = cols.findIndex(c => dateKeywords.some(k => c.includes(k)));
+    const dsIdx = cols.findIndex(c => !c.includes('id') && descKeywords.some(k => c.includes(k)));
+    const vIdx = cols.findIndex(c => valKeywords.some(k => c.includes(k)));
     
     if (dIdx !== -1 && dsIdx !== -1 && vIdx !== -1) {
       dateIdx = dIdx;
@@ -251,8 +263,8 @@ function preMatchTransactions(
     
     const dmyMatch = clean.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/)
     if (dmyMatch) {
-      let day = dmyMatch[1].padStart(2, '0')
-      let month = dmyMatch[2].padStart(2, '0')
+      const day = dmyMatch[1].padStart(2, '0')
+      const month = dmyMatch[2].padStart(2, '0')
       let year = dmyMatch[3]
       if (year.length === 2) {
         year = '20' + year
@@ -468,17 +480,13 @@ export function Import() {
       return await extractTextFromPDF(file)
     } else if (
       file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-      file.type === 'application/vnd.ms-excel' ||
-      file.name.endsWith('.xlsx') ||
-      file.name.endsWith('.xls')
+      file.name.endsWith('.xlsx')
     ) {
       setLoadingStep('Lendo planilha do Excel...')
-      const arrayBuffer = await file.arrayBuffer()
-      const workbook = XLSX.read(arrayBuffer, { type: 'array' })
+      const sheets = await readXlsxFile(file)
       let text = ''
-      for (const sheetName of workbook.SheetNames) {
-        const sheet = workbook.Sheets[sheetName]
-        const csv = XLSX.utils.sheet_to_csv(sheet)
+      for (const sheet of sheets) {
+        const csv = sheetToCsv(sheet)
         const cleanLines = csv
           .split('\n')
           .map(line => line.trim())
@@ -489,7 +497,7 @@ export function Import() {
             return withoutSeparators.length > 0
           })
         if (cleanLines.length > 0) {
-          text += `--- Planilha: ${sheetName} ---\n${cleanLines.join('\n')}\n\n`
+          text += `--- Planilha: ${sheet.sheet} ---\n${cleanLines.join('\n')}\n\n`
         }
       }
       console.log('Tamanho do texto extraído da planilha:', text.length, 'caracteres')
@@ -509,7 +517,7 @@ export function Import() {
       console.log('Tamanho do texto extraído do CSV:', cleanCsv.length, 'caracteres')
       return cleanCsv
     } else {
-      throw new Error('Formato de arquivo não suportado. Use PDF, Excel (.xlsx, .xls) ou CSV.')
+      throw new Error('Formato de arquivo não suportado. Use PDF, Excel (.xlsx) ou CSV.')
     }
   }
 
@@ -535,7 +543,7 @@ export function Import() {
       let lastRemaining = 0
       let lastReset = ''
 
-      const isSheetOrCsv = file.name.endsWith('.csv') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls')
+      const isSheetOrCsv = file.name.endsWith('.csv') || file.name.endsWith('.xlsx')
 
       if (isSheetOrCsv) {
         setLoadingStep('Comprimindo e mapeando dados localmente...')
@@ -661,14 +669,14 @@ export function Import() {
   }
 
   // Duplicate Check logic (Opção A)
-  function checkIsDuplicate(tx: ParsedTransaction): boolean {
+  const checkIsDuplicate = useCallback((tx: ParsedTransaction): boolean => {
     return transactions.some(
       (existing) =>
         existing.date === tx.date &&
         Math.abs(existing.amount - tx.amount) < 0.01 &&
         existing.type === tx.type
     )
-  }
+  }, [transactions])
 
   // Answer Questions / Resolve Doubts
   function handleAnswerQuestion(optionValue: string) {
@@ -740,7 +748,8 @@ export function Import() {
 
     try {
       const mapped = toImport.map((t) => {
-        const { confidence, ...cleanT } = t as any
+        const cleanT = { ...(t as any) }
+        delete cleanT.confidence
         return {
           ...cleanT,
           id: crypto.randomUUID(),
@@ -754,7 +763,7 @@ export function Import() {
       setTimeout(() => {
         navigate('/month')
       }, 2000)
-    } catch (err) {
+    } catch {
       setError('Falha ao registrar transações no Supabase.')
     } finally {
       setLoading(false)
@@ -811,7 +820,7 @@ export function Import() {
       avgConfidence,
       topCategories
     }
-  }, [extractedTxs, selectedTxs])
+  }, [extractedTxs, selectedTxs, checkIsDuplicate])
 
   return (
     <div className="flex flex-col gap-6 p-6 max-w-6xl mx-auto w-full min-h-[calc(100vh-8rem)]">
@@ -945,7 +954,7 @@ export function Import() {
             <input
               type="file"
               id="file-upload"
-              accept=".pdf,.xlsx,.xls,.csv"
+              accept=".pdf,.xlsx,.csv"
               onChange={handleFileChange}
               className="hidden"
               disabled={loading}
@@ -981,7 +990,7 @@ export function Import() {
                 </label>
                 <span className="text-sm text-gray-500"> ou arraste e solte o arquivo aqui</span>
                 <p className="text-[10px] text-gray-400 mt-2">
-                  Suporta extratos em PDF, planilhas Excel (.xlsx, .xls) ou CSV de até 10MB
+                  Suporta extratos em PDF, planilhas Excel (.xlsx) ou CSV de até 10MB
                 </p>
               </div>
             )}

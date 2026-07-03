@@ -73,14 +73,16 @@ export async function fetchTransactions(userId: string): Promise<Transaction[]> 
 
 export async function upsertTransaction(userId: string, t: Transaction): Promise<void> {
   await requireSession()
-  const { confidence, ...cleanT } = t as any
+  const cleanT = { ...(t as any) }
+  delete cleanT.confidence
   await safeUpsert('transactions', { ...toSnake(cleanT), user_id: userId }, 'id')
 }
 
 export async function bulkUpsertTransactions(userId: string, txs: Transaction[]): Promise<void> {
   if (txs.length === 0) return; await requireSession()
   const rows = txs.map((t) => {
-    const { confidence, ...cleanT } = t as any
+    const cleanT = { ...(t as any) }
+    delete cleanT.confidence
     return { ...toSnake(cleanT), user_id: userId }
   })
   await safeBulkUpsert('transactions', rows, 'id')

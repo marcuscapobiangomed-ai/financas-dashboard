@@ -145,7 +145,7 @@ describe('useCashFlowProjection', () => {
 
     // Each month accumulates
     let expectedAccum = 0
-    result.current.months.forEach((m, i) => {
+    result.current.months.forEach((m) => {
       expectedAccum += m.balance
       expect(m.accumulatedBalance).toBeCloseTo(expectedAccum)
     })
@@ -179,9 +179,6 @@ describe('useCashFlowProjection', () => {
     ]
 
     const { result } = renderHook(() => useCashFlowProjection(12))
-
-    // Debug: print all months
-    const months = result.current.months.map((m) => `${m.monthKey}(proj=${m.isProjected},exp=${m.expenses})`).join(', ')
 
     // Current month (June) — has no transactions, but is not projected
     const jun = result.current.months.find((m) => m.monthKey === '2026-06')!

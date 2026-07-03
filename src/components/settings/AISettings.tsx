@@ -58,7 +58,7 @@ export function AISettings({ appSettings, updateAppSettings }: AISettingsProps) 
         const errMsg = errorData.error?.message || 'Erro na autenticação'
         setTestResult({ success: false, message: `Chave inválida: ${errMsg}` })
       }
-    } catch (err) {
+    } catch {
       setTestResult({ success: false, message: 'Erro de rede ao conectar com o serviço de IA.' })
     } finally {
       setTesting(false)

@@ -1,11 +1,10 @@
 import { isNetworkError, isSessionError } from './errors'
 import { tryRefreshSession } from './session'
 import { callWithRetry } from './retry'
-import { SyncActionDescriptor, SyncStatus } from './types'
 import * as db from '../lib/supabaseData'
 
 // Global flag to suppress sync-back when applying realtime updates
-export let _realtimeOrigin = { value: false }
+export const _realtimeOrigin = { value: false }
 
 let storeRef: any = null
 

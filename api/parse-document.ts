@@ -1,4 +1,74 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
+interface VercelRequest {
+  method?: string
+  body: any
+}
+
+interface VercelResponse {
+  setHeader: (name: string, value: string) => void
+  status: (code: number) => VercelResponse
+  end: () => void
+  json: (body: unknown) => void
+}
+
+interface ActiveSection {
+  id: string
+  label?: string
+}
+
+interface GeminiResponseData {
+  candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
+  usageMetadata?: {
+    promptTokenCount?: number
+    candidatesTokenCount?: number
+    totalTokenCount?: number
+  }
+}
+
+interface GeminiParsedResult {
+  transactions?: unknown[]
+  questions?: unknown[]
+}
+
+interface GroqResponseData {
+  choices?: Array<{ message?: { content?: string } }>
+  usage?: {
+    prompt_tokens?: number
+    completion_tokens?: number
+    total_tokens?: number
+  }
+}
+
+interface GroqErrorResponse {
+  error?: { message?: string }
+}
+
+interface CompactTransaction {
+  d: string
+  tp: 'in' | 'out'
+  s: string
+  ds: string
+  a: number
+  c: string
+  cf?: number
+}
+
+interface CompactQuestion {
+  id: string
+  i: number
+  r: string
+  qst: string
+  p: 'c' | 's'
+  o: string[]
+}
+
+interface CompactParseResult {
+  t?: CompactTransaction[]
+  q?: CompactQuestion[]
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS Headers
@@ -15,9 +85,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const apiKey = process.env.GROQ_API_KEY || ('gsk_' + 'C9W5OciZFy' + 'A257td5gud' + 'WGdyb3FYtW' + 'IJbfo6yeo4' + 'M0rAdKdfTK' + 'dV')
-
     const { fileText, fileName, activeSections, categories } = req.body
+    const sections = Array.isArray(activeSections) ? activeSections as ActiveSection[] : []
 
     const systemInstruction = `You are a precise financial assistant. Extract ALL transactions from the text into a compact JSON format.
 
@@ -48,7 +117,7 @@ Output JSON structure strictly:
 
 Rules:
 1. Category must be strictly one of: [${categories}].
-2. Section must be strictly one of: [${activeSections.map((s: any) => s.id).join(', ')}].
+2. Section must be strictly one of: [${sections.map((s) => s.id).join(', ')}].
 3. For ambiguous rows, include a question in "q" in Portuguese, but still provide your best guess in "t".`
 
     const prompt = `Analise o documento a seguir e extraia as transações financeiras.
@@ -150,10 +219,10 @@ Output JSON structure strictly:
           })
 
           if (geminiResponse.ok) {
-            const geminiData = await geminiResponse.json()
+            const geminiData = await geminiResponse.json() as GeminiResponseData
             const contentText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
             if (contentText) {
-              const parsedResult = JSON.parse(contentText)
+              const parsedResult = JSON.parse(contentText) as GeminiParsedResult
               const usage = geminiData.usageMetadata ? {
                 promptTokens: geminiData.usageMetadata.promptTokenCount,
                 completionTokens: geminiData.usageMetadata.candidatesTokenCount,
@@ -171,17 +240,22 @@ Output JSON structure strictly:
             const errText = await geminiResponse.text()
             console.warn(`Gemini server-side model ${currentModel} failed with status ${geminiResponse.status}: ${errText}`)
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.warn(`Exception calling Gemini server-side model ${currentModel}:`, err)
         }
       }
-    } catch (geminiErr: any) {
+    } catch (geminiErr: unknown) {
       console.warn('Google Gemini server-side call failed, falling back to Groq...', geminiErr)
     }
 
+    const apiKey = process.env.GROQ_API_KEY
+    if (!apiKey) {
+      return res.status(500).json({ error: 'GROQ_API_KEY não configurada no ambiente do servidor.' })
+    }
+
     const models = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'qwen/qwen3-32b']
-    let response: any = null
-    let responseData: any = null
+    let response: Response | null = null
+    let responseData: GroqResponseData | null = null
     let contentText = ''
     let limitTokens: string | null = null
     let remainingTokens: string | null = null
@@ -215,10 +289,12 @@ Output JSON structure strictly:
 
         if (!response.ok) {
           const errorText = await response.text()
-          let parsedJson: any = null
+          let parsedJson: GroqErrorResponse | null = null
           try {
-            parsedJson = JSON.parse(errorText)
-          } catch (e) {}
+            parsedJson = JSON.parse(errorText) as GroqErrorResponse
+          } catch {
+            parsedJson = null
+          }
 
           const cleanMsg = parsedJson?.error?.message || errorText
           lastErrorMsg = `Erro no modelo ${currentModel}: ${cleanMsg}`
@@ -232,7 +308,7 @@ Output JSON structure strictly:
           continue
         }
 
-        responseData = await response.json()
+        responseData = await response.json() as GroqResponseData
         contentText = responseData.choices?.[0]?.message?.content || ''
         if (!contentText) {
           lastErrorMsg = `O modelo ${currentModel} retornou resposta vazia.`
@@ -241,8 +317,8 @@ Output JSON structure strictly:
         }
 
         break
-      } catch (err: any) {
-        lastErrorMsg = `Exceção ao chamar ${currentModel}: ${err.message || err}`
+      } catch (err: unknown) {
+        lastErrorMsg = `Exceção ao chamar ${currentModel}: ${getErrorMessage(err)}`
         lastStatus = 500
         console.warn(`Exception calling Groq model ${currentModel}:`, err)
         continue
@@ -260,7 +336,7 @@ Output JSON structure strictly:
       })
     }
 
-    const parsedResult = JSON.parse(contentText)
+    const parsedResult = JSON.parse(contentText) as CompactParseResult
     
     const usage = responseData.usage ? {
       promptTokens: responseData.usage.prompt_tokens,
@@ -269,7 +345,7 @@ Output JSON structure strictly:
     } : undefined
 
     // Decompress the compact JSON response into standard format for the frontend
-    const transactions = (parsedResult.t || []).map((x: any) => ({
+    const transactions = (parsedResult.t || []).map((x) => ({
       date: x.d,
       type: x.tp === 'in' ? 'income' : 'expense',
       section: x.s,
@@ -279,7 +355,7 @@ Output JSON structure strictly:
       confidence: x.cf || 100
     }))
 
-    const questions = (parsedResult.q || []).map((x: any) => ({
+    const questions = (parsedResult.q || []).map((x) => ({
       id: x.id,
       transactionIndex: x.i,
       transactionRaw: x.r,

@@ -38,7 +38,7 @@ describe('callWithRetry', () => {
     const fn = vi.fn().mockResolvedValue(undefined)
     const promise = callWithRetry(fn).catch(() => {})
     await vi.runAllTimersAsync()
-    await expect(callWithRetry(fn)).resolves.toBeUndefined()
+    await expect(promise).resolves.toBeUndefined()
   })
 
   it('retries on network error and succeeds', async () => {

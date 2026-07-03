@@ -2,15 +2,6 @@ import { useState, useEffect } from 'react'
 import { useFinanceStore } from '../store/useFinanceStore'
 import { Investment, InvestmentType } from '../types/investment'
 import { getInvestmentMeta } from '../constants/investmentTypes'
-import {
-  computeProjection,
-  daysSinceStartMonth,
-  netYieldAfterIR,
-  getEffectiveAnnualRate,
-  effectiveAnnualRate,
-  effectiveAnnualRateIPCA,
-  poupancaAnnualRate,
-} from '../utils/investmentCalc'
 import { getCurrentMonthKey } from '../constants/months'
 
 export interface FormState {

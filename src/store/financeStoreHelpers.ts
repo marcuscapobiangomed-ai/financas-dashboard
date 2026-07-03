@@ -1,10 +1,6 @@
 import { useAuthStore } from './useAuthStore'
-import { useFinanceStore } from './useFinanceStore'
-import { Transaction } from '../types/transaction'
 import { AppSettings, MonthSettings } from '../types/budget'
 import { getNotificationPermission, showBudgetAlert } from '../lib/notifications'
-import { hasActiveSession, tryRefreshSession } from '../lib/supabase'
-import * as db from '../lib/supabaseData'
 
 export function getUserId(): string | null {
   try {
@@ -83,5 +79,4 @@ export function assertMonthNotClosed(get: any, monthKey: string): void {
     throw new Error(`O mês ${monthKey} está fechado. Reabra-o para fazer alterações.`)
   }
 }
-
 

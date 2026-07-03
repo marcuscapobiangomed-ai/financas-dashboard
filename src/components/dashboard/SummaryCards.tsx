@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { TrendingUp, TrendingDown, Minus, Wallet, ArrowDownCircle, Scale, PiggyBank, Landmark, AlertTriangle } from 'lucide-react'
 import { formatCurrency, formatPercent } from '../../utils/currency'
 import { useMonthData } from '../../hooks/useMonthData'

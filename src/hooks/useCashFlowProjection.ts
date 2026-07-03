@@ -3,7 +3,7 @@ import { useFinanceStore } from '../store/useFinanceStore'
 import { useSectionConfig } from './useSectionConfig'
 import {
   getMonthKey, getMonthLabel, getCurrentMonthKey,
-  nextMonthKey, prevMonthKey, parseMonthKey,
+  nextMonthKey, parseMonthKey,
 } from '../constants/months'
 import { computeIncome, computeTotalExpenses } from '../utils/calculations'
 import { monthsDiff } from '../store/financeStoreHelpers'
@@ -89,7 +89,7 @@ export function useCashFlowProjection(futureMonths: number = 12) {
     let cursor = firstExisting
     const endYearMonth = (() => {
       const { year, month } = parseMonthKey(lastExisting)
-      let totalMonths = year * 12 + month + futureMonths
+      const totalMonths = year * 12 + month + futureMonths
       const y = Math.floor((totalMonths - 1) / 12)
       const m = ((totalMonths - 1) % 12) + 1
       return { year: y, month: m }

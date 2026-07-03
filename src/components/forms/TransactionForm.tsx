@@ -21,7 +21,7 @@ export function TransactionForm({
   initial, defaultSection, defaultMonthKey, onSave, onCancel, showSaveAndNew,
 }: TransactionFormProps) {
   const {
-    description, setDescription, amount, setAmount, section, setSection, category, setCategory, date, setDate, note, setNote,
+    description, amount, setAmount, section, setSection, category, setCategory, date, setDate, note, setNote,
     errors, suggestions, showSuggestions, setShowSuggestions, isInstallment, setIsInstallment,
     installmentCount, setInstallmentCount, isRecurring, setIsRecurring, recurringEndMonth, setRecurringEndMonth,
     paidByOther, setPaidByOther, paidByName, setPaidByName,
@@ -49,7 +49,17 @@ export function TransactionForm({
       </div>
 
       {/* Amount */}
-      <Input ref={amountRef} label="Valor" type="number" step="0.01" min="0" prefix="R$" placeholder="0,00" value={amount} onChange={(e) => setAmount(e.target.value)} error={errors.amount} />
+      <Input
+        ref={amountRef}
+        label="Valor"
+        type="text"
+        inputMode="decimal"
+        prefix="R$"
+        placeholder="0,00"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        error={errors.amount}
+      />
 
       {/* Description with autocomplete */}
       <div className="relative">

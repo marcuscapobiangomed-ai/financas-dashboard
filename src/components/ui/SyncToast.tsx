@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, CheckCircle, Cloud, CloudOff, Loader2, RefreshCw, X } from 'lucide-react'
+import { AlertTriangle, CheckCircle, CloudOff, Loader2, RefreshCw, X } from 'lucide-react'
 import { useFinanceStore } from '../../store/useFinanceStore'
 
 /** Format an ISO timestamp as "HH:MM" in local time. */

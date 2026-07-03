@@ -1,73 +1,86 @@
-# React + TypeScript + Vite
+# Financas Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Dashboard financeiro pessoal com React, TypeScript, Vite, Supabase e suporte offline-first.
 
-Currently, two official plugins are available:
+## Recursos
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Controle mensal de entradas, despesas, cartoes e gastos extraordinarios.
+- Dashboard com saldo acumulado, metas, alertas e graficos.
+- Lancamentos recorrentes e parcelamentos.
+- Controle de investimentos e projecao de fluxo de caixa.
+- Importacao inteligente de PDF, CSV e Excel `.xlsx`.
+- Relatorio de IR com checklist e analises.
+- Sincronizacao com Supabase, fila offline e Realtime.
+- PWA com service worker em producao.
 
-## React Compiler
+## Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React 19
+- TypeScript
+- Vite
+- Tailwind CSS
+- Zustand
+- Supabase
+- Recharts
+- Vitest
 
-## Expanding the ESLint configuration
+## Configuracao
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Crie um arquivo `.env.local` com base em `.env.example`:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```env
+VITE_SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
+VITE_GEMINI_API_KEY=your-gemini-api-key-here
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Para a rota serverless de importacao por IA, configure tambem no ambiente do deploy:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```env
+GEMINI_API_KEY=your-gemini-api-key-here
+GROQ_API_KEY=your-groq-api-key-here
 ```
+
+`GROQ_API_KEY` e usado apenas como fallback quando Gemini nao esta disponivel.
+
+## Scripts
+
+```bash
+npm install
+npm run dev
+npm run lint
+npm test
+npm run build
+npm run preview
+```
+
+## Supabase
+
+O schema principal esta em `supabase/schema.sql`.
+
+As migracoes incrementais ficam em `supabase/migrations/`.
+
+Tabelas usam RLS para isolar dados por usuario. Antes de usar em um projeto novo, aplique o schema/migrations no Supabase e configure `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
+
+## Importacao
+
+Formatos suportados:
+
+- PDF
+- CSV
+- Excel `.xlsx`
+
+Arquivos `.xls` legados nao sao suportados. O suporte foi removido para evitar dependencia vulneravel.
+
+## Validacao Atual
+
+Estado esperado dos checks:
+
+```bash
+npm run lint
+npm test
+npm run build
+npm audit
+```
+
+Todos devem finalizar sem erros.

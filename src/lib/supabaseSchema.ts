@@ -1,5 +1,3 @@
-import { supabase } from './supabase'
-import { requireSession } from '../sync/session'
 import type { AppSettings, MonthSettings } from '../types/budget'
 import { DEFAULT_APP_SETTINGS } from '../constants/defaultBudget'
 

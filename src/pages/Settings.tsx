@@ -29,7 +29,6 @@ export function Settings() {
     notifPermission,
     setNotifPermission,
     userId,
-    investments,
     cardSections,
     startEditCard,
     saveCardLabel,

@@ -1,4 +1,4 @@
-import { Lock, Unlock, Copy, Edit3, StickyNote, Target, TrendingUp, TrendingDown, Circle } from 'lucide-react'
+import { Lock, Unlock, Copy, Edit3, StickyNote, Target, TrendingUp, TrendingDown } from 'lucide-react'
 import { useMonthView } from '../hooks/useMonthView'
 import { SectionTable } from '../components/month/SectionTable'
 import { ExtraordinarySection } from '../components/month/ExtraordinarySection'

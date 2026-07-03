@@ -31,6 +31,7 @@ const LONG_PAUSE_MS = 5 * 60 * 1_000
  */
 export function useRealtimeSync() {
   const user = useAuthStore((s) => s.user)
+  const userId = user?.id
   const channelRef = useRef<RealtimeChannel | null>(null)
   const retryCountRef = useRef(0)
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -38,7 +39,7 @@ export function useRealtimeSync() {
 
   useEffect(() => {
     mountedRef.current = true
-    if (!isSupabaseConfigured || !user?.id) return
+    if (!isSupabaseConfigured || !userId) return
 
     /** Create and subscribe to the Realtime channel. */
     async function connect() {
@@ -58,7 +59,7 @@ export function useRealtimeSync() {
       if (!mountedRef.current) return
       if (channelRef.current) return
 
-      const channel = supabase.channel(`finance-sync-${user!.id}`)
+      const channel = supabase.channel(`finance-sync-${userId}`)
 
       TABLES.forEach((table) => {
         channel.on(
@@ -67,10 +68,10 @@ export function useRealtimeSync() {
             event: '*',
             schema: 'public',
             table,
-            filter: `user_id=eq.${user!.id}`,
+            filter: `user_id=eq.${userId}`,
           },
           (payload) => {
-            if (!user?.id) return
+            if (!userId) return
             try {
               useFinanceStore.getState().applyRealtimeUpdate(
                 payload.table,
@@ -162,5 +163,5 @@ export function useRealtimeSync() {
       }
       retryCountRef.current = 0
     }
-  }, [user?.id]) // depend on user.id only to avoid re-subscribing on unrelated user obj changes
+  }, [userId]) // depend on user id only to avoid re-subscribing on unrelated user obj changes
 }

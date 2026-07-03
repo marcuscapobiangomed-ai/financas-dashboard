@@ -252,7 +252,7 @@ export function useAnalytics(monthKey?: string) {
     }
 
     // ── Projection (fixed calculation) ──
-    const { year: currentYear, month: currentMonth } = parseMonthKey(currentKey)
+    const { month: currentMonth } = parseMonthKey(currentKey)
     const previous11Keys = getLast12MonthKeys(currentKey).slice(0, -1)
     const monthsWithData = previous11Keys.filter((k) => {
       const txs = txsByMonth.get(k)
@@ -272,7 +272,6 @@ export function useAnalytics(monthKey?: string) {
       }, 0) / n
 
       // Fixed: use months elapsed in the year + months remaining
-      const monthsElapsedInYear = currentMonth
       const monthsRemaining = 12 - currentMonth
       const projectedYearIncome = avgIncome * 12
       const projectedYearTotal = avgExpenses * 12

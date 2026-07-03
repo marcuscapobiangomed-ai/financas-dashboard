@@ -1,7 +1,5 @@
 import { useState } from 'react'
 import { useAuthStore } from '../store/useAuthStore'
-import { AppSettings } from '../types/budget'
-import { DEFAULT_APP_SETTINGS } from '../constants/defaultBudget'
 
 export interface CardInput {
   id: string
