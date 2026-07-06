@@ -83,7 +83,7 @@ export function CashFlowMiniChart({ monthKey }: { monthKey: string }) {
           />
           <YAxis hide domain={['auto', 'auto']} />
           <Tooltip
-            formatter={(value) => [formatCurrency(Number(value)), 'Saldo']}
+            formatter={(value: any) => [formatCurrency(Number(value || 0)), 'Saldo']}
             contentStyle={TOOLTIP_STYLE}
           />
           {!isAllPositive && <ReferenceLine y={0} stroke="#e5e7eb" strokeDasharray="3 3" />}

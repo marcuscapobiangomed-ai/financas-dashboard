@@ -87,8 +87,8 @@ export function IncomeExpenseTimeline({ monthKey }: { monthKey: string }) {
             width={55}
           />
           <Tooltip
-            formatter={(value: number, name: string) => [
-              formatCurrency(value),
+            formatter={(value: any, name: any) => [
+              formatCurrency(Number(value || 0)),
               name === 'income' ? 'Entradas' : 'Saídas',
             ]}
             contentStyle={TOOLTIP_STYLE}
