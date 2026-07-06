@@ -80,9 +80,10 @@ export function useTransactionForm({ initial, defaultSection, defaultMonthKey, o
       ? initial.monthKey
       : (isCardSection && billingMonthKey) ? billingMonthKey : (date.length >= 7 ? date.substring(0, 7) : monthKey)
 
-    const paidFields = paidByOther
-      ? { paidByOther: true, paidByName: paidByName.trim() || undefined }
-      : {}
+    const paidFields = {
+      paidByOther: isExpenseSection ? paidByOther : false,
+      paidByName: (isExpenseSection && paidByOther) ? (paidByName.trim() || null) : null
+    }
 
     if (initial?.id) {
       updateTransaction(initial.id, {

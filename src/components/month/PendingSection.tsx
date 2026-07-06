@@ -6,11 +6,18 @@ import { formatCurrency } from '../../utils/currency'
 interface PendingSectionProps {
   monthKey: string
   disabled?: boolean
+  type?: 'income' | 'expense'
 }
 
-export function PendingSection({ monthKey, disabled }: PendingSectionProps) {
+export function PendingSection({ monthKey, disabled, type }: PendingSectionProps) {
   const transactions = useFinanceStore((s) => s.transactions)
-  const pending = transactions.filter((t) => t.monthKey === monthKey && t.isPaid === false)
+  const pending = transactions.filter((t) => {
+    const isPending = t.monthKey === monthKey && t.isPaid === false
+    if (!isPending) return false
+    if (type === 'income') return t.section === 'entradas'
+    if (type === 'expense') return t.section !== 'entradas'
+    return true
+  })
 
   if (pending.length === 0) return null
 
@@ -21,12 +28,18 @@ export function PendingSection({ monthKey, disabled }: PendingSectionProps) {
     .filter((t) => t.section !== 'entradas')
     .reduce((s, t) => s + t.amount, 0)
 
+  const label = type === 'income'
+    ? `${pending.length} receita${pending.length !== 1 ? 's' : ''} pendente${pending.length !== 1 ? 's' : ''}`
+    : type === 'expense'
+      ? `${pending.length} despesa${pending.length !== 1 ? 's' : ''} pendente${pending.length !== 1 ? 's' : ''}`
+      : `${pending.length} lançamento${pending.length !== 1 ? 's' : ''} pendente${pending.length !== 1 ? 's' : ''}`
+
   return (
     <div className="glass-panel-lg glass-panel-hover overflow-hidden border-2 border-amber-200 dark:border-amber-800">
       <div className="px-5 py-4 flex items-center gap-3 bg-amber-50/50 dark:bg-amber-900/20">
         <Circle size={16} className="text-amber-500" />
         <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-          {pending.length} lançamento{pending.length !== 1 ? 's' : ''} pendente{pending.length !== 1 ? 's' : ''}
+          {label}
         </span>
         <div className="ml-auto flex gap-4 text-xs">
           {pendingIncome > 0 && (

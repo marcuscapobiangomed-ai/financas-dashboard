@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Lock, Unlock, Copy, Edit3, StickyNote, Target, TrendingUp, TrendingDown } from 'lucide-react'
 import { useMonthView } from '../hooks/useMonthView'
 import { SectionTable } from '../components/month/SectionTable'
@@ -20,6 +21,27 @@ export function MonthView() {
     hasNotes, handleNotesChange, handleHighlightsChange, handleLessonsChange, handleSavingsGoalChange, appSettings,
     accumulatedBalance, carryoverBalance
   } = useMonthView()
+
+  const [deductPaidByOthers, setDeductPaidByOthers] = useState(() => {
+    return localStorage.getItem('deductPaidByOthers') === 'true'
+  })
+
+  const paidByOthersAmount = expenseSections.reduce((sum, section) => {
+    const sectionPaidByOthers = section.transactions
+      .filter((t) => t.paidByOther === true)
+      .reduce((s, t) => s + t.amount, 0)
+    return sum + sectionPaidByOthers
+  }, 0)
+
+  const handleDeductToggle = (val: boolean) => {
+    setDeductPaidByOthers(val)
+    localStorage.setItem('deductPaidByOthers', String(val))
+  }
+
+  const displayedExpenses = deductPaidByOthers ? Math.max(0, totalExpenses - paidByOthersAmount) : totalExpenses
+  const displayedBalance = totalIncome - displayedExpenses
+  const displayedSavingsRate = totalIncome > 0 ? ((totalIncome - displayedExpenses) / totalIncome) * 100 : 0
+  const displayedAccumulated = accumulatedBalance + (deductPaidByOthers ? paidByOthersAmount : 0)
 
   return (
     <div className="flex flex-col gap-6 -mx-4 px-4 -mt-4 pt-4 min-h-screen">
@@ -47,27 +69,48 @@ export function MonthView() {
 
       {/* Summary */}
       <div className="glass-panel-lg p-6 z-20">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-2 border-b border-gray-100/50 dark:border-gray-800/40">
+          <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Resumo Financeiro</p>
+          {paidByOthersAmount > 0 && (
+            <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/20 px-3 py-1.5 rounded-xl border border-indigo-100/50 dark:border-indigo-900/30 transition-all hover:bg-indigo-100/50 dark:hover:bg-indigo-900/40">
+              <input
+                type="checkbox"
+                checked={deductPaidByOthers}
+                onChange={(e) => handleDeductToggle(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+              />
+              Abater despesas pagas por terceiros ({formatCurrency(paidByOthersAmount)})
+            </label>
+          )}
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
           <div className="glass-card p-4 text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-2">Receita</p>
             <p className="text-xl font-extrabold text-glow-positive">{formatCurrency(totalIncome)}</p>
           </div>
-          <div className="glass-card p-4 text-center">
-            <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-2">Despesas</p>
-            <p className="text-xl font-extrabold text-glow-negative">{formatCurrency(totalExpenses)}</p>
+          <div className="glass-card p-4 text-center flex flex-col justify-between min-h-[96px]">
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-2">Despesas</p>
+              <p className="text-xl font-extrabold text-glow-negative">{formatCurrency(displayedExpenses)}</p>
+            </div>
+            {deductPaidByOthers && paidByOthersAmount > 0 && (
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
+                Original: {formatCurrency(totalExpenses)}
+              </p>
+            )}
           </div>
           <div className="glass-card p-4 text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-2">Balanço</p>
-            <p className={`text-2xl font-extrabold ${(totalIncome - totalExpenses) >= 0 ? 'text-glow-neutral' : 'text-glow-negative'}`}>{formatCurrency(totalIncome - totalExpenses)}</p>
+            <p className={`text-2xl font-extrabold ${displayedBalance >= 0 ? 'text-glow-neutral' : 'text-glow-negative'}`}>{formatCurrency(displayedBalance)}</p>
           </div>
           <div className="glass-card p-4 text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-2">Taxa de Poupança</p>
-            <p className={`text-xl font-extrabold ${savingsRate >= savingsGoalPercent ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>{savingsRate.toFixed(1)}%</p>
+            <p className={`text-xl font-extrabold ${displayedSavingsRate >= savingsGoalPercent ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>{displayedSavingsRate.toFixed(1)}%</p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">meta: {savingsGoalPercent}%</p>
           </div>
           <div className="glass-card p-4 text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-2">Acumulado</p>
-            <p className={`text-2xl font-extrabold ${accumulatedBalance >= 0 ? 'text-glow-positive' : 'text-glow-negative'}`}>{formatCurrency(accumulatedBalance)}</p>
+            <p className={`text-2xl font-extrabold ${displayedAccumulated >= 0 ? 'text-glow-positive' : 'text-glow-negative'}`}>{formatCurrency(displayedAccumulated)}</p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
               anterior: {formatCurrency(carryoverBalance)}
             </p>
@@ -138,22 +181,23 @@ export function MonthView() {
       <CopyTransactionsModal open={copyOpen} onClose={() => setCopyOpen(false)} monthKey={currentMonthKey} />
       <CloseMonthModal open={closeOpen} onClose={() => setCloseOpen(false)} monthKey={currentMonthKey} isClosed={isClosed} />
 
-      {/* Pending transactions */}
-      <PendingSection monthKey={currentMonthKey} disabled={isClosed} />
-
       {/* Section tables */}
       <div className="flex flex-col gap-4 pb-8">
         {activeTab === 'income' ? (
           <>
+            <PendingSection monthKey={currentMonthKey} disabled={isClosed} type="income" />
             {incomeSections.map((section) => (
               <SectionTable key={section.section} summary={section} monthKey={currentMonthKey} disabled={isClosed} defaultOpen={section.transactions.length > 0} />
             ))}
             <ExtraordinarySection monthKey={currentMonthKey} disabled={isClosed} />
           </>
         ) : (
-          expenseSections.map((section) => (
-            <SectionTable key={section.section} summary={section} monthKey={currentMonthKey} disabled={isClosed} defaultOpen={section.transactions.length > 0} />
-          ))
+          <>
+            <PendingSection monthKey={currentMonthKey} disabled={isClosed} type="expense" />
+            {expenseSections.map((section) => (
+              <SectionTable key={section.section} summary={section} monthKey={currentMonthKey} disabled={isClosed} defaultOpen={section.transactions.length > 0} />
+            ))}
+          </>
         )}
       </div>
     </div>

@@ -15,7 +15,7 @@ export interface Transaction {
   monthKey: string    // "2025-03"
   isPaid?: boolean
   paidByOther?: boolean
-  paidByName?: string
+  paidByName?: string | null
   isRecurring?: boolean
   recurringId?: string
   note?: string
