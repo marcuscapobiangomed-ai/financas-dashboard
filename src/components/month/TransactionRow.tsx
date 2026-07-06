@@ -46,7 +46,7 @@ export function TransactionRow({ transaction: t, disabled }: TransactionRowProps
             <div className="flex flex-col">
               <span className={`text-sm font-medium ${isPaid ? 'text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>
                 {t.description}
-                {isIncome && <span className="ml-1.5 text-xs text-emerald-500 font-normal">(recebida)</span>}
+                {isIncome && isPaid && <span className="ml-1.5 text-xs text-emerald-500 font-normal">(recebida)</span>}
               </span>
               <div className="flex flex-wrap gap-1.5 mt-0.5">
                 {!isPaid && (

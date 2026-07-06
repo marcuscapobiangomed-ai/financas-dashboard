@@ -136,7 +136,7 @@ export function CardSettings({
               </div>
             </div>
             <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1.5">
-              Compras após dia {card.closingDay ?? 10} vão para a fatura do mês seguinte
+              Compras no ou após o fechamento entram na próxima fatura. Se o vencimento for antes do fechamento, ela vence no mês seguinte.
             </p>
             {cardSections.length > 1 && (
               <button

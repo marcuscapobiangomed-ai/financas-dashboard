@@ -113,6 +113,7 @@ export function useCopyTransactions({ onClose, monthKey }: UseCopyTransactionsPr
       id: crypto.randomUUID(),
       monthKey,
       date: `${monthKey}-01`,
+      isPaid: false,
       createdAt: now,
       updatedAt: now,
     }))

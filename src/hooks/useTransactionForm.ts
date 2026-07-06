@@ -46,7 +46,7 @@ export function useTransactionForm({ initial, defaultSection, defaultMonthKey, o
   const currentCard = cardSections.find((c) => c.id === section)
   const billingMonthKey = useMemo(() => {
     if (!isCardSection || !currentCard || !date) return null
-    return getBillingMonthKey(date, currentCard.closingDay ?? 10)
+    return getBillingMonthKey(date, currentCard.closingDay ?? 10, currentCard.dueDay ?? 20)
   }, [isCardSection, currentCard, date])
   const billingMonthLabel = billingMonthKey ? formatBillingMonth(billingMonthKey) : null
   const availableCategories = sectionCategories[section] ?? Object.values(Category)
@@ -94,7 +94,7 @@ export function useTransactionForm({ initial, defaultSection, defaultMonthKey, o
       addInstallmentTransactions(
         { description: description.trim(), amount: num, section, category, date, type: 'expense',
           note: note.trim() || undefined, ...paidFields },
-        parseInt(installmentCount), currentCard?.closingDay
+        parseInt(installmentCount), currentCard?.closingDay, currentCard?.dueDay
       )
     } else if (isRecurring && isExpenseSection && !initial?.id) {
       const templateId = addRecurringTemplate({

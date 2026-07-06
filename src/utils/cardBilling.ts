@@ -1,44 +1,47 @@
 /**
- * Utilitários para cálculo de ciclo de faturamento de cartão de crédito.
+ * Utilitarios para calculo de ciclo de faturamento de cartao de credito.
  *
  * Regra principal:
- * - Se a data da compra é NO ou APÓS o dia de fechamento → cai na fatura do mês seguinte
- * - Se a data da compra é ANTES do dia de fechamento → cai na fatura do mês atual
+ * - Se a compra e no ou apos o dia de fechamento, ela entra na proxima fatura.
+ * - Se o vencimento e antes ou no mesmo dia do fechamento, a fatura fechada em
+ *   um mes sera paga no mes seguinte.
  */
+
+function addMonthsToMonthKey(year: number, month: number, monthsToAdd: number): string {
+  const totalMonths = year * 12 + (month - 1) + monthsToAdd
+  const billingYear = Math.floor(totalMonths / 12)
+  const billingMonth = (totalMonths % 12) + 1
+  return `${billingYear}-${String(billingMonth).padStart(2, '0')}`
+}
 
 /**
- * Dado a data da compra e o dia de fechamento do cartão,
- * retorna o monthKey do mês em que a fatura será paga (mês do vencimento).
+ * Dada a data da compra, o fechamento e o vencimento do cartao, retorna o
+ * monthKey do mes em que a fatura sera paga.
  *
- * @param purchaseDate Data da compra no formato "YYYY-MM-DD"
- * @param closingDay Dia do fechamento da fatura (1-28)
- * @returns monthKey no formato "YYYY-MM"
+ * Quando dueDay nao e informado, preserva a regra antiga: antes do fechamento
+ * fica no mes da compra; no/após fechamento vai para o mes seguinte.
  *
  * @example
- * getBillingMonthKey("2025-04-15", 10) // "2025-05" (compra após fechamento)
- * getBillingMonthKey("2025-04-10", 10) // "2025-05" (compra no fechamento)
- * getBillingMonthKey("2025-04-05", 10) // "2025-04" (compra antes do fechamento)
- * getBillingMonthKey("2025-12-25", 10) // "2026-01" (transição de ano)
- * getBillingMonthKey("2025-03-01", 1)  // "2025-04" (fechamento dia 1, compra no fechamento)
+ * getBillingMonthKey("2025-06-15", 30, 10) // "2025-07"
+ * getBillingMonthKey("2025-06-30", 30, 10) // "2025-08"
+ * getBillingMonthKey("2025-04-05", 10, 20) // "2025-04"
  */
-export function getBillingMonthKey(purchaseDate: string, closingDay: number): string {
+export function getBillingMonthKey(purchaseDate: string, closingDay: number, dueDay?: number): string {
   const [year, month, day] = purchaseDate.split('-').map(Number)
 
-  if (day >= closingDay) {
-    // Compra no ou após fechamento → fatura do mês seguinte
-    const nextMonth = month === 12 ? 1 : month + 1
-    const nextYear = month === 12 ? year + 1 : year
-    return `${nextYear}-${String(nextMonth).padStart(2, '0')}`
+  let monthsToAdd = day >= closingDay ? 1 : 0
+
+  if (dueDay != null && dueDay <= closingDay) {
+    monthsToAdd += 1
   }
 
-  // Compra antes do fechamento → fatura deste mês
-  return `${year}-${String(month).padStart(2, '0')}`
+  return addMonthsToMonthKey(year, month, monthsToAdd)
 }
 
 /**
  * Retorna a data de vencimento da fatura para um dado monthKey.
  *
- * @param monthKey Mês da fatura no formato "YYYY-MM"
+ * @param monthKey Mes da fatura no formato "YYYY-MM"
  * @param dueDay Dia do vencimento (1-28)
  * @returns Data de vencimento no formato "YYYY-MM-DD"
  */
@@ -47,10 +50,10 @@ export function getDueDate(monthKey: string, dueDay: number): string {
 }
 
 /**
- * Formata o mês de faturamento para exibição.
+ * Formata o mes de faturamento para exibicao.
  *
- * @param monthKey Mês no formato "YYYY-MM"
- * @returns String legível como "Mai/2025"
+ * @param monthKey Mes no formato "YYYY-MM"
+ * @returns String legivel como "Mai/2025"
  */
 export function formatBillingMonth(monthKey: string): string {
   const MONTH_LABELS = [

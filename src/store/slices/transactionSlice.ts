@@ -16,7 +16,8 @@ export interface TransactionSlice {
   addInstallmentTransactions: (
     base: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'installmentGroupId' | 'installmentCurrent' | 'monthKey'>,
     installmentTotal: number,
-    closingDay?: number
+    closingDay?: number,
+    dueDay?: number
   ) => void
   updateTransaction: (id: string, updates: Partial<Transaction>) => void
   bulkUpdateTransactions: (ids: string[], updates: Partial<Transaction>) => void
@@ -30,7 +31,7 @@ export const createTransactionSlice = (set: any, get: any): TransactionSlice => 
 
   addTransaction: (t) => {
     try { assertMonthNotClosed(get, t.monthKey) } catch { console.warn('[closed] addTransaction blocked:', t.monthKey); return }
-    const newT: Transaction = { ...t, id: generateId(), createdAt: now(), updatedAt: now() }
+    const newT: Transaction = { ...t, id: generateId(), isPaid: t.isPaid ?? false, createdAt: now(), updatedAt: now() }
     set((s: any) => ({ transactions: [...s.transactions, newT] }))
     const uid = getUserId()
     if (uid) syncRemote('upsertTransaction', uid, newT)
@@ -47,6 +48,7 @@ export const createTransactionSlice = (set: any, get: any): TransactionSlice => 
     const newTs = ts.map((t) => ({
       ...t,
       id: t.id || generateId(),
+      isPaid: t.isPaid ?? false,
       createdAt: t.createdAt || timeNow,
       updatedAt: timeNow,
     }))
@@ -55,7 +57,7 @@ export const createTransactionSlice = (set: any, get: any): TransactionSlice => 
     if (uid) syncRemote('bulkUpsertTransactions', uid, newTs)
   },
 
-  addInstallmentTransactions: (base, installmentTotal, closingDay) => {
+  addInstallmentTransactions: (base, installmentTotal, closingDay, dueDay) => {
     const groupId = generateId()
     const [startYear, startMonth, startDay] = base.date.split('-').map(Number)
     const baseDescription = base.description
@@ -70,7 +72,7 @@ export const createTransactionSlice = (set: any, get: any): TransactionSlice => 
       const instDate = `${instYear}-${String(instMonth).padStart(2, '0')}-${String(instDay).padStart(2, '0')}`
 
       const mk = closingDay != null
-        ? getBillingMonthKey(instDate, closingDay)
+        ? getBillingMonthKey(instDate, closingDay, dueDay)
         : `${instYear}-${String(instMonth).padStart(2, '0')}`
 
       // Check each unique monthKey before adding
@@ -85,6 +87,7 @@ export const createTransactionSlice = (set: any, get: any): TransactionSlice => 
         description: `${baseDescription} (${i + 1}/${installmentTotal})`,
         monthKey: mk,
         date: instDate,
+        isPaid: base.isPaid ?? false,
         installmentGroupId: groupId,
         installmentCurrent: i + 1,
         installmentTotal,

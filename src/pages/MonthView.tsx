@@ -6,6 +6,7 @@ import { PendingSection } from '../components/month/PendingSection'
 import { BulkEditModal } from '../components/month/BulkEditModal'
 import { CopyTransactionsModal } from '../components/month/CopyTransactionsModal'
 import { CloseMonthModal } from '../components/month/CloseMonthModal'
+import { CardCashFlowPanel } from '../components/dashboard/CardCashFlowPanel'
 import { Button } from '../components/ui/Button'
 import { formatCurrency } from '../utils/currency'
 import { getMonthLabel } from '../constants/months'
@@ -73,6 +74,8 @@ export function MonthView() {
           </div>
         </div>
       </div>
+
+      <CardCashFlowPanel monthKey={currentMonthKey} />
 
       {/* Month notes & savings goal */}
       {notesOpen && (

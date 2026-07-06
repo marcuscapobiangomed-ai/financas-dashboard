@@ -25,7 +25,7 @@ export function TransactionForm({
     errors, suggestions, showSuggestions, setShowSuggestions, isInstallment, setIsInstallment,
     installmentCount, setInstallmentCount, isRecurring, setIsRecurring, recurringEndMonth, setRecurringEndMonth,
     paidByOther, setPaidByOther, paidByName, setPaidByName,
-    amountRef, isCardSection, isExpenseSection, currentCard, billingMonthLabel, availableCategories,
+    amountRef, isCardSection, isExpenseSection, currentCard, billingMonthKey, billingMonthLabel, availableCategories,
     sectionOrder, sectionLabels, handleSubmit, handleDescriptionChange,
   } = useTransactionForm({ initial, defaultSection, defaultMonthKey, onSave })
 
@@ -92,7 +92,7 @@ export function TransactionForm({
       <Input label={isCardSection ? 'Data da compra' : 'Data'} type="date" value={date} onChange={(e) => setDate(e.target.value)} error={errors.date} />
 
       {/* Card billing info banner */}
-      <BillingBanner billingMonthLabel={billingMonthLabel} date={date} currentCard={currentCard} />
+      <BillingBanner billingMonthKey={billingMonthKey} billingMonthLabel={billingMonthLabel} date={date} currentCard={currentCard} />
 
       {/* Installment toggle */}
       {isCardSection && !initial?.id && (

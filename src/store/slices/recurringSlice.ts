@@ -76,6 +76,7 @@ export const createRecurringSlice = (set: any, get: any): RecurringSlice => ({
           category: tmpl.category,
           date: dateStr,
           monthKey,
+          isPaid: false,
           isRecurring: true,
           recurringId: tmpl.id,
           createdAt: now(),

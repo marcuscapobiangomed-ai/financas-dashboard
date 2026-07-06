@@ -3,6 +3,7 @@ import { SummaryCards } from '../components/dashboard/SummaryCards'
 import { BudgetProgressBars } from '../components/dashboard/BudgetProgressBars'
 import { AlertBanner } from '../components/dashboard/AlertBanner'
 import { RecentTransactions } from '../components/dashboard/RecentTransactions'
+import { CardCashFlowPanel } from '../components/dashboard/CardCashFlowPanel'
 import { CategoryPieChart } from '../components/charts/CategoryPieChart'
 import { Card } from '../components/ui/Card'
 import { daysRemainingInMonth } from '../utils/calculations'
@@ -25,6 +26,8 @@ export function Dashboard() {
       <AlertBanner monthKey={currentMonthKey} />
 
       <SummaryCards monthKey={currentMonthKey} />
+
+      <CardCashFlowPanel monthKey={currentMonthKey} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <BudgetProgressBars monthKey={currentMonthKey} />

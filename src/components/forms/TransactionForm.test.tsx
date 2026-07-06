@@ -21,6 +21,7 @@ vi.mock('../../store/useFinanceStore', () => ({
 describe('TransactionForm', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockStore.appSettings.cardSections = []
   })
 
   it('accepts Brazilian decimal comma values for transaction amounts', () => {
@@ -42,6 +43,31 @@ describe('TransactionForm', () => {
         amount: 123.45,
         monthKey: '2026-07',
         type: 'expense',
+      })
+    )
+  })
+
+  it('assigns card purchases to the invoice due month', () => {
+    mockStore.appSettings.cardSections = [
+      { id: 'cartao_teste', label: 'Cartao Teste', closingDay: 30, dueDay: 10 },
+    ]
+
+    render(<TransactionForm defaultMonthKey="2025-06" />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cartao Teste' }))
+    fireEvent.change(screen.getByPlaceholderText('0,00'), { target: { value: '200' } })
+    fireEvent.change(screen.getByPlaceholderText('Ex: Mercado, Conta de Luz...'), {
+      target: { value: 'Mercado' },
+    })
+    fireEvent.change(screen.getByDisplayValue('2025-06-01'), { target: { value: '2025-06-15' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar' }))
+
+    expect(mockStore.addTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: 'Mercado',
+        amount: 200,
+        monthKey: '2025-07',
+        section: 'cartao_teste',
       })
     )
   })

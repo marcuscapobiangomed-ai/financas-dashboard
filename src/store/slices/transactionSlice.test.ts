@@ -288,6 +288,12 @@ describe('addInstallmentTransactions', () => {
     store.getState().addInstallmentTransactions({ ...base, date: '2025-03-20' }, 1, 15)
     expect(store.getState().transactions[0].monthKey).toBe('2025-04')
   })
+
+  it('uses due day to place installments in the payment month', () => {
+    const store = createTestStore()
+    store.getState().addInstallmentTransactions({ ...base, date: '2025-06-15' }, 1, 30, 10)
+    expect(store.getState().transactions[0].monthKey).toBe('2025-07')
+  })
 })
 
 describe('getTransactionsForMonth', () => {
