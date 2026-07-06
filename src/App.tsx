@@ -119,6 +119,59 @@ function AppShell() {
     }
   }, [])
 
+  useEffect(() => {
+    // Developer migration: Remove the 4 recurring templates and their transactions
+    const store = useFinanceStore.getState()
+    const targetDescriptions = [
+      'produtos naturais',
+      'clash royale',
+      'cartório',
+      'ifood - laura brava',
+    ]
+
+    if (!localStorage.getItem('remove_4_recurring_v2')) {
+      const uid = useAuthStore.getState().user?.id
+      console.log('[Dev Migration] Removing 4 recurring templates and transactions...')
+
+      // 1. Identify templates to delete
+      const templatesToDelete = store.recurringTemplates.filter((t) =>
+        targetDescriptions.includes(t.description.toLowerCase().trim())
+      )
+      const templateIds = templatesToDelete.map((t) => t.id)
+
+      // 2. Identify transactions to delete (either by matching description or recurringId)
+      const txsToDelete = store.transactions.filter((t) =>
+        targetDescriptions.includes(t.description.toLowerCase().trim()) ||
+        (t.recurringId && templateIds.includes(t.recurringId))
+      )
+      const txIds = txsToDelete.map((t) => t.id)
+
+      console.log('Templates being deleted:', templatesToDelete)
+      console.log('Transactions being deleted:', txsToDelete)
+
+      // Update store state
+      useFinanceStore.setState((state) => ({
+        recurringTemplates: state.recurringTemplates.filter((t) => !templateIds.includes(t.id)),
+        transactions: state.transactions.filter((t) => !txIds.includes(t.id))
+      }))
+
+      // Sync deletes to Supabase
+      if (uid) {
+        import('./sync').then(({ syncRemote }) => {
+          templateIds.forEach((id) => {
+            syncRemote('deleteRecurringTemplateRemote', id)
+          })
+          txIds.forEach((id) => {
+            syncRemote('deleteTransactionRemote', id)
+          })
+        })
+      }
+
+      localStorage.setItem('remove_4_recurring_v2', 'true')
+      console.log('[Dev Migration] Finished removing 4 recurring items!')
+    }
+  }, [])
+
   // ── Periodic retry when syncStatus is 'error' ──────────────────────────
   useEffect(() => {
     if (syncStatus === 'error' && navigator.onLine && !retryTimerRef.current) {
