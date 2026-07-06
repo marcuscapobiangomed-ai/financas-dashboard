@@ -69,6 +69,56 @@ function AppShell() {
     document.documentElement.classList.toggle('dark', darkMode)
   }, [darkMode])
 
+  useEffect(() => {
+    // Developer migration: Shift "Passagem" installments back by 1 month
+    const store = useFinanceStore.getState()
+    const passageTxs = store.transactions.filter(
+      (t) => t.description.toLowerCase().includes('passagem')
+    )
+    if (passageTxs.length > 0 && !localStorage.getItem('passagem_migration_july_done_v4')) {
+      console.log('[Dev Migration] Migrating Passagem transactions:', passageTxs)
+      const uid = useAuthStore.getState().user?.id
+      
+      const updatedTxs = passageTxs.map((t) => {
+        const [year, month, day] = t.date.split('-').map(Number)
+        let newYear = year
+        let newMonth = month - 1
+        if (newMonth === 0) {
+          newMonth = 12
+          newYear = year - 1
+        }
+        const newMonthKey = `${newYear}-${String(newMonth).padStart(2, '0')}`
+        const newDate = `${newYear}-${String(newMonth).padStart(2, '0')}-${String(day || 1).padStart(2, '0')}`
+        return {
+          ...t,
+          monthKey: newMonthKey,
+          date: newDate,
+          updatedAt: new Date().toISOString()
+        }
+      })
+
+      // Update local store directly bypassing month closed checks
+      useFinanceStore.setState((state) => ({
+        transactions: state.transactions.map((t) => {
+          const match = updatedTxs.find((ut) => ut.id === t.id)
+          return match ? match : t
+        })
+      }))
+
+      // Sync each updated transaction to Supabase
+      if (uid) {
+        import('./sync').then(({ syncRemote }) => {
+          updatedTxs.forEach((ut) => {
+            syncRemote('upsertTransaction', uid, ut)
+          })
+        })
+      }
+
+      localStorage.setItem('passagem_migration_july_done_v4', 'true')
+      console.log('[Dev Migration] Passagem migration done!')
+    }
+  }, [])
+
   // ── Periodic retry when syncStatus is 'error' ──────────────────────────
   useEffect(() => {
     if (syncStatus === 'error' && navigator.onLine && !retryTimerRef.current) {
