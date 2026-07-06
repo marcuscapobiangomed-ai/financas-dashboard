@@ -27,6 +27,20 @@ export function Dashboard() {
         </div>
       </div>
 
+      <div className="bg-indigo-50/80 dark:bg-indigo-950/30 border border-indigo-200/50 dark:border-indigo-800 p-4 rounded-2xl">
+        <h3 className="font-bold text-indigo-950 dark:text-indigo-300 text-sm mb-2">Despesas Recorrentes Ativas:</h3>
+        <ul className="list-disc pl-5 text-xs text-indigo-800 dark:text-indigo-400 space-y-1">
+          {useFinanceStore.getState().recurringTemplates.map((t) => (
+            <li key={t.id}>
+              <strong>{t.description}</strong>: R$ {t.amount} (Seção: {t.section})
+            </li>
+          ))}
+          {useFinanceStore.getState().recurringTemplates.length === 0 && (
+            <li>Nenhuma despesa recorrente cadastrada no store.</li>
+          )}
+        </ul>
+      </div>
+
       <AlertBanner monthKey={currentMonthKey} />
 
       <SummaryCards monthKey={currentMonthKey} />
