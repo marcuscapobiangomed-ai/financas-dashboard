@@ -25,7 +25,9 @@ export function TransactionRow({ transaction: t, disabled }: TransactionRowProps
     <>
       <div className={`transition-colors group border-b border-gray-100/50 dark:border-gray-800/40 ${
         isPaid 
-          ? 'bg-emerald-50/5 dark:bg-emerald-950/5 hover:bg-emerald-50/10 dark:hover:bg-emerald-950/10' 
+          ? isIncome
+            ? 'bg-emerald-50/60 dark:bg-emerald-950/30 hover:bg-emerald-100/60 dark:hover:bg-emerald-950/50'
+            : 'bg-emerald-50/5 dark:bg-emerald-950/5 hover:bg-emerald-50/10 dark:hover:bg-emerald-950/10'
           : 'hover:bg-indigo-50/40 dark:hover:bg-gray-700/40'
       }`}>
         <div className="px-4 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -44,9 +46,9 @@ export function TransactionRow({ transaction: t, disabled }: TransactionRowProps
               style={{ backgroundColor: meta?.color ?? '#6b7280' }}
             />
             <div className="flex flex-col">
-              <span className={`text-sm font-medium ${isPaid ? 'text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>
+              <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
                 {t.description}
-                {isIncome && isPaid && <span className="ml-1.5 text-xs text-emerald-500 font-normal">(recebida)</span>}
+                {isIncome && isPaid && <span className="ml-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-semibold">(recebida)</span>}
               </span>
               <div className="flex flex-wrap gap-1.5 mt-0.5">
                 {!isPaid && (
@@ -77,7 +79,7 @@ export function TransactionRow({ transaction: t, disabled }: TransactionRowProps
             </div>
           </div>
           <div className="flex items-center justify-end gap-3 sm:shrink-0">
-            <span className={`text-sm font-semibold ${isPaid ? 'text-gray-500 dark:text-gray-400' : isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-700 dark:text-gray-300'}`}>
+            <span className={`text-sm font-semibold ${isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-700 dark:text-gray-300'}`}>
               {isIncome ? '+' : ''}{formatCurrency(t.amount)}
             </span>
             {!disabled && (
