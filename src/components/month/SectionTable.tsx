@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, Plus, TrendingUp, TrendingDown } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, TrendingUp, TrendingDown, CreditCard } from 'lucide-react'
 import { SectionSummary } from '../../types/budget'
 import { SectionType } from '../../types/transaction'
 import { TransactionRow } from './TransactionRow'
@@ -20,10 +20,30 @@ export function SectionTable({ summary, monthKey, disabled, defaultOpen = true }
   const [open, setOpen] = useState(defaultOpen)
   const [addOpen, setAddOpen] = useState(false)
   const appSettings = useFinanceStore((s) => s.appSettings)
+  const allTransactions = useFinanceStore((s) => s.transactions)
+  const bulkUpdateTransactions = useFinanceStore((s) => s.bulkUpdateTransactions)
 
   const { label, limit, total, transactions, isOverLimit, percentUsed, section } = summary
   const isIncome = section === 'entradas'
   const limitColor = isOverLimit ? 'text-red-500' : percentUsed >= appSettings.alertThresholdPercent ? 'text-amber-500' : 'text-gray-400'
+
+  const cardSections = appSettings.cardSections ?? []
+  const cardIds = cardSections.map((c) => c.id)
+  const isCardSection = cardIds.includes(section)
+
+  const sectionAllTransactions = allTransactions.filter(
+    (t) => t.monthKey === monthKey && t.section === section && t.type === 'expense'
+  )
+  const pendingCardTransactions = sectionAllTransactions.filter((t) => t.isPaid === false)
+  const invoicePendingAmount = pendingCardTransactions.reduce((sum, t) => sum + t.amount, 0)
+
+  const handlePayInvoice = () => {
+    if (pendingCardTransactions.length === 0) return
+    if (window.confirm(`Deseja marcar todas as ${pendingCardTransactions.length} despesas pendentes deste cartão como pagas?`)) {
+      const ids = pendingCardTransactions.map((t) => t.id)
+      bulkUpdateTransactions(ids, { isPaid: true })
+    }
+  }
 
   return (
     <div className="glass-panel-lg glass-panel-hover overflow-hidden group">
@@ -74,7 +94,7 @@ export function SectionTable({ summary, monthKey, disabled, defaultOpen = true }
           )}
 
           {!disabled && (
-            <div className="px-5 py-3.5 border-t border-gray-100/50 dark:border-gray-700/50 bg-white/20 dark:bg-gray-800/20">
+            <div className="px-5 py-3.5 border-t border-gray-100/50 dark:border-gray-700/50 bg-white/20 dark:bg-gray-800/20 flex flex-wrap gap-2 justify-between items-center">
               <button
                 onClick={() => setAddOpen(true)}
                 className="pill-button"
@@ -82,6 +102,16 @@ export function SectionTable({ summary, monthKey, disabled, defaultOpen = true }
                 <Plus size={14} />
                 Adicionar item
               </button>
+
+              {isCardSection && pendingCardTransactions.length > 0 && (
+                <button
+                  onClick={handlePayInvoice}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <CreditCard size={13} />
+                  Pagar fatura ({formatCurrency(invoicePendingAmount)})
+                </button>
+              )}
             </div>
           )}
         </div>
