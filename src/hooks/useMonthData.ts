@@ -8,6 +8,7 @@ import {
   computeTotalExpenses,
   computeBalance,
   computeSavingsRate,
+  isCardBillPaid,
 } from '../utils/calculations'
 
 export interface MonthData {
@@ -46,17 +47,21 @@ export function useMonthData(monthKey: string): MonthData {
     const limits = saved?.sectionLimits ?? appSettings.defaultSectionLimits
     const isClosed = saved?.isClosed ?? false
 
+    const cardSections = appSettings.cardSections ?? []
+    const cardIds = cardSections.map((c: any) => c.id)
+
     const sections = sectionOrder.filter((s) => s !== 'extraordinario').map((section) =>
       computeSectionSummary(
         section,
         sectionLabels[section] ?? section,
         monthTransactions,
-        limits[section] ?? 0
+        limits[section] ?? 0,
+        cardIds
       )
     )
 
     const income = computeIncome(monthTransactions)
-    const totalExpenses = computeTotalExpenses(monthTransactions, expenseSections)
+    const totalExpenses = computeTotalExpenses(monthTransactions, expenseSections, cardIds)
     const balance = computeBalance(income, totalExpenses)
     const savingsRate = computeSavingsRate(income, totalExpenses)
     const extraordinaryIncome = monthExtraordinary.reduce((s, e) => s + e.netAmount, 0)
@@ -66,9 +71,22 @@ export function useMonthData(monthKey: string): MonthData {
     const pendingIncome = pendingTransactions
       .filter((t) => t.section === 'entradas')
       .reduce((s, t) => s + t.amount, 0)
-    const pendingExpenses = pendingTransactions
-      .filter((t) => expenseSections.includes(t.section))
+
+    const normalPendingExpenses = pendingTransactions
+      .filter((t) => expenseSections.includes(t.section) && !cardIds.includes(t.section) && t.description !== '__CARD_BILL_PAID__')
       .reduce((s, t) => s + t.amount, 0)
+
+    let cardPendingExpenses = 0
+    for (const cardId of cardIds) {
+      if (!isCardBillPaid(monthTransactions, cardId, monthKey)) {
+        const cardTotal = monthTransactions
+          .filter((t) => t.section === cardId && t.description !== '__CARD_BILL_PAID__')
+          .reduce((sum, t) => sum + t.amount, 0)
+        cardPendingExpenses += cardTotal
+      }
+    }
+
+    const pendingExpenses = normalPendingExpenses + cardPendingExpenses
 
     const accumulatedTransactions = transactions.filter((t) => t.monthKey <= monthKey)
     const accumulatedExtraordinary = extraordinaryEntries.filter((e) => e.monthKey <= monthKey)

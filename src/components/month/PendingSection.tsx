@@ -11,9 +11,14 @@ interface PendingSectionProps {
 
 export function PendingSection({ monthKey, disabled, type }: PendingSectionProps) {
   const transactions = useFinanceStore((s) => s.transactions)
+  const appSettings = useFinanceStore((s) => s.appSettings)
+  const cardSections = appSettings.cardSections ?? []
+  const cardIds = cardSections.map((c: any) => c.id)
+
   const pending = transactions.filter((t) => {
     const isPending = t.monthKey === monthKey && t.isPaid === false
     if (!isPending) return false
+    if (cardIds.includes(t.section) || t.description === '__CARD_BILL_PAID__') return false
     if (type === 'income') return t.section === 'entradas'
     if (type === 'expense') return t.section !== 'entradas'
     return true

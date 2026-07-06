@@ -15,24 +15,31 @@ interface TransactionRowProps {
 export function TransactionRow({ transaction: t, disabled }: TransactionRowProps) {
   const deleteTransaction = useFinanceStore((s) => s.deleteTransaction)
   const togglePaid = useFinanceStore((s) => s.togglePaid)
+  const appSettings = useFinanceStore((s) => s.appSettings)
   const [editing, setEditing] = useState(false)
+
+  const cardSections = appSettings.cardSections ?? []
+  const cardIds = cardSections.map((c: any) => c.id)
+  const isCardSection = cardIds.includes(t.section)
 
   const meta = CATEGORY_META[t.category]
   const isPaid = t.isPaid ?? false
   const isIncome = t.type === 'income'
 
+  const rowBgClass = isCardSection
+    ? 'hover:bg-indigo-50/40 dark:hover:bg-gray-700/40'
+    : isPaid
+      ? isIncome
+        ? 'bg-emerald-50/60 dark:bg-emerald-950/30 hover:bg-emerald-100/60 dark:hover:bg-emerald-950/50'
+        : 'bg-emerald-50/5 dark:bg-emerald-950/5 hover:bg-emerald-50/10 dark:hover:bg-emerald-950/10'
+      : 'hover:bg-indigo-50/40 dark:hover:bg-gray-700/40'
+
   return (
     <>
-      <div className={`transition-colors group border-b border-gray-100/50 dark:border-gray-800/40 ${
-        isPaid 
-          ? isIncome
-            ? 'bg-emerald-50/60 dark:bg-emerald-950/30 hover:bg-emerald-100/60 dark:hover:bg-emerald-950/50'
-            : 'bg-emerald-50/5 dark:bg-emerald-950/5 hover:bg-emerald-50/10 dark:hover:bg-emerald-950/10'
-          : 'hover:bg-indigo-50/40 dark:hover:bg-gray-700/40'
-      }`}>
+      <div className={`transition-colors group border-b border-gray-100/50 dark:border-gray-800/40 ${rowBgClass}`}>
         <div className="px-4 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            {!disabled && (
+            {!disabled && !isCardSection && (
               <button
                 onClick={() => togglePaid(t.id)}
                 className={`shrink-0 cursor-pointer transition-colors ${isPaid ? 'text-emerald-500' : 'text-gray-300 hover:text-gray-400'}`}
@@ -51,7 +58,7 @@ export function TransactionRow({ transaction: t, disabled }: TransactionRowProps
                 {isIncome && isPaid && <span className="ml-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-semibold">(recebida)</span>}
               </span>
               <div className="flex flex-wrap gap-1.5 mt-0.5">
-                {!isPaid && (
+                {!isPaid && !isCardSection && (
                   <span className="text-xs bg-amber-100/70 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-full">pendente</span>
                 )}
                 {t.date.substring(0, 7) !== t.monthKey && (

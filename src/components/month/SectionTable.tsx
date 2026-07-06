@@ -31,17 +31,34 @@ export function SectionTable({ summary, monthKey, disabled, defaultOpen = true }
   const cardIds = cardSections.map((c) => c.id)
   const isCardSection = cardIds.includes(section)
 
-  const sectionAllTransactions = allTransactions.filter(
-    (t) => t.monthKey === monthKey && t.section === section && t.type === 'expense'
+  const isPaidBill = allTransactions.some(
+    (t) => t.monthKey === monthKey && t.section === section && t.description === '__CARD_BILL_PAID__' && t.isPaid === true
   )
-  const pendingCardTransactions = sectionAllTransactions.filter((t) => t.isPaid === false)
-  const invoicePendingAmount = pendingCardTransactions.reduce((sum, t) => sum + t.amount, 0)
 
-  const handlePayInvoice = () => {
-    if (pendingCardTransactions.length === 0) return
-    if (window.confirm(`Deseja marcar todas as ${pendingCardTransactions.length} despesas pendentes deste cartão como pagas?`)) {
-      const ids = pendingCardTransactions.map((t) => t.id)
-      bulkUpdateTransactions(ids, { isPaid: true })
+  const handleToggleInvoicePaid = () => {
+    const dummy = allTransactions.find(
+      (t) => t.monthKey === monthKey && t.section === section && t.description === '__CARD_BILL_PAID__'
+    )
+
+    if (isPaidBill) {
+      if (dummy) {
+        useFinanceStore.getState().updateTransaction(dummy.id, { isPaid: false })
+      }
+    } else {
+      if (dummy) {
+        useFinanceStore.getState().updateTransaction(dummy.id, { isPaid: true })
+      } else {
+        useFinanceStore.getState().addTransaction({
+          description: '__CARD_BILL_PAID__',
+          amount: 0,
+          section: section as SectionType,
+          category: 'Fatura' as any,
+          date: `${monthKey}-01`,
+          monthKey,
+          type: 'expense',
+          isPaid: true
+        })
+      }
     }
   }
 
@@ -56,7 +73,26 @@ export function SectionTable({ summary, monthKey, disabled, defaultOpen = true }
           {isIncome ? <TrendingUp size={18} className="text-emerald-600" /> : <TrendingDown size={18} className="text-indigo-600" />}
         </div>
         <div className="flex-1 text-left">
-          <span className="text-base font-semibold text-gray-800 dark:text-gray-200">{label}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-base font-semibold text-gray-800 dark:text-gray-200">{label}</span>
+            {isCardSection && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleToggleInvoicePaid()
+                }}
+                className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded transition-all cursor-pointer border ${
+                  isPaidBill
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/60'
+                    : 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/60'
+                }`}
+                title={isPaidBill ? 'Marcar fatura como pendente' : 'Marcar fatura como paga'}
+              >
+                {isPaidBill ? 'Fatura Paga' : 'Fatura Pendente'}
+              </button>
+            )}
+          </div>
           <p className="text-xs text-gray-400 dark:text-gray-500">{transactions.length} lançamento{transactions.length !== 1 ? 's' : ''}</p>
         </div>
 
@@ -103,13 +139,18 @@ export function SectionTable({ summary, monthKey, disabled, defaultOpen = true }
                 Adicionar item
               </button>
 
-              {isCardSection && pendingCardTransactions.length > 0 && (
+              {isCardSection && (
                 <button
-                  onClick={handlePayInvoice}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow transition-all cursor-pointer flex items-center gap-1.5"
+                  type="button"
+                  onClick={handleToggleInvoicePaid}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold shadow transition-all cursor-pointer flex items-center gap-1.5 ${
+                    isPaidBill
+                      ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-sm'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
+                  }`}
                 >
                   <CreditCard size={13} />
-                  Pagar fatura ({formatCurrency(invoicePendingAmount)})
+                  {isPaidBill ? 'Marcar fatura como pendente' : `Pagar fatura (${formatCurrency(total)})`}
                 </button>
               )}
             </div>

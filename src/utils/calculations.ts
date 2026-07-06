@@ -1,13 +1,30 @@
 import { Transaction, SectionType } from '../types/transaction'
 import { SectionSummary } from '../types/budget'
 
+export function isCardBillPaid(transactions: Transaction[], cardId: string, monthKey: string): boolean {
+  return transactions.some(
+    (t) => t.monthKey === monthKey && t.section === cardId && t.description === '__CARD_BILL_PAID__' && t.isPaid === true
+  )
+}
+
 export function computeSectionSummary(
-  section: SectionType,
+  section: string,
   label: string,
   transactions: Transaction[],
-  limit: number
+  limit: number,
+  cardIds: string[] = []
 ): SectionSummary {
-  const sectionTransactions = transactions.filter((t) => t.section === section && t.isPaid !== false)
+  const isCard = cardIds.includes(section)
+  
+  const allSectionTransactions = transactions.filter(
+    (t) => t.section === section && t.description !== '__CARD_BILL_PAID__'
+  )
+
+  const sectionTransactions = allSectionTransactions.filter((t) => {
+    if (isCard) return true // Show all purchases in card section
+    return t.isPaid !== false // Show only paid/confirmed in normal sections
+  })
+
   const total = sectionTransactions.reduce((sum, t) => sum + t.amount, 0)
   const percentUsed = limit > 0 ? (total / limit) * 100 : 0
   return {
@@ -27,9 +44,24 @@ export function computeIncome(transactions: Transaction[]): number {
     .reduce((sum, t) => sum + t.amount, 0)
 }
 
-export function computeTotalExpenses(transactions: Transaction[], expenseSections: string[]): number {
+export function computeTotalExpenses(
+  transactions: Transaction[],
+  expenseSections: string[],
+  cardIds: string[] = []
+): number {
   return transactions
-    .filter((t) => expenseSections.includes(t.section) && t.isPaid !== false)
+    .filter((t) => {
+      if (!expenseSections.includes(t.section)) return false
+      if (t.description === '__CARD_BILL_PAID__') return false
+
+      if (cardIds.includes(t.section)) {
+        // Credit card transactions: paid status is determined by the card bill payment status in that month
+        return isCardBillPaid(transactions, t.section, t.monthKey)
+      }
+
+      // Normal transactions: paid status is determined by t.isPaid
+      return t.isPaid !== false
+    })
     .reduce((sum, t) => sum + t.amount, 0)
 }
 
