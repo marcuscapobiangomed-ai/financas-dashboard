@@ -35,22 +35,21 @@ export const createInvestmentSlice = (set: any, get: any): InvestmentSlice => ({
 
   updateInvestment: (id, updates) => {
     const { appSettings } = get()
+    const existing = get().investments.find((inv: any) => inv.id === id)
+    if (!existing) return
+    const merged = { ...existing, ...updates }
+    const resolved = resolveMonthlyYieldPercent(
+      merged.investmentType, merged.cdiPercent, merged.ipcaPercent,
+      appSettings.cdiRateAnnual, appSettings.ipcaRateAnnual,
+      merged.monthlyYieldPercent
+    )
+    const updated = { ...merged, monthlyYieldPercent: resolved }
     set((s: any) => ({
-      investments: s.investments.map((inv: any) => {
-        if (inv.id !== id) return inv
-        const merged = { ...inv, ...updates }
-        const resolved = resolveMonthlyYieldPercent(
-          merged.investmentType, merged.cdiPercent, merged.ipcaPercent,
-          appSettings.cdiRateAnnual, appSettings.ipcaRateAnnual,
-          merged.monthlyYieldPercent
-        )
-        return { ...merged, monthlyYieldPercent: resolved }
-      }),
+      investments: s.investments.map((inv: any) => (inv.id === id ? updated : inv)),
     }))
     const uid = getUserId()
     if (uid) {
-      const updated = get().investments.find((inv: any) => inv.id === id)
-      if (updated) syncRemote('upsertInvestment', uid, updated)
+      syncRemote('upsertInvestment', uid, updated)
     }
   },
 

@@ -1,9 +1,13 @@
 import { useFinanceStore } from '../store/useFinanceStore'
 import { SummaryCards } from '../components/dashboard/SummaryCards'
+import { PendingSummaryCard } from '../components/dashboard/PendingSummaryCard'
 import { BudgetProgressBars } from '../components/dashboard/BudgetProgressBars'
 import { AlertBanner } from '../components/dashboard/AlertBanner'
 import { RecentTransactions } from '../components/dashboard/RecentTransactions'
 import { CardCashFlowPanel } from '../components/dashboard/CardCashFlowPanel'
+import { CashFlowMiniChart } from '../components/dashboard/CashFlowMiniChart'
+import { DailySpendingPace } from '../components/dashboard/DailySpendingPace'
+import { IncomeExpenseTimeline } from '../components/dashboard/IncomeExpenseTimeline'
 import { CategoryPieChart } from '../components/charts/CategoryPieChart'
 import { Card } from '../components/ui/Card'
 import { daysRemainingInMonth } from '../utils/calculations'
@@ -27,7 +31,16 @@ export function Dashboard() {
 
       <SummaryCards monthKey={currentMonthKey} />
 
+      <PendingSummaryCard monthKey={currentMonthKey} />
+
       <CardCashFlowPanel monthKey={currentMonthKey} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <CashFlowMiniChart monthKey={currentMonthKey} />
+        <DailySpendingPace monthKey={currentMonthKey} />
+      </div>
+
+      <IncomeExpenseTimeline monthKey={currentMonthKey} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <BudgetProgressBars monthKey={currentMonthKey} />

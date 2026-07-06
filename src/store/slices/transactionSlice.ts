@@ -109,15 +109,13 @@ export const createTransactionSlice = (set: any, get: any): TransactionSlice => 
     if (targetMonthKey !== existing.monthKey) {
       try { assertMonthNotClosed(get, existing.monthKey) } catch { console.warn('[closed] updateTransaction blocked (original):', existing.monthKey); return }
     }
+    const updated = { ...existing, ...updates, updatedAt: now() }
     set((s: any) => ({
-      transactions: s.transactions.map((t: any) =>
-        t.id === id ? { ...t, ...updates, updatedAt: now() } : t
-      ),
+      transactions: s.transactions.map((t: any) => (t.id === id ? updated : t)),
     }))
     const uid = getUserId()
     if (uid) {
-      const updated = get().transactions.find((t: any) => t.id === id)
-      if (updated) syncRemote('upsertTransaction', uid, updated)
+      syncRemote('upsertTransaction', uid, updated)
     }
   },
 
@@ -136,15 +134,20 @@ export const createTransactionSlice = (set: any, get: any): TransactionSlice => 
         try { assertMonthNotClosed(get, tx.monthKey) } catch { console.warn('[closed] bulkUpdateTransactions blocked (original):', tx.monthKey); return }
       }
     }
+    const updatedTxs: Transaction[] = []
     set((s: any) => ({
-      transactions: s.transactions.map((t: any) =>
-        idsSet.has(t.id) ? { ...t, ...updates, updatedAt: now() } : t
-      ),
+      transactions: s.transactions.map((t: any) => {
+        if (idsSet.has(t.id)) {
+          const updated = { ...t, ...updates, updatedAt: now() }
+          updatedTxs.push(updated)
+          return updated
+        }
+        return t
+      }),
     }))
     const uid = getUserId()
-    if (uid) {
-      const updated = get().transactions.filter((t: any) => idsSet.has(t.id))
-      if (updated.length > 0) syncRemote('bulkUpdateTransactions', uid, updated)
+    if (uid && updatedTxs.length > 0) {
+      syncRemote('bulkUpdateTransactions', uid, updatedTxs)
     }
   },
 

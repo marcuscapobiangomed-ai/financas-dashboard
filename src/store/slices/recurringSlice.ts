@@ -28,15 +28,15 @@ export const createRecurringSlice = (set: any, get: any): RecurringSlice => ({
   },
 
   updateRecurringTemplate: (id, updates) => {
+    const existing = get().recurringTemplates.find((t: any) => t.id === id)
+    if (!existing) return
+    const updated = { ...existing, ...updates }
     set((s: any) => ({
-      recurringTemplates: s.recurringTemplates.map((t: any) =>
-        t.id === id ? { ...t, ...updates } : t
-      ),
+      recurringTemplates: s.recurringTemplates.map((t: any) => (t.id === id ? updated : t)),
     }))
     const uid = getUserId()
     if (uid) {
-      const updated = get().recurringTemplates.find((t: any) => t.id === id)
-      if (updated) syncRemote('upsertRecurringTemplate', uid, updated)
+      syncRemote('upsertRecurringTemplate', uid, updated)
     }
   },
 
