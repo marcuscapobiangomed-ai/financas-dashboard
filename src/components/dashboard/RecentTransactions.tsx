@@ -17,20 +17,20 @@ export function RecentTransactions({ monthKey }: { monthKey: string }) {
   const { sectionLabels } = useSectionConfig()
   const [editing, setEditing] = useState<Transaction | null>(null)
 
-  const sorted = [...transactions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10)
+  const sorted = [...transactions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12)
 
   if (sorted.length === 0) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-4">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Últimos Lançamentos</h3>
+      <div className="glass-obsidian rounded-3xl border border-gray-200/50 dark:border-white/5 shadow-xl p-5">
+        <h3 className="text-sm font-extrabold text-outfit tracking-tight text-gray-900 dark:text-gray-100 mb-3">Últimos Lançamentos</h3>
         <EmptyState title="Nenhum lançamento ainda" description="Use o botão + para adicionar" />
       </div>
     )
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
-      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 px-5 pt-4 pb-2">Últimos Lançamentos</h3>
+    <div className="glass-obsidian rounded-3xl border border-gray-200/50 dark:border-white/5 shadow-xl overflow-hidden">
+      <h3 className="text-sm font-extrabold text-outfit tracking-tight text-gray-900 dark:text-gray-100 px-5 pt-5 pb-3">Últimos Lançamentos</h3>
       <div className="divide-y divide-gray-50 dark:divide-gray-700">
         {sorted.map((t) => {
           const meta = CATEGORY_META[t.category]

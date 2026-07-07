@@ -60,7 +60,7 @@ export function CardCashFlowPanel({ monthKey }: { monthKey: string }) {
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="mt-6 grid grid-cols-2 xl:grid-cols-4 gap-4">
         <MetricTile
           label="Fatura vence neste mês"
           value={flow.currentBillTotal}
@@ -87,7 +87,7 @@ export function CardCashFlowPanel({ monthKey }: { monthKey: string }) {
         />
       </div>
 
-      <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-5">
         <div className="glass-obsidian rounded-2xl p-5 border border-gray-200/40 dark:border-white/5 hover:border-indigo-500/20 transition-all duration-300">
           <div className="flex items-center gap-2 mb-4">
             <WalletCards size={16} className="text-amber-500" />
