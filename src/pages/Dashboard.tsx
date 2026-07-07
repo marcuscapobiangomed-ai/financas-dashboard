@@ -36,6 +36,8 @@ export function Dashboard() {
         <div className="lg:col-span-2 flex flex-col gap-6">
           <SummaryCards monthKey={currentMonthKey} />
 
+          <CardCashFlowPanel monthKey={currentMonthKey} />
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <CashFlowMiniChart monthKey={currentMonthKey} />
             <DailySpendingPace monthKey={currentMonthKey} />
@@ -57,7 +59,6 @@ export function Dashboard() {
         {/* Right Column (Cards billing status, Transactions, Alerts) */}
         <div className="flex flex-col gap-6">
           <PendingSummaryCard monthKey={currentMonthKey} />
-          <CardCashFlowPanel monthKey={currentMonthKey} />
           <RecentTransactions monthKey={currentMonthKey} />
         </div>
       </div>

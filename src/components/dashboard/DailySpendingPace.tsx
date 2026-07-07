@@ -92,7 +92,7 @@ export function DailySpendingPace({ monthKey }: { monthKey: string }) {
   const StatusIcon = status.icon
 
   return (
-    <div className="glass-panel p-5">
+    <div className="glass-obsidian rounded-3xl p-6 border border-gray-200/50 dark:border-white/5 shadow-xl">
       <div className="flex items-start justify-between mb-4">
         <div>
           <div className="flex items-center gap-1.5">
@@ -101,7 +101,7 @@ export function DailySpendingPace({ monthKey }: { monthKey: string }) {
               Ritmo de gastos
             </p>
           </div>
-          <p className="text-2xl font-extrabold text-gray-900 dark:text-gray-100 mt-1">
+          <p className="text-2xl font-extrabold text-outfit tracking-tight text-gray-900 dark:text-gray-100 mt-1">
             {formatCurrency(data.dailyAvg)}<span className="text-sm font-medium text-gray-400">/dia</span>
           </p>
         </div>

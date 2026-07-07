@@ -37,13 +37,13 @@ export function CashFlowMiniChart({ monthKey }: { monthKey: string }) {
   const isAllPositive = minBalance >= 0
 
   return (
-    <div className="glass-panel p-5">
+    <div className="glass-obsidian rounded-3xl p-6 border border-gray-200/50 dark:border-white/5 shadow-xl">
       <div className="flex items-start justify-between mb-4">
         <div>
           <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
             Evolução do Saldo
           </p>
-          <p className="text-2xl font-extrabold text-gray-900 dark:text-gray-100 mt-1">
+          <p className="text-2xl font-extrabold text-outfit tracking-tight text-gray-900 dark:text-gray-100 mt-1">
             {formatCurrency(currentBalance)}
           </p>
         </div>
