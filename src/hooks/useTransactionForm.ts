@@ -16,6 +16,7 @@ export function useTransactionForm({ initial, defaultSection, defaultMonthKey, o
   const updateTransaction = useFinanceStore((s) => s.updateTransaction)
   const getDescriptionSuggestions = useFinanceStore((s) => s.getDescriptionSuggestions)
   const currentMonthKey = useFinanceStore((s) => s.currentMonthKey)
+  const monthSettings = useFinanceStore((s) => s.monthSettings)
   
   const { sectionLabels, sectionOrder, sectionCategories, cardSections } = useSectionConfig()
   const cardSectionIds = cardSections.map((c) => c.id)
@@ -61,7 +62,19 @@ export function useTransactionForm({ initial, defaultSection, defaultMonthKey, o
     if (!description.trim()) e.description = 'Descrição obrigatória'
     const num = parseFloat(amount.replace(',', '.'))
     if (!amount || isNaN(num) || num <= 0) e.amount = 'Valor inválido'
-    if (!date) e.date = 'Data obrigatória'
+    if (!date) {
+      e.date = 'Data obrigatória'
+    } else {
+      const targetMonthKey = (initial?.id && date === initial.date && section === initial.section && initial.monthKey)
+        ? initial.monthKey
+        : (isCardSection && billingMonthKey) ? billingMonthKey : (date.length >= 7 ? date.substring(0, 7) : monthKey)
+
+      if (monthSettings[targetMonthKey]?.isClosed) {
+        e.date = 'O mês de faturamento ou lançamento está fechado. Reabra-o para alterar.'
+      } else if (initial?.id && initial.monthKey && targetMonthKey !== initial.monthKey && monthSettings[initial.monthKey]?.isClosed) {
+        e.date = 'O mês original deste lançamento está fechado. Reabra-o para alterar.'
+      }
+    }
     if (isInstallment && isCardSection) {
       const count = parseInt(installmentCount)
       if (isNaN(count) || count < 2) {
@@ -70,7 +83,7 @@ export function useTransactionForm({ initial, defaultSection, defaultMonthKey, o
     }
     setErrors(e)
     return Object.keys(e).length === 0
-  }, [description, amount, date, isInstallment, isCardSection, installmentCount])
+  }, [description, amount, date, isInstallment, isCardSection, installmentCount, initial, section, billingMonthKey, monthKey, monthSettings])
 
   const handleSubmit = useCallback((saveAndNew = false) => {
     if (!validate()) return

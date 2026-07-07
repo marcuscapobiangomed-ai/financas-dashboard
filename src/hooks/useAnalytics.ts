@@ -11,7 +11,8 @@ export function useAnalytics(monthKey?: string) {
   const transactions = useFinanceStore((s) => s.transactions)
   const extraordinaryEntries = useFinanceStore((s) => s.extraordinaryEntries)
   const appSettings = useFinanceStore((s) => s.appSettings)
-  const { expenseSections } = useSectionConfig()
+  const { expenseSections, cardSections } = useSectionConfig()
+  const cardIds = cardSections.map((c) => c.id)
   const currentKey = monthKey ?? getCurrentMonthKey()
 
   return useMemo(() => {
@@ -93,7 +94,7 @@ export function useAnalytics(monthKey?: string) {
     const prevMonthTxs = txsByMonth.get(prevKey) ?? []
     const prevMonthExtra = extraByMonth.get(prevKey) ?? []
     const prevIncome = computeIncome(prevMonthTxs) + prevMonthExtra.reduce((s, e) => s + e.netAmount, 0)
-    const prevExpenses = computeTotalExpenses(prevMonthTxs, expenseSections)
+    const prevExpenses = computeTotalExpenses(prevMonthTxs, expenseSections, cardIds)
     const prevBalance = prevIncome - prevExpenses
     const prevSavingsRate = computeSavingsRate(prevIncome, prevExpenses)
 
@@ -234,7 +235,7 @@ export function useAnalytics(monthKey?: string) {
         const txs = txsByMonth.get(k) ?? []
         const extra = extraByMonth.get(k) ?? []
         const inc = computeIncome(txs) + extra.reduce((s, e) => s + e.netAmount, 0)
-        const exp = computeTotalExpenses(txs, expenseSections)
+        const exp = computeTotalExpenses(txs, expenseSections, cardIds)
         const rate = computeSavingsRate(inc, exp)
         if (rate > bestRate) {
           bestRate = rate
@@ -268,7 +269,7 @@ export function useAnalytics(monthKey?: string) {
       }, 0) / n
       const avgExpenses = monthsWithData.reduce((s, k) => {
         const txs = txsByMonth.get(k) ?? []
-        return s + computeTotalExpenses(txs, expenseSections)
+        return s + computeTotalExpenses(txs, expenseSections, cardIds)
       }, 0) / n
 
       // Fixed: use months elapsed in the year + months remaining

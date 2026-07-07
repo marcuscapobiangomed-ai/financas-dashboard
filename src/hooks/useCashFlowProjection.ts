@@ -47,7 +47,8 @@ export function useCashFlowProjection(futureMonths: number = 12) {
   const extraordinaryEntries = useFinanceStore((s) => s.extraordinaryEntries)
   const recurringTemplates = useFinanceStore((s) => s.recurringTemplates)
   const appSettings = useFinanceStore((s) => s.appSettings)
-  const { expenseSections } = useSectionConfig()
+  const { expenseSections, cardSections } = useSectionConfig()
+  const cardIds = cardSections.map((c) => c.id)
 
   return useMemo(() => {
     const currentKey = getCurrentMonthKey()
@@ -123,7 +124,7 @@ export function useCashFlowProjection(futureMonths: number = 12) {
         const extra = extraByMonth.get(key) ?? []
         const extraIncome = extra.reduce((s, e) => s + e.netAmount, 0)
         income = computeIncome(txs) + extraIncome
-        expenses = computeTotalExpenses(txs, expenseSections)
+        expenses = computeTotalExpenses(txs, expenseSections, cardIds)
       } else if (!isPastOrCurrent) {
         // Project using recurring templates
         recurringTemplates.forEach((tmpl) => {

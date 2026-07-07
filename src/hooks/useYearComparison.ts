@@ -10,7 +10,8 @@ import type { YearComparison, YearMonthlyData, YearStats, SpendingInsight } from
 export function useYearComparison(year1: number, year2: number) {
   const transactions = useFinanceStore((s) => s.transactions)
   const extraordinaryEntries = useFinanceStore((s) => s.extraordinaryEntries)
-  const { expenseSections } = useSectionConfig()
+  const { expenseSections, cardSections } = useSectionConfig()
+  const cardIds = cardSections.map((c) => c.id)
 
   return useMemo(() => {
     // ── Pre-group all transactions by year + monthKey in a single O(n) pass ──
@@ -53,7 +54,7 @@ export function useYearComparison(year1: number, year2: number) {
         const key = getMonthKey(year, m)
         const txs = txsByYearMonth.get(key) ?? []
         income += computeIncome(txs) + (extraByMonth.get(key) ?? 0)
-        expenses += computeTotalExpenses(txs, expenseSections)
+        expenses += computeTotalExpenses(txs, expenseSections, cardIds)
       }
       return {
         income,
@@ -75,8 +76,8 @@ export function useYearComparison(year1: number, year2: number) {
       const txs2 = txsByYearMonth.get(key2) ?? []
       const inc1 = computeIncome(txs1) + (extraByMonth.get(key1) ?? 0)
       const inc2 = computeIncome(txs2) + (extraByMonth.get(key2) ?? 0)
-      const exp1 = computeTotalExpenses(txs1, expenseSections)
-      const exp2 = computeTotalExpenses(txs2, expenseSections)
+      const exp1 = computeTotalExpenses(txs1, expenseSections, cardIds)
+      const exp2 = computeTotalExpenses(txs2, expenseSections, cardIds)
 
       return {
         month: m,

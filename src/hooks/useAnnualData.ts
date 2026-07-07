@@ -8,7 +8,8 @@ import { getLast12MonthKeys, getMonthShort } from '../constants/months'
 export function useAnnualData(fromMonthKey?: string) {
   const transactions = useFinanceStore((s) => s.transactions)
   const extraordinaryEntries = useFinanceStore((s) => s.extraordinaryEntries)
-  const { expenseSections } = useSectionConfig()
+  const { expenseSections, cardSections } = useSectionConfig()
+  const cardIds = cardSections.map((c) => c.id)
 
   return useMemo(() => {
     const monthKeys = getLast12MonthKeys(fromMonthKey)
@@ -43,7 +44,7 @@ export function useAnnualData(fromMonthKey?: string) {
       const monthExtra = extraByMonth.get(key) ?? []
       const extraordinaryIncome = monthExtra.reduce((s, e) => s + e.netAmount, 0)
       const income = computeIncome(monthTxs) + extraordinaryIncome
-      const expenses = computeTotalExpenses(monthTxs, expenseSections)
+      const expenses = computeTotalExpenses(monthTxs, expenseSections, cardIds)
       const fixedExpenses = monthTxs
         .filter((t) => t.section === 'despesas_fixas')
         .reduce((s, t) => s + t.amount, 0)

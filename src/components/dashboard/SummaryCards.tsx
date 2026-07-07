@@ -53,7 +53,8 @@ export function SummaryCards({ monthKey }: { monthKey: string }) {
   const { income, totalExpenses, extraordinaryIncome, accumulatedBalance, carryoverBalance } = useMonthData(monthKey)
   const transactions = useFinanceStore((s) => s.transactions)
   const extraordinaryEntries = useFinanceStore((s) => s.extraordinaryEntries)
-  const { expenseSections } = useSectionConfig()
+  const { expenseSections, cardSections } = useSectionConfig()
+  const cardIds = cardSections.map((c) => c.id)
 
   const totalIncome = income + extraordinaryIncome
   const balance = totalIncome - totalExpenses
@@ -65,7 +66,7 @@ export function SummaryCards({ monthKey }: { monthKey: string }) {
   const prevTxs = transactions.filter((t) => t.monthKey === prev)
   const prevExtraordinary = extraordinaryEntries.filter((e) => e.monthKey === prev)
   const prevIncome = computeIncome(prevTxs) + prevExtraordinary.reduce((s, e) => s + e.netAmount, 0)
-  const prevExpenses = computeTotalExpenses(prevTxs, expenseSections)
+  const prevExpenses = computeTotalExpenses(prevTxs, expenseSections, cardIds)
   const prevBalance = prevIncome - prevExpenses
   const prevSavingsRate = computeSavingsRate(prevIncome, prevExpenses)
 
