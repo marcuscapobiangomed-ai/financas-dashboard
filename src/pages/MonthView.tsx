@@ -11,6 +11,8 @@ import { CardCashFlowPanel } from '../components/dashboard/CardCashFlowPanel'
 import { Button } from '../components/ui/Button'
 import { formatCurrency } from '../utils/currency'
 import { getMonthLabel } from '../constants/months'
+import { useFinanceStore } from '../store/useFinanceStore'
+import { isCardBillPaid } from '../utils/calculations'
 
 export function MonthView() {
   const {
@@ -26,9 +28,16 @@ export function MonthView() {
     return localStorage.getItem('deductPaidByOthers') === 'true'
   })
 
+  const transactions = useFinanceStore((s) => s.transactions)
+  const cardIds = appSettings.cardSections?.map((c: any) => c.id) ?? []
+
   const paidByOthersAmount = expenseSections.reduce((sum, section) => {
+    const isCard = cardIds.includes(section.section)
+    if (isCard) {
+      if (!isCardBillPaid(transactions, section.section, currentMonthKey)) return sum
+    }
     const sectionPaidByOthers = section.transactions
-      .filter((t) => t.paidByOther === true)
+      .filter((t) => t.paidByOther === true && (isCard || t.isPaid !== false))
       .reduce((s, t) => s + t.amount, 0)
     return sum + sectionPaidByOthers
   }, 0)
