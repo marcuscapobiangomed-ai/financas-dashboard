@@ -85,7 +85,7 @@ export function SummaryCards({ monthKey }: { monthKey: string }) {
 
         <div className="flex items-start justify-between mb-2">
           <div>
-            <p className="text-gray-400 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
+            <p className="text-white/60 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
               <Landmark size={14} className={accumulatedBalance >= 0 ? 'text-teal-400' : 'text-rose-400'} />
               Saldo Total Acumulado
             </p>
@@ -115,22 +115,22 @@ export function SummaryCards({ monthKey }: { monthKey: string }) {
         )}
 
         {/* Breakdown: previous month carryover + this month result = total */}
-        <div className="mt-5 pt-4 border-t border-gray-200/10 dark:border-white/5 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
+        <div className="mt-5 pt-4 border-t border-white/10 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
           <div>
-            <span className="text-gray-500 dark:text-gray-400 text-[10px] uppercase font-bold tracking-wider block">Saldo Anterior</span>
-            <span className="font-semibold text-gray-800 dark:text-gray-200 mt-0.5 block">{formatCurrency(carryoverBalance)}</span>
+            <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider block">Saldo Anterior</span>
+            <span className="font-semibold text-white/80 mt-0.5 block">{formatCurrency(carryoverBalance)}</span>
           </div>
-          <span className="text-gray-400 dark:text-gray-600 text-sm font-light">+</span>
+          <span className="text-white/30 text-sm font-light">+</span>
           <div>
-            <span className="text-gray-500 dark:text-gray-400 text-[10px] uppercase font-bold tracking-wider block">Resultado do Mês</span>
+            <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider block">Resultado do Mês</span>
             <span className={`font-semibold mt-0.5 block ${balance >= 0 ? 'text-teal-400' : 'text-rose-400'}`}>
               {balance >= 0 ? '+' : ''}{formatCurrency(balance)}
             </span>
           </div>
-          <span className="text-gray-400 dark:text-gray-600 text-sm font-light">=</span>
+          <span className="text-white/30 text-sm font-light">=</span>
           <div>
-            <span className="text-gray-500 dark:text-gray-400 text-[10px] uppercase font-bold tracking-wider block font-extrabold">Total</span>
-            <span className="font-bold text-gray-900 dark:text-white mt-0.5 block">{formatCurrency(accumulatedBalance)}</span>
+            <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider block">Total</span>
+            <span className={`font-extrabold text-outfit mt-0.5 block ${accumulatedBalance >= 0 ? 'text-teal-400' : 'text-rose-400'}`}>{formatCurrency(accumulatedBalance)}</span>
           </div>
         </div>
       </div>

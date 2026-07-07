@@ -897,7 +897,7 @@ export function SyncTest() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="w-full">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold dark:text-white flex items-center gap-2">

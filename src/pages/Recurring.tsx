@@ -31,7 +31,7 @@ export function Recurring() {
   const parcelas = recurringTemplates.filter((t) => !!t.installmentTotal)
 
   return (
-    <div className="flex flex-col gap-6 max-w-2xl">
+    <div className="flex flex-col gap-6 w-full">
       {/* header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">

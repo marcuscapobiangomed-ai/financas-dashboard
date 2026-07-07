@@ -823,7 +823,7 @@ export function Import() {
   }, [extractedTxs, selectedTxs, checkIsDuplicate])
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-6xl mx-auto w-full min-h-[calc(100vh-8rem)]">
+    <div className="flex flex-col gap-6 w-full min-h-[calc(100vh-8rem)]">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="p-2.5 rounded-xl bg-purple-500/10 dark:bg-purple-500/20 border border-purple-500/20">
