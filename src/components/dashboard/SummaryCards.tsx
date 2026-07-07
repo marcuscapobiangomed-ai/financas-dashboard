@@ -17,24 +17,6 @@ function DeltaBadge({ current, previous, invert }: { current: number; previous: 
     : (up ? 'text-emerald-600' : 'text-red-600')
   return (
     <span className={`flex items-center gap-0.5 text-xs ${color}`}>
-import { formatCurrency, formatPercent } from '../../utils/currency'
-import { useMonthData } from '../../hooks/useMonthData'
-import { useFinanceStore } from '../../store/useFinanceStore'
-import { useSectionConfig } from '../../hooks/useSectionConfig'
-import { prevMonthKey, getCurrentMonthKey } from '../../constants/months'
-import { computeIncome, computeTotalExpenses, computeSavingsRate } from '../../utils/calculations'
-
-function DeltaBadge({ current, previous, invert }: { current: number; previous: number; invert?: boolean }) {
-  if (previous === 0) return null
-  const delta = ((current - previous) / Math.abs(previous)) * 100
-  const up = delta > 0
-  const Icon = Math.abs(delta) < 1 ? Minus : up ? TrendingUp : TrendingDown
-  // For expenses, going up is bad (red) and going down is good (green)
-  const color = invert
-    ? (up ? 'text-red-600' : 'text-emerald-600')
-    : (up ? 'text-emerald-600' : 'text-red-600')
-  return (
-    <span className={`flex items-center gap-0.5 text-xs ${color}`}>
       <Icon size={11} />
       {Math.abs(delta).toFixed(1)}%
     </span>
@@ -176,7 +158,7 @@ export function SummaryCards({ monthKey }: { monthKey: string }) {
           icon={<Scale size={18} className={balance >= 0 ? 'text-indigo-500' : 'text-orange-500'} />}
           iconBg={balance >= 0 ? 'bg-indigo-500/10 text-indigo-500' : 'bg-orange-500/10 text-orange-500'}
           deltaEl={<DeltaBadge current={balance} previous={prevBalance} />}
-          valueColor={balance >= 0 ? 'text-indigo-500 dark:text-indigo-400' : 'text-orange-500'}
+          valueColor={balance >= 0 ? 'text-indigo-500 dark:text-indigo-400' : 'text-orange-600'}
         />
         <StatCard
           label="Taxa de Poupança"
