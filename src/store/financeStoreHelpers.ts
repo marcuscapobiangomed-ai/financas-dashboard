@@ -47,7 +47,10 @@ export function checkBudgetAlert(state: any, monthKey: string, section: string) 
   if (getNotificationPermission() !== 'granted') return
 
   const ms = state.getMonthSettings(monthKey)
-  const limit = ms.sectionLimits[section] ?? 0
+  const isCard = state.appSettings.cardSections?.some((c: any) => c.id === section)
+  const limit = isCard
+    ? (state.appSettings.defaultSectionLimits[section] ?? 500)
+    : (ms.sectionLimits[section] ?? 0)
   if (limit <= 0) return
 
   const total = state.transactions

@@ -66,8 +66,8 @@ export function parseUserSettingsRow(data: Record<string, unknown>): AppSettings
   const cardSections = (rawCards as Array<Record<string, unknown>>).map((c) => ({
     id: c.id as string,
     label: c.label as string,
-    closingDay: (c.closingDay ?? c.closing_day ?? 10) as number,
-    dueDay: (c.dueDay ?? c.due_day ?? 20) as number,
+    closingDay: Number(c.closingDay ?? c.closing_day ?? 10) || 10,
+    dueDay: Number(c.dueDay ?? c.due_day ?? 20) || 20,
   }))
 
   return {

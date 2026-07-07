@@ -178,11 +178,17 @@ export async function fetchUserSettings(userId: string): Promise<AppSettings> {
 
 export async function upsertUserSettings(userId: string, settings: AppSettings): Promise<void> {
   await requireSession()
+  const sanitizedCardSections = (settings.cardSections ?? []).map((c) => ({
+    id: c.id,
+    label: c.label || 'Cartão',
+    closingDay: Number(c.closingDay) || 10,
+    dueDay: Number(c.dueDay) || 20,
+  }))
   const row = {
     user_id: userId, default_section_limits: settings.defaultSectionLimits,
     default_tithe_percent: settings.defaultTithePercent, default_offering_percent: settings.defaultOfferingPercent,
     default_savings_goal_percent: settings.defaultSavingsGoalPercent, dark_mode: settings.darkMode,
-    alert_threshold_percent: settings.alertThresholdPercent, card_sections: settings.cardSections,
+    alert_threshold_percent: settings.alertThresholdPercent, card_sections: sanitizedCardSections,
     initial_balance: settings.initialBalance, cdi_rate_annual: settings.cdiRateAnnual,
     ipca_rate_annual: settings.ipcaRateAnnual, notifications_enabled: settings.notificationsEnabled ?? false,
     has_seen_tutorial: settings.hasSeenTutorial ?? false, rates_last_updated: settings.ratesLastUpdated ?? null,

@@ -50,15 +50,19 @@ export function useMonthData(monthKey: string): MonthData {
     const cardSections = appSettings.cardSections ?? []
     const cardIds = cardSections.map((c: any) => c.id)
 
-    const sections = sectionOrder.filter((s) => s !== 'extraordinario').map((section) =>
-      computeSectionSummary(
+    const sections = sectionOrder.filter((s) => s !== 'extraordinario').map((section) => {
+      const isCard = cardIds.includes(section)
+      const limit = isCard
+        ? (appSettings.defaultSectionLimits[section] ?? 500)
+        : (limits[section] ?? 0)
+      return computeSectionSummary(
         section,
         sectionLabels[section] ?? section,
         monthTransactions,
-        limits[section] ?? 0,
+        limit,
         cardIds
       )
-    )
+    })
 
     const income = computeIncome(monthTransactions)
     const totalExpenses = computeTotalExpenses(monthTransactions, expenseSections, cardIds)
