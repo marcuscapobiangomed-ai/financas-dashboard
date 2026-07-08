@@ -1,4 +1,4 @@
-import { TrendingUp, TrendingDown, Minus, Wallet, ArrowDownCircle, Scale, PiggyBank, Landmark, AlertTriangle } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, Wallet, ArrowDownCircle, PiggyBank, Landmark, AlertTriangle } from 'lucide-react'
 import { formatCurrency, formatPercent } from '../../utils/currency'
 import { useMonthData } from '../../hooks/useMonthData'
 import { useFinanceStore } from '../../store/useFinanceStore'
@@ -67,7 +67,6 @@ export function SummaryCards({ monthKey }: { monthKey: string }) {
   const prevExtraordinary = extraordinaryEntries.filter((e) => e.monthKey === prev)
   const prevIncome = computeIncome(prevTxs) + prevExtraordinary.reduce((s, e) => s + e.netAmount, 0)
   const prevExpenses = computeTotalExpenses(prevTxs, expenseSections, cardIds)
-  const prevBalance = prevIncome - prevExpenses
   const prevSavingsRate = computeSavingsRate(prevIncome, prevExpenses)
 
   return (
@@ -109,34 +108,23 @@ export function SummaryCards({ monthKey }: { monthKey: string }) {
         </div>
 
         {appSettings.initialBalance > 0 && monthKey === getCurrentMonthKey() && (
-          <p className="text-gray-400 text-[10px] mt-1 font-medium">
+          <p className="text-white/40 text-[10px] mt-3 font-medium">
             Inclui saldo inicial de {formatCurrency(appSettings.initialBalance)}
           </p>
         )}
 
-        {/* Breakdown: previous month carryover + this month result = total */}
-        <div className="mt-5 pt-4 border-t border-white/10 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
-          <div>
-            <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider block">Saldo Anterior</span>
-            <span className="font-semibold text-white/80 mt-0.5 block">{formatCurrency(carryoverBalance)}</span>
-          </div>
-          <span className="text-white/30 text-sm font-light">+</span>
-          <div>
-            <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider block">Resultado do Mês</span>
-            <span className={`font-semibold mt-0.5 block ${balance >= 0 ? 'text-teal-400' : 'text-rose-400'}`}>
-              {balance >= 0 ? '+' : ''}{formatCurrency(balance)}
-            </span>
-          </div>
-          <span className="text-white/30 text-sm font-light">=</span>
-          <div>
-            <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider block">Total</span>
-            <span className={`font-extrabold text-outfit mt-0.5 block ${accumulatedBalance >= 0 ? 'text-teal-400' : 'text-rose-400'}`}>{formatCurrency(accumulatedBalance)}</span>
-          </div>
+        {/* Subtle context: carryover + this month */}
+        <div className="mt-4 pt-3 border-t border-white/10 flex items-center gap-3 text-xs">
+          <span className="text-white/40 font-medium">Mês anterior: <span className="text-white/70 font-bold">{formatCurrency(carryoverBalance)}</span></span>
+          <span className="text-white/20">·</span>
+          <span className={`font-medium ${balance >= 0 ? 'text-teal-400/80' : 'text-rose-400/80'}`}>
+            Este mês: <span className="font-bold">{balance >= 0 ? '+' : ''}{formatCurrency(balance)}</span>
+          </span>
         </div>
       </div>
 
-      {/* Grid of 4 stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Grid of 3 unique stat cards — Balanço removed (= Receita − Despesas, redundante) */}
+      <div className="grid grid-cols-3 gap-4">
         <StatCard
           label="Receita Total"
           value={formatCurrency(totalIncome)}
@@ -151,14 +139,6 @@ export function SummaryCards({ monthKey }: { monthKey: string }) {
           iconBg="bg-rose-500/10 text-rose-500"
           deltaEl={<DeltaBadge current={totalExpenses} previous={prevExpenses} invert />}
           valueColor="text-rose-500"
-        />
-        <StatCard
-          label="Balanço do Mês"
-          value={formatCurrency(balance)}
-          icon={<Scale size={18} className={balance >= 0 ? 'text-indigo-500' : 'text-orange-500'} />}
-          iconBg={balance >= 0 ? 'bg-indigo-500/10 text-indigo-500' : 'bg-orange-500/10 text-orange-500'}
-          deltaEl={<DeltaBadge current={balance} previous={prevBalance} />}
-          valueColor={balance >= 0 ? 'text-indigo-500 dark:text-indigo-400' : 'text-orange-600'}
         />
         <StatCard
           label="Taxa de Poupança"

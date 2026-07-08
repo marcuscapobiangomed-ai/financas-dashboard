@@ -24,12 +24,15 @@ export function PendingSummaryCard({ monthKey }: { monthKey: string }) {
 
   return (
     <section className="glass-obsidian p-6 rounded-3xl border border-gray-200/50 dark:border-white/5 shadow-xl">
-      <div className="flex items-center gap-2.5 mb-5">
+      <div className="flex items-center gap-2.5 mb-1">
         <Landmark size={18} className="text-indigo-500" />
         <h2 className="text-base font-extrabold text-outfit tracking-tight text-gray-900 dark:text-gray-100">
-          Saldo real no banco
+          Confirmações do Mês
         </h2>
       </div>
+      <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium mb-5">
+        O que já foi pago/recebido vs. o que ainda está pendente
+      </p>
 
       {/* Main balance stack - vertical stack to prevent layout squeezes */}
       <div className="flex flex-col gap-3.5 mb-5">
