@@ -70,25 +70,35 @@ function AppShell() {
   }, [darkMode])
 
   useEffect(() => {
-    // Developer migration: Shift "Passagem" installments back by 1 month
+    // Developer migration: Shift "Passagem" installments to start in June 2026 (so July is 2/8)
     const store = useFinanceStore.getState()
     const passageTxs = store.transactions.filter(
       (t) => t.description.toLowerCase().includes('passagem')
     )
-    if (passageTxs.length > 0 && !localStorage.getItem('passagem_migration_july_done_v4')) {
-      console.log('[Dev Migration] Migrating Passagem transactions:', passageTxs)
+    if (passageTxs.length > 0 && !localStorage.getItem('passagem_migration_june_start_v5')) {
+      console.log('[Dev Migration] Shifting Passagem transactions to start in June 2026:', passageTxs)
       const uid = useAuthStore.getState().user?.id
       
       const updatedTxs = passageTxs.map((t) => {
-        const [year, month, day] = t.date.split('-').map(Number)
-        let newYear = year
-        let newMonth = month - 1
-        if (newMonth === 0) {
-          newMonth = 12
-          newYear = year - 1
+        const match = t.description.match(/\((\d+)\/\d+\)/)
+        if (!match) return t
+        const installmentNum = parseInt(match[1]) // 1 to 8
+        
+        // base starts in June 2026
+        const baseYear = 2026
+        const baseMonth = 6
+        
+        let newMonth = baseMonth + (installmentNum - 1)
+        let newYear = baseYear
+        while (newMonth > 12) {
+          newMonth -= 12
+          newYear += 1
         }
+        
         const newMonthKey = `${newYear}-${String(newMonth).padStart(2, '0')}`
-        const newDate = `${newYear}-${String(newMonth).padStart(2, '0')}-${String(day || 1).padStart(2, '0')}`
+        const [, , day] = t.date.split('-')
+        const newDate = `${newYear}-${String(newMonth).padStart(2, '0')}-${String(day || 24).padStart(2, '0')}`
+        
         return {
           ...t,
           monthKey: newMonthKey,
@@ -114,8 +124,8 @@ function AppShell() {
         })
       }
 
-      localStorage.setItem('passagem_migration_july_done_v4', 'true')
-      console.log('[Dev Migration] Passagem migration done!')
+      localStorage.setItem('passagem_migration_june_start_v5', 'true')
+      console.log('[Dev Migration] Passagem shift to June done!')
     }
   }, [])
 
