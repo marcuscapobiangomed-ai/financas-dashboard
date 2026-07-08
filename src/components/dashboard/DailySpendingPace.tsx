@@ -6,9 +6,10 @@ import { formatCurrency } from '../../utils/currency'
 import { getCurrentMonthKey, parseMonthKey } from '../../constants/months'
 
 export function DailySpendingPace({ monthKey }: { monthKey: string }) {
-  const { totalExpenses, sectionLimits } = useMonthData(monthKey)
-  const { expenseSections } = useSectionConfig()
+  const { totalExpenses, sectionLimits, sections } = useMonthData(monthKey)
+  const { expenseSections, cardSections } = useSectionConfig()
   const isCurrentMonth = monthKey === getCurrentMonthKey()
+  const cardIds = cardSections.map((c) => c.id)
 
   const data = useMemo(() => {
     const { year, month } = parseMonthKey(monthKey)
@@ -19,11 +20,18 @@ export function DailySpendingPace({ monthKey }: { monthKey: string }) {
       ? today.getDate()
       : totalDays
 
-    const totalBudget = expenseSections.reduce((sum, section) => {
+    // ── Budget: exclude card sections (they're billed next month, not daily cash)
+    const nonCardExpenseSections = expenseSections.filter((s) => !cardIds.includes(s))
+    const totalBudget = nonCardExpenseSections.reduce((sum, section) => {
       return sum + (sectionLimits[section] ?? 0)
     }, 0)
 
-    const dailyAvg = daysElapsed > 0 ? totalExpenses / daysElapsed : 0
+    // ── Daily average: exclude card transactions (cash-flow impact is next month)
+    const nonCardExpenses = sections
+      .filter((s) => !cardIds.includes(s.section) && expenseSections.includes(s.section))
+      .reduce((sum, s) => sum + s.total, 0)
+
+    const dailyAvg = daysElapsed > 0 ? nonCardExpenses / daysElapsed : 0
     const idealDaily = totalBudget > 0 ? totalBudget / totalDays : 0
     const projectedTotal = isCurrentMonth ? dailyAvg * totalDays : totalExpenses
     const daysRemaining = isCurrentMonth ? totalDays - daysElapsed : 0
@@ -57,7 +65,7 @@ export function DailySpendingPace({ monthKey }: { monthKey: string }) {
       paceStatus,
       paceBarPercent,
     }
-  }, [monthKey, totalExpenses, sectionLimits, expenseSections, isCurrentMonth])
+  }, [monthKey, totalExpenses, sectionLimits, expenseSections, isCurrentMonth, cardIds, sections])
 
   if (data.totalBudget <= 0 && totalExpenses <= 0) return null
 
@@ -104,6 +112,7 @@ export function DailySpendingPace({ monthKey }: { monthKey: string }) {
           <p className="text-2xl font-extrabold text-outfit tracking-tight text-gray-900 dark:text-gray-100 mt-1">
             {formatCurrency(data.dailyAvg)}<span className="text-sm font-medium text-gray-400">/dia</span>
           </p>
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 font-medium">Pix/dinheiro · exclui cartões</p>
         </div>
         <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${status.bg} ${status.text}`}>
           <StatusIcon size={12} />
