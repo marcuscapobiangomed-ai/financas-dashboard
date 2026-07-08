@@ -11,16 +11,21 @@ export function useMonthView() {
   const [notesOpen, setNotesOpen] = useState(false)
   const [copyOpen, setCopyOpen] = useState(false)
   const [closeOpen, setCloseOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<'income' | 'expenses'>('income')
+  const [activeTab, setActiveTab] = useState<'income' | 'expenses_cash' | 'cards'>('income')
+
+  const appSettings = useFinanceStore((s) => s.appSettings)
+  const cardSections = appSettings.cardSections ?? []
+  const cardIds = cardSections.map((c) => c.id)
 
   const incomeSections = sections.filter(s => s.section === 'entradas')
   const expenseSections = sections.filter(s => s.section !== 'entradas')
+  const cashExpenseSections = expenseSections.filter(s => !cardIds.includes(s.section))
+  const cardExpenseSections = expenseSections.filter(s => cardIds.includes(s.section))
 
   const currentNotes = monthSettings[currentMonthKey]?.notes ?? ''
   const currentHighlights = monthSettings[currentMonthKey]?.highlights ?? []
   const currentLessons = monthSettings[currentMonthKey]?.lessons ?? ''
   const currentSavingsGoal = monthSettings[currentMonthKey]?.savingsGoal
-  const appSettings = useFinanceStore((s) => s.appSettings)
   const savingsGoalPercent = currentSavingsGoal ?? appSettings.defaultSavingsGoalPercent
   const totalIncome = income + extraordinaryIncome
   const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0
@@ -73,6 +78,8 @@ export function useMonthView() {
     handleSavingsGoalChange,
     appSettings,
     accumulatedBalance,
-    carryoverBalance
+    carryoverBalance,
+    cashExpenseSections,
+    cardExpenseSections
   }
 }
