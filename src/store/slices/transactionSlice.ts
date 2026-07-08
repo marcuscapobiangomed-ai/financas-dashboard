@@ -154,7 +154,15 @@ export const createTransactionSlice = (set: any, get: any): TransactionSlice => 
   deleteTransaction: (id) => {
     const existing = get().transactions.find((t: any) => t.id === id)
     if (!existing) return
-    try { assertMonthNotClosed(get, existing.monthKey) } catch { console.warn('[closed] deleteTransaction blocked:', existing.monthKey); return }
+    try { 
+      assertMonthNotClosed(get, existing.monthKey) 
+    } catch (err: any) { 
+      console.warn('[closed] deleteTransaction blocked:', existing.monthKey)
+      if (typeof window !== 'undefined') {
+        alert(err.message || 'Este mês está fechado. Reabra-o para fazer alterações.')
+      }
+      return 
+    }
     set((s: any) => ({ transactions: s.transactions.filter((t: any) => t.id !== id) }))
     const uid = getUserId()
     if (uid) syncRemote('deleteTransactionRemote', id)
@@ -163,6 +171,15 @@ export const createTransactionSlice = (set: any, get: any): TransactionSlice => 
   togglePaid: (id) => {
     const existing = get().transactions.find((t: any) => t.id === id)
     if (!existing) return
+    try { 
+      assertMonthNotClosed(get, existing.monthKey) 
+    } catch (err: any) { 
+      console.warn('[closed] togglePaid blocked:', existing.monthKey)
+      if (typeof window !== 'undefined') {
+        alert(err.message || 'Este mês está fechado. Reabra-o para fazer alterações.')
+      }
+      return 
+    }
     const updated = { ...existing, isPaid: !existing.isPaid, updatedAt: now() }
     set((s: any) => ({
       transactions: s.transactions.map((t: any) => (t.id === id ? updated : t))
