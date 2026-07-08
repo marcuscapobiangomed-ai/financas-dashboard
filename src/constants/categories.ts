@@ -4,7 +4,7 @@ import { SectionType } from '../types/transaction'
 export const SECTION_LABELS: Record<SectionType, string> = {
   entradas: 'Entradas',
   despesas_fixas: 'Despesas Fixas',
-  gastos_diarios: 'Gastos com Dinheiro Físico',
+  gastos_diarios: 'Pix/Dinheiro',
   cartao_x: 'Cartão X',
   cartao_y: 'Cartão Y',
   extraordinario: 'Férias / PLR / 13°',

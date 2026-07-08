@@ -64,7 +64,7 @@ export function checkBudgetAlert(state: any, monthKey: string, section: string) 
     const cardLabel = state.appSettings.cardSections?.find((c: any) => c.id === section)?.label
     const labels: Record<string, string> = {
       despesas_fixas: 'Despesas Fixas',
-      gastos_diarios: 'Gastos com Dinheiro Físico',
+      gastos_diarios: 'Pix/Dinheiro',
     }
     const label = cardLabel ?? labels[section] ?? section
     showBudgetAlert(label, percentUsed, limit, total)

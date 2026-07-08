@@ -17,7 +17,7 @@ export function RecentTransactions({ monthKey }: { monthKey: string }) {
   const { sectionLabels } = useSectionConfig()
   const [editing, setEditing] = useState<Transaction | null>(null)
 
-  const sorted = [...transactions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12)
+  const sorted = [...transactions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5)
 
   if (sorted.length === 0) {
     return (
