@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Lock, Unlock, Copy, Edit3, StickyNote, Target, TrendingUp, TrendingDown, CreditCard } from 'lucide-react'
 import { useMonthView } from '../hooks/useMonthView'
 import { SectionTable } from '../components/month/SectionTable'
-import { ExtraordinarySection } from '../components/month/ExtraordinarySection'
 import { PendingSection } from '../components/month/PendingSection'
 import { BulkEditModal } from '../components/month/BulkEditModal'
 import { CopyTransactionsModal } from '../components/month/CopyTransactionsModal'
@@ -204,7 +203,6 @@ export function MonthView() {
               {incomeSections.map((section) => (
                 <SectionTable key={section.section} summary={section} monthKey={currentMonthKey} disabled={isClosed} defaultOpen={section.transactions.length > 0} />
               ))}
-              <ExtraordinarySection monthKey={currentMonthKey} disabled={isClosed} />
             </>
           )}
 

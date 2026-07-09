@@ -21,6 +21,9 @@ export enum Category {
   INVESTIMENTOS = 'INVESTIMENTOS',
   RENDIMENTOS = 'RENDIMENTOS',
   BENS_ADQUIRIDOS = 'BENS_ADQUIRIDOS',
+  TRABALHO = 'TRABALHO',
+  PRESENTES = 'PRESENTES',
+  EXTRAS = 'EXTRAS',
   OUTROS = 'OUTROS',
 }
 
@@ -55,5 +58,8 @@ export const CATEGORY_META: Record<Category, CategoryMeta> = {
   [Category.INVESTIMENTOS]: { label: 'Investimentos', color: '#0ea5e9', bgColor: '#e0f2fe', icon: 'BarChart2', isIncome: false },
   [Category.RENDIMENTOS]: { label: 'Rendimentos', color: '#059669', bgColor: '#d1fae5', icon: 'TrendingUp', isIncome: true },
   [Category.BENS_ADQUIRIDOS]: { label: 'Bens Adquiridos', color: '#84cc16', bgColor: '#f7fee7', icon: 'Package', isIncome: false },
+  [Category.TRABALHO]: { label: 'Trabalho', color: '#10b981', bgColor: '#d1fae5', icon: 'Briefcase', isIncome: true },
+  [Category.PRESENTES]: { label: 'Presentes', color: '#ec4899', bgColor: '#fce7f3', icon: 'Gift', isIncome: true },
+  [Category.EXTRAS]: { label: 'Extras', color: '#f59e0b', bgColor: '#fef3c7', icon: 'PlusCircle', isIncome: true },
   [Category.OUTROS]: { label: 'Outros', color: '#6b7280', bgColor: '#f3f4f6', icon: 'MoreHorizontal', isIncome: false },
 }

@@ -7,7 +7,6 @@ export const SECTION_LABELS: Record<SectionType, string> = {
   gastos_diarios: 'Pix/Dinheiro',
   cartao_x: 'Cartão X',
   cartao_y: 'Cartão Y',
-  extraordinario: 'Férias / PLR / 13°',
 }
 
 export const SECTION_ORDER: SectionType[] = [
@@ -16,7 +15,6 @@ export const SECTION_ORDER: SectionType[] = [
   'gastos_diarios',
   'cartao_x',
   'cartao_y',
-  'extraordinario',
 ]
 
 export const EXPENSE_SECTIONS: SectionType[] = [
@@ -27,21 +25,19 @@ export const EXPENSE_SECTIONS: SectionType[] = [
 ]
 
 export const SECTION_DEFAULT_ITEMS: Record<SectionType, string[]> = {
-  entradas: ['Pagamento', 'Férias', 'PLR', 'Bônus', '13°', 'Outro'],
+  entradas: ['Trabalho', 'Salário', 'Presente', 'Bônus', 'Rendimento', 'Extra', 'Outro'],
   despesas_fixas: ['Dízimo', 'Oferta', 'Água', 'Luz', 'Prestação da Casa', 'Conta de Celular', 'Internet Residencial', 'TV a Cabo', 'Mercado'],
   gastos_diarios: [],
   cartao_x: [],
   cartao_y: [],
-  extraordinario: [],
 }
 
 export const SECTION_CATEGORIES: Record<SectionType, Category[]> = {
-  entradas: [Category.ENTRADAS],
+  entradas: [Category.TRABALHO, Category.RENDIMENTOS, Category.PRESENTES, Category.EXTRAS, Category.ENTRADAS, Category.OUTROS],
   despesas_fixas: [Category.DIZIMOS, Category.OFERTAS, Category.MORADIA, Category.ALIMENTACAO, Category.LAZER],
   gastos_diarios: [Category.ALIMENTACAO, Category.TRANSPORTE, Category.VESTUARIO, Category.CUIDADOS_PESSOAIS, Category.EDUCACAO, Category.SAUDE, Category.LAZER, Category.OUTROS],
   cartao_x: [Category.ALIMENTACAO, Category.TRANSPORTE, Category.VESTUARIO, Category.CUIDADOS_PESSOAIS, Category.EDUCACAO, Category.SAUDE, Category.LAZER, Category.OUTROS],
   cartao_y: [Category.ALIMENTACAO, Category.TRANSPORTE, Category.VESTUARIO, Category.CUIDADOS_PESSOAIS, Category.EDUCACAO, Category.SAUDE, Category.LAZER, Category.OUTROS],
-  extraordinario: [Category.ENTRADAS],
 }
 
 // Colors for charts (same order as used in stacked bars)
