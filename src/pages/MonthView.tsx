@@ -179,7 +179,7 @@ export function MonthView() {
               activeTab === 'expenses_cash' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <TrendingDown size={16} /> Despesas Caixa
+            <TrendingDown size={16} /> Débito / Pix
           </button>
           <button
             onClick={() => setActiveTab('cards')}
