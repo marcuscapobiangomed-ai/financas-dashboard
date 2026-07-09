@@ -56,7 +56,7 @@ export function MonthView() {
   return (
     <div className="flex flex-col lg:flex-row gap-6 -mx-4 px-4 -mt-4 pt-4 min-h-screen">
       {/* Coluna Esquerda: Controle, Resumo e Faturas */}
-      <div className="w-full lg:w-[350px] shrink-0 flex flex-col gap-6">
+      <div className="w-full lg:w-[390px] shrink-0 flex flex-col gap-6">
         {/* Header & Controls */}
         <div className="glass-panel-lg p-5 flex flex-col gap-4">
           <div className="flex items-center justify-between">
