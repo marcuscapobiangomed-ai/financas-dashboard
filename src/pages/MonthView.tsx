@@ -56,7 +56,7 @@ export function MonthView() {
   return (
     <div className="flex flex-col lg:flex-row gap-6 -mx-4 px-4 -mt-4 pt-4 min-h-screen">
       {/* Coluna Esquerda: Controle, Resumo e Faturas */}
-      <div className="w-full lg:w-[390px] shrink-0 flex flex-col gap-6">
+      <div className="w-full lg:w-[410px] shrink-0 flex flex-col gap-6">
         {/* Header & Controls */}
         <div className="glass-panel-lg p-5 flex flex-col gap-4">
           <div className="flex items-center justify-between">
@@ -98,26 +98,26 @@ export function MonthView() {
           </div>
           
           <div className="grid grid-cols-2 gap-3">
-            <div className="glass-card p-3 text-center">
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-1">Receita</p>
-              <p className="text-sm font-extrabold text-glow-positive">{formatCurrency(totalIncome)}</p>
+            <div className="glass-card p-4 text-center">
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-1">Receita</p>
+              <p className="text-lg font-extrabold text-glow-positive">{formatCurrency(totalIncome)}</p>
             </div>
-            <div className="glass-card p-3 text-center">
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-1">Despesas</p>
-              <p className="text-sm font-extrabold text-glow-negative">{formatCurrency(displayedExpenses)}</p>
+            <div className="glass-card p-4 text-center">
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-1">Despesas</p>
+              <p className="text-lg font-extrabold text-glow-negative">{formatCurrency(displayedExpenses)}</p>
             </div>
-            <div className="glass-card p-3 text-center">
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-1">Balanço</p>
-              <p className={`text-sm font-extrabold ${displayedBalance >= 0 ? 'text-glow-neutral' : 'text-glow-negative'}`}>{formatCurrency(displayedBalance)}</p>
+            <div className="glass-card p-4 text-center">
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-1">Balanço</p>
+              <p className={`text-lg font-extrabold ${displayedBalance >= 0 ? 'text-glow-neutral' : 'text-glow-negative'}`}>{formatCurrency(displayedBalance)}</p>
             </div>
-            <div className="glass-card p-3 text-center">
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-1">Poupança</p>
-              <p className={`text-sm font-extrabold ${displayedSavingsRate >= savingsGoalPercent ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>{displayedSavingsRate.toFixed(1)}%</p>
+            <div className="glass-card p-4 text-center">
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-1">Poupança</p>
+              <p className={`text-lg font-extrabold ${displayedSavingsRate >= savingsGoalPercent ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>{displayedSavingsRate.toFixed(1)}%</p>
             </div>
-            <div className="glass-card p-3 text-center col-span-2">
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-1">Acumulado</p>
-              <p className={`text-base font-extrabold ${displayedAccumulated >= 0 ? 'text-glow-positive' : 'text-glow-negative'}`}>{formatCurrency(displayedAccumulated)}</p>
-              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">anterior: {formatCurrency(carryoverBalance)}</p>
+            <div className="glass-card p-4 text-center col-span-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-1">Acumulado</p>
+              <p className={`text-2xl font-extrabold ${displayedAccumulated >= 0 ? 'text-glow-positive' : 'text-glow-negative'}`}>{formatCurrency(displayedAccumulated)}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">anterior: {formatCurrency(carryoverBalance)}</p>
             </div>
           </div>
         </div>
